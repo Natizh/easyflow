@@ -24,5 +24,5 @@ The baseline UI uses native macOS materials and conventions. Liquid Glass may be
 
 - The project maintains an explicit SwiftUI/AppKit boundary and tests pure state outside window plumbing.
 - Some overlay and focus behavior requires manual validation on real macOS configurations.
-- Platform availability must be evaluated before choosing the minimum deployment target.
+- Platform APIs are implemented against the macOS 14 baseline, with macOS 26 as the primary development/experience target and newer APIs availability-gated.
 - Engineers must prevent platform framework types from leaking through every domain layer.

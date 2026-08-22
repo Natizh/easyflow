@@ -4,7 +4,7 @@
 
 EasyFlow is a continuously resident native macOS utility with a very low-cost hidden state. It combines precise system-style overlay behavior, SwiftUI content, local SQLite persistence, and a narrow EventKit integration. There is no custom server, account, browser runtime, telemetry, or analytics.
 
-The exact minimum macOS target is unresolved in [OQ-004](OPEN_QUESTIONS.md#oq-004-minimum-macos-deployment-target). Do not create `Package.swift` until that gate is resolved.
+The minimum deployment target is macOS 14. macOS 26 is the primary development and experience target. Newer appearance APIs remain availability-gated so the macOS 14 baseline remains functional. See ADR-006.
 
 ## Intended stack
 
@@ -136,4 +136,4 @@ Automate pure logic for activation timers, panel transitions, sorting, reorder, 
 
 ## CI direction
 
-After OQ-004 is resolved and the Swift package builds locally, add a minimal GitHub Actions workflow for pushes to `main` and pull requests. Select a GitHub-hosted macOS/Xcode image compatible with the approved deployment target and run `swift build` plus `swift test`. Do not add signing, packaging, live EventKit tests, lint, or formatting until intentionally configured.
+After the Swift package builds locally, use a minimal GitHub Actions workflow for pushes to `main` and pull requests. Select a GitHub-hosted macOS/Xcode image capable of building the macOS 14 baseline and run `swift build` plus `swift test`. Do not add signing, packaging, live EventKit tests, lint, or formatting until intentionally configured.

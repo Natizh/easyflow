@@ -9,14 +9,14 @@ Status: complete when the initial documentation commit is created.
 - Initialize Git and the canonical documentation hierarchy.
 - Preserve all settled requirements and unresolved decisions.
 - Add AGENTS.md, accepted ADRs, references/licensing notes, backlog, and ignore rules.
-- Do not add product implementation, a license, a GitHub remote, `Package.swift`, or CI while their gates remain unresolved.
+- Do not add product implementation, a license, a GitHub remote, `Package.swift`, or CI while their gates remain unresolved. Those initial gates were resolved after bootstrap: macOS 14 minimum, macOS 26 primary, private GitHub visibility, and MIT licensing.
 
 Acceptance: a future agent can understand EasyFlow and begin Chunk A without the original bootstrap conversation or source file.
 
 ## Pre-Chunk-A gates
 
-1. Resolve the minimum macOS deployment target ([OQ-004](OPEN_QUESTIONS.md#oq-004-minimum-macos-deployment-target)).
-2. Create a minimal SwiftPM executable target `EasyFlow` and `EasyFlowTests` with only enough native shell to compile.
+1. Use the settled macOS 14 minimum and macOS 26 primary target ([OQ-004](OPEN_QUESTIONS.md#oq-004-minimum-macos-deployment-target)).
+2. Create a minimal SwiftPM executable target `EasyFlow` and `EasyFlowTests` with a real native app-shell boundary.
 3. Run `swift package describe`, `swift build`, and `swift test`.
 4. Commit as `chore: scaffold native macOS project`.
 5. Add minimal GitHub Actions build/test CI only after local success and remote publication prerequisites are satisfied.
@@ -75,7 +75,7 @@ Implement:
 - empty, loading, and local error states;
 - UI/state tests and repeatable drag/focus/manual checks.
 
-OQ-001, OQ-002, OQ-003, OQ-008, OQ-009, and OQ-010 must be resolved when they become blocking; no option is silently selected.
+OQ-002, OQ-003, OQ-008, OQ-009, and OQ-010 must be resolved when they become blocking; no option is silently selected. OQ-001 is settled in `docs/UX_BEHAVIOR.md`.
 
 Acceptance: EasyFlow is useful as a complete local current-work workspace before EventKit is enabled.
 
@@ -141,6 +141,6 @@ Every completed chunk updates relevant canonical docs and ADRs, records known ga
 
 ## GitHub and CI direction
 
-Remote publication is gated by owner, GitHub authentication, and [OQ-005](OPEN_QUESTIONS.md#oq-005-github-repository-visibility). Confirm that `<owner>/easyflow` does not already exist, inspect tracked files for secrets/private content/absolute machine paths, create the selected public or private repository, add `origin`, push `main`, and verify default branch/history.
+The GitHub repository is private. Publication remains operationally gated by valid authentication and exactly one unambiguous owner. Confirm that `<owner>/easyflow` does not already exist, inspect tracked files for secrets/private content/absolute machine paths, create the private repository, add `origin`, push `main`, and verify default branch/history.
 
 After the package builds, CI runs `swift build` and `swift test` on pull requests and pushes to `main` using a compatible GitHub-hosted macOS/Xcode environment. Lint, formatting, signing, packaging, and live EventKit tests are not bootstrap CI.

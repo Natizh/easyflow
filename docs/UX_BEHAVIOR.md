@@ -30,7 +30,18 @@ After intentional activation, keyboard input goes directly to the Quick Note cap
 
 The window coordinator records the previously active application/window before activation. If EasyFlow takes focus and the interaction is immediately abandoned, it restores the prior context where macOS permits this without disruptive hacks. A real EasyFlow interaction may follow normal activation behavior. Exact AppKit calls and failure handling must be documented during Chunk A and covered by repeatable manual tests.
 
-Quick Note commit and multiline behavior is unresolved in [OQ-001](OPEN_QUESTIONS.md#oq-001-quick-note-keyboard-semantics).
+## Quick Note keyboard and data-safety semantics
+
+[OQ-001](OPEN_QUESTIONS.md#oq-001-quick-note-keyboard-semantics) is resolved as follows:
+
+- Intentional activation places keyboard focus in the Quick Note composer without a click.
+- `Return` inserts a newline, matching a native multiline notes editor.
+- `Command+Return` explicitly commits the non-empty note to the inbox and resets the composer for another capture.
+- While typing, the non-empty composer is persisted as one debounced draft rather than creating duplicate inbox notes.
+- When EasyFlow closes or the composer loses focus, a non-whitespace draft is committed automatically; an empty/whitespace-only draft is discarded.
+- Relaunch restores an interrupted persisted draft until it has been committed.
+
+The persistence mechanics arrive with the local workspace chunk. Chunk A establishes intentional focus and semantic submit/focus-loss hooks without pretending notes are already stored. This design keeps ordinary `Return` behavior native, gives power users an explicit fast commit, and protects capture from accidental dismissal, focus changes, or process interruption.
 
 ## Main and Secondary Panels
 

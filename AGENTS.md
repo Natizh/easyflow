@@ -66,4 +66,4 @@ Automated logic should cover sorting/reordering, completion, note movement, soft
 
 ## References and licensing
 
-External projects are references, not product specifications. Verify their current repository license before reusing source and record any reuse. Tic was previously identified as MIT, while Atoll is GPL-3.0 and must not donate source unless the user explicitly adopts a compatible licensing strategy. Proprietary products may provide behavioral inspiration only. EasyFlow itself has no selected license; do not add one by inference.
+External projects are references, not product specifications. Verify their current repository license before reusing source and record any reuse. Tic was previously identified as MIT, while Atoll is GPL-3.0 and must not donate source because EasyFlow's MIT license is not a compatible path for incorporating GPL source into this project. Proprietary products may provide behavioral inspiration only.

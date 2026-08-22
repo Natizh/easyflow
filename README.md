@@ -4,9 +4,9 @@ EasyFlow is a lightweight macOS edge workspace that keeps the user's current wor
 
 ## Status
 
-The repository is in the documentation bootstrap phase. Product behavior, architectural boundaries, development stages, and unresolved decisions are recorded, but the application has not been implemented.
+The repository bootstrap is complete and native application implementation is underway. The minimum deployment target is macOS 14, with macOS 26 as the primary development and experience target.
 
-The Swift package is intentionally absent until the minimum macOS deployment target is approved. CI will be added only after the initial Swift project builds locally. No GitHub remote or license is configured yet.
+EasyFlow is MIT-licensed. The Swift project, deterministic CI, private GitHub publication, and native app-shell vertical slice are the current implementation round.
 
 ## Repository guide
 
@@ -49,6 +49,6 @@ Empty placeholder directories are not tracked. The first implementation stage is
 
 `main` is the integration branch and should remain buildable once code exists. Substantial features use bounded branches; coherent work rounds are verified, documented, and committed using conventional-style messages. See `AGENTS.md` before changing the repository.
 
-## Unresolved prerequisites
+## Current decisions and open work
 
-The minimum deployment target, GitHub visibility and owner, and project license remain undecided. These gates must be resolved before creating the Swift manifest, publishing the remote repository, or adding a license. All product-level unresolved decisions are retained in `docs/OPEN_QUESTIONS.md`.
+The GitHub repository is private. Publication uses the single unambiguous authenticated GitHub owner once authentication is available. Remaining product-level decisions are retained in `docs/OPEN_QUESTIONS.md`; implementation must not silently resolve questions outside the active chunk.

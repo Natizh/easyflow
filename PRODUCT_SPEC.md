@@ -68,7 +68,7 @@ The Secondary Panel is reused for the Quick Notes browser or the currently hover
 
 Quick Notes form a low-friction capture inbox for temporary ideas, technical thoughts, fragments, scratch information, or context that may later belong to a Main Task. They are not the primary task-management system and should be easy to organize rather than becoming permanent clutter.
 
-After intentional activation, the user can type into Quick Note capture without another click. The exact save/newline keyboard semantics remain unresolved under [OQ-001](docs/OPEN_QUESTIONS.md#oq-001-quick-note-keyboard-semantics).
+After intentional activation, the user can type into Quick Note capture without another click. The capture field behaves as a native multiline note editor: `Return` inserts a newline, `Command+Return` explicitly commits the note and clears the composer, and a non-empty draft is preserved automatically and committed when capture ends. See [OQ-001](docs/OPEN_QUESTIONS.md#oq-001-quick-note-keyboard-semantics) and `docs/UX_BEHAVIOR.md` for the settled data-safety semantics.
 
 Each Quick Note contains an app-owned ID, optional explicit title, body, creation and update timestamps, local order, and optional deletion metadata. When no explicit title exists, the UI derives a label from the first meaningful words without modifying or truncating the stored body. Browsing shows the explicit/generated title, creation time/date, and enough preview text for recognition.
 
@@ -160,7 +160,7 @@ EasyFlow starts automatically at login through a native mechanism such as `SMApp
 
 The baseline design uses system typography, SF Symbols, macOS materials, adaptive light/dark mode, native spacing, restrained translucency/shadows, continuous corners, subtle animation, and appropriate context menus. Avoid a web-dashboard look, Electron chrome, giant controls, gratuitous gradients, and excessive animation.
 
-Standard appearance must work on the selected minimum macOS version. Frosted appearance may be offered where appropriate. Liquid Glass is optional only where supported and never gates core functionality. The minimum deployment target remains unresolved under [OQ-004](docs/OPEN_QUESTIONS.md#oq-004-minimum-macos-deployment-target).
+Standard appearance must work on the minimum deployment target, macOS 14. macOS 26 is the primary development and experience target. Frosted appearance may be offered where appropriate. Liquid Glass is optional only where supported and never gates core functionality. See [OQ-004](docs/OPEN_QUESTIONS.md#oq-004-minimum-macos-deployment-target) and ADR-006.
 
 ## Performance, privacy, and reliability
 

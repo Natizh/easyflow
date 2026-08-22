@@ -2,7 +2,7 @@
 
 External projects provide behavioral or architectural study only. None is the EasyFlow specification. Before copying any source, inspect the current repository license and record the exact files, license obligations, and rationale. Prefer writing EasyFlow-specific code from learned patterns.
 
-EasyFlow's own license remains unresolved in [OQ-006](../OPEN_QUESTIONS.md#oq-006-easyflow-license).
+EasyFlow is MIT-licensed. See [OQ-006](../OPEN_QUESTIONS.md#oq-006-easyflow-license) and the repository `LICENSE`. Compatible licensing still does not remove the obligation to verify attribution and reuse terms.
 
 ## Tic
 

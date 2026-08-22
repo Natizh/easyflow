@@ -1,22 +1,23 @@
 # Open Questions
 
-These questions are intentionally unresolved. A proposal is not a decision. When one becomes blocking, present the choices and engineering consequences to the user, record the answer here, update the relevant domain document, and add or supersede an ADR if the decision is architectural.
+This ledger preserves both open questions and resolved decisions under stable IDs. A proposal is not a decision. When an open item becomes blocking, present the choices and engineering consequences to the user, record the answer here, update the relevant domain document, and add or supersede an ADR if the decision is architectural.
 
 ## OQ-001: Quick Note keyboard semantics
 
 **Domain:** UX<br>
-**Blocks:** final Quick Note capture interaction
+**Status:** Resolved
 
-The user must be able to type immediately after intentional edge activation, capture quickly, and avoid an unnecessary click. The exact commit gesture is not approved.
+The user must be able to type immediately after intentional edge activation, capture quickly, and avoid an unnecessary click.
 
-Proposal under consideration:
+Settled behavior:
 
 ```text
-Return       = save Quick Note
-Shift+Return = newline
+Return         = newline
+Command+Return = commit to inbox and clear composer
+focus loss or panel close = commit non-empty draft
 ```
 
-Do not implement this proposal as final behavior without confirmation. See `docs/UX_BEHAVIOR.md`.
+Typing maintains one debounced persisted draft so interruption does not lose data or create duplicates. Whitespace-only drafts are discarded. See `docs/UX_BEHAVIOR.md` for rationale and lifecycle detail.
 
 ## OQ-002: Effort during Main Task creation
 
@@ -35,23 +36,23 @@ It is unresolved whether Recently Completed permits a Main Task to be restored/u
 ## OQ-004: Minimum macOS deployment target
 
 **Domain:** Architecture/Build<br>
-**Blocks:** `Package.swift`, compileable Swift scaffold, CI runner selection
+**Status:** Resolved
 
-macOS 26 is the primary development target but is not the approved minimum. A compatibility recommendation must consider AppKit overlay behavior, EventKit, `SMAppService`, Swift/GRDB support, native materials, optional Liquid Glass, and maintenance cost. macOS 14 or 15 may be candidates, but neither is product truth.
+The minimum deployment target is macOS 14. macOS 26 is the primary development and experience target. Newer appearance APIs such as Liquid Glass remain optional and availability-gated. See ADR-006.
 
 ## OQ-005: GitHub repository visibility
 
 **Domain:** Publication<br>
-**Blocks:** remote repository creation
+**Status:** Resolved (visibility); publication still requires valid authentication and an unambiguous owner
 
-The `easyflow` repository may be public or private. Neither is the default. The repository owner/account must also be confirmed; the local GitHub CLI currently names `Natizh`, but its credential was invalid at bootstrap time and ownership must not be inferred from that configuration.
+The `easyflow` repository is private. Use the single unambiguous authenticated GitHub owner. If multiple accounts or organizations are plausible, stop for that ownership choice rather than guessing.
 
 ## OQ-006: EasyFlow license
 
 **Domain:** Legal/Publication<br>
-**Blocks:** `LICENSE` file and any source reuse that depends on EasyFlow licensing
+**Status:** Resolved
 
-No EasyFlow license has been selected. Do not add MIT, GPL, Apache, or another license by inference from reference projects.
+EasyFlow uses the MIT License. This does not permit copying GPL-3.0 Atoll source into EasyFlow; continue to honor every reference project's license and attribution requirements.
 
 ## OQ-007: Deleted-item retention
 
@@ -83,10 +84,7 @@ Main Task context switching must feel immediate, and no visible hover dwell has 
 
 ## Decision discipline
 
-Until resolved:
+For the questions that remain open:
 
-- leave the Swift manifest and CI absent for OQ-004;
-- leave the GitHub remote absent for OQ-005 and unresolved ownership;
-- leave `LICENSE` absent for OQ-006;
 - keep UX-dependent behavior modeled behind explicit state/actions rather than hiding defaults;
 - retain every question here and in its relevant domain document.
