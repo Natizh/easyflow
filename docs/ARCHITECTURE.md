@@ -75,11 +75,11 @@ Exact `NSPanel` flags, activation policy, collection behavior, and focus restora
 
 ## Edge activation
 
-The display topology provider selects the screen with maximum `frame.maxX`. The edge monitor observes a narrow hot zone with an approximately 300 ms dwell, avoiding expensive render work on raw mouse movement. A pure state machine separates pointer crossing, potential activation, intentional activation, active interaction, accidental exit, panel traversal, and staged closing.
+The display topology provider selects the screen with maximum `frame.maxX`. A transparent, non-key 3-point AppKit panel occupies only the far-right outer edge of that display. AppKit tracking areas on the activation surface, Main, and Secondary emit pointer-region changes into the state machine. This is event-driven, needs no continuous poll, and avoids adding Input Monitoring or Accessibility permission merely to observe the pointer.
 
-The preferred observation mechanism should be event-driven where feasible. Any polling fallback must suspend or use a low frequency outside a potential interaction and be justified with measurements. Permission implications of global monitoring must be verified in Chunk A.
+The pure state machine separates pointer crossing, 300 ms potential activation, intentional activation, active interaction, immediate accidental exit, panel traversal, and staged closing. Its commands are the only source of dwell/close tasks. An 8-point gap is classified as a traversal bridge while the related panels are visible.
 
-The current-display fallback is not selected merely for convenience. If the preferred rightmost-edge model is impossible under supported macOS constraints, document the evidence and present the fallback before changing product behavior.
+The activation panel and visible overlays use `.canJoinAllSpaces` and `.fullScreenAuxiliary` at status-bar window level. The current-display fallback is not selected merely for convenience. If the preferred rightmost-edge model is impossible under supported macOS constraints, document the evidence and present the fallback before changing product behavior.
 
 ## State management and data flow
 

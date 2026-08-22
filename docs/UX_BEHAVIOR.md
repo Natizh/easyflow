@@ -50,7 +50,7 @@ The persistence mechanics arrive with the local workspace chunk. Chunk A establi
 - Only one Secondary Panel exists. Its content changes in place rather than closing and reopening or spawning overlapping windows.
 - Main and Secondary overlay the current application and never resize or shift it.
 - The panels must remain available over maximized/fullscreen applications and across Spaces.
-- Panel targets are roughly one fifth of the display each; exact responsive bounds remain open in [OQ-008](OPEN_QUESTIONS.md#oq-008-panel-width-constraints).
+- Each panel uses 20% of display width clamped to 360–520 points, with an 8-point outer margin/gap and 12-point vertical inset. These settled Chunk A constants remain subject only to evidence-based prototype tuning under [OQ-008](OPEN_QUESTIONS.md#oq-008-panel-width-constraints).
 
 ## Context switching
 
@@ -72,7 +72,7 @@ Task hover should feel immediate. A tiny evidence-based anti-flicker debounce is
 
 An immediately abandoned activation closes Main immediately or effectively immediately; do not impose a one-second dismissal delay.
 
-After meaningful Secondary interaction, the intended staged close is Secondary first and Main shortly afterward. The grace interval is below one second and remains unresolved under [OQ-009](OPEN_QUESTIONS.md#oq-009-closing-grace-interval). Pointer re-entry cancels pending close timers. Hit regions and grace behavior must avoid gaps that force the user to fight the panels.
+After meaningful Secondary interaction, Secondary receives 250 ms of re-entry grace and closes first; Main closes 180 ms later. An engaged Main without Secondary uses 180 ms. These values resolve [OQ-009](OPEN_QUESTIONS.md#oq-009-closing-grace-interval) for Chunk A. Pointer re-entry cancels pending close tasks. The 8-point panel gap belongs to the combined interaction bridge so the user does not fight dismissal while traversing.
 
 ## Quick Notes interaction
 

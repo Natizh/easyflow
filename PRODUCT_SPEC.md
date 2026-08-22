@@ -49,7 +49,7 @@ EasyFlow overlays ordinary, maximized, fullscreen, and Space-hosted applications
 
 EasyFlow has a Main Panel at the right edge and one contextual Secondary Panel immediately to its left.
 
-The Main Panel conceptually occupies about 20% of the current display width, with sensible minimum and maximum constraints. The Secondary Panel uses roughly another fifth with similar constraints. Exact values are unresolved under [OQ-008](docs/OPEN_QUESTIONS.md#oq-008-panel-width-constraints).
+The Main Panel occupies about 20% of the current display width, clamped to 360–520 points in Chunk A. The Secondary Panel uses the same responsive rule. These implementation values remain evidence-based tuning parameters under [OQ-008](docs/OPEN_QUESTIONS.md#oq-008-panel-width-constraints), not a reinterpretation of the one-fifth product target.
 
 The Main Panel contains, in order:
 
