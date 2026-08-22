@@ -69,4 +69,4 @@ The automated Chunk A suite covers state transitions, timing commands, display s
 
 ## Current decisions and open work
 
-The GitHub repository is private. Publication uses the single unambiguous authenticated GitHub owner once authentication is available. Remaining product-level decisions are retained in `docs/OPEN_QUESTIONS.md`; implementation must not silently resolve questions outside the active chunk.
+The canonical GitHub repository is the private [`Natizh/easyflow`](https://github.com/Natizh/easyflow) remote. `main` is the integration/default branch and GitHub Actions verifies build and tests after pushes and pull requests. Remaining product-level decisions are retained in `docs/OPEN_QUESTIONS.md`; implementation must not silently resolve questions outside the active chunk.

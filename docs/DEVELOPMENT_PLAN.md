@@ -143,6 +143,6 @@ Every completed chunk updates relevant canonical docs and ADRs, records known ga
 
 ## GitHub and CI direction
 
-The GitHub repository is private. Publication remains operationally gated by valid authentication and exactly one unambiguous owner. Confirm that `<owner>/easyflow` does not already exist, inspect tracked files for secrets/private content/absolute machine paths, create the private repository, add `origin`, push `main`, and verify default branch/history.
+The canonical GitHub repository is private at `https://github.com/Natizh/easyflow`, with `main` as the default/integration branch. Publication included tracked-file checks for secrets, private data, local databases, and machine paths before the initial push.
 
 After the package builds, CI runs `swift build` and `swift test` on pull requests and pushes to `main` using a compatible GitHub-hosted macOS/Xcode environment. Lint, formatting, signing, packaging, and live EventKit tests are not bootstrap CI.

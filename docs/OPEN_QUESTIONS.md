@@ -43,9 +43,9 @@ The minimum deployment target is macOS 14. macOS 26 is the primary development a
 ## OQ-005: GitHub repository visibility
 
 **Domain:** Publication<br>
-**Status:** Resolved (visibility); publication still requires valid authentication and an unambiguous owner
+**Status:** Resolved
 
-The `easyflow` repository is private. Use the single unambiguous authenticated GitHub owner. If multiple accounts or organizations are plausible, stop for that ownership choice rather than guessing.
+The canonical repository is private at `https://github.com/Natizh/easyflow`. `Natizh` was the sole authenticated user with no organization ownership candidates returned during publication. The default/integration branch is `main`.
 
 ## OQ-006: EasyFlow license
 
