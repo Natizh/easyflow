@@ -4,9 +4,9 @@ EasyFlow is a lightweight macOS edge workspace that keeps the user's current wor
 
 ## Status
 
-The repository bootstrap is complete and native application implementation is underway. The minimum deployment target is macOS 14, with macOS 26 as the primary development and experience target.
+The repository bootstrap and Chunk A native app shell are implemented. The minimum deployment target is macOS 14, with macOS 26 as the primary development and experience target.
 
-EasyFlow is MIT-licensed. The SwiftPM project and deterministic CI are configured; the private GitHub publication and native app-shell vertical slice are the current implementation round.
+EasyFlow is MIT-licensed. The SwiftPM project and deterministic CI are configured. Chunk A provides the resident accessory lifecycle, rightmost-edge activation surface, central dwell/dismissal state machine, responsive Main/Secondary AppKit panels, SwiftUI placeholder content, and Quick Note focus foundation. Local data and full Reminder synchronization deliberately remain later chunks.
 
 ## Repository guide
 
@@ -20,6 +20,7 @@ EasyFlow is MIT-licensed. The SwiftPM project and deterministic CI are configure
 - [`docs/BACKLOG.md`](docs/BACKLOG.md): deferred ideas and explicit v1 exclusions.
 - [`docs/decisions/`](docs/decisions/): accepted architectural decision records.
 - [`docs/references/REFERENCE_PROJECTS.md`](docs/references/REFERENCE_PROJECTS.md): external references and licensing boundaries.
+- [`docs/testing/CHUNK_A_SMOKE_TEST.md`](docs/testing/CHUNK_A_SMOKE_TEST.md): repeatable real-device app-shell verification and current evidence.
 - [`AGENTS.md`](AGENTS.md): operating rules for coding agents and contributors.
 
 ## Technology and project structure
@@ -56,9 +57,11 @@ swift test
 swift run EasyFlow
 ```
 
-`swift run EasyFlow` launches the resident accessory process. Chunk A supplies the edge-triggered overlay behavior. Release packaging, signing, and launch-at-login activation are later production-polish work.
+`swift run EasyFlow` launches the resident accessory process and the Chunk A edge-triggered overlay. Release packaging, signing, launch-at-login activation, local persistence, and live Reminders flows are later work.
 
 GitHub Actions runs deterministic build and test checks on pushes to `main` and pull requests.
+
+The automated Chunk A suite covers state transitions, timing commands, display selection, responsive geometry, traversal, AppKit window configuration, and prepared EventKit/ServiceManagement boundaries. Physical pointer activation, focus restoration, fullscreen, Spaces, and multi-display behavior require the manual checklist; compilation is not treated as proof of those behaviors.
 
 ## Development workflow
 
