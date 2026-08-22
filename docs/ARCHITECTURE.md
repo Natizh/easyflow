@@ -84,7 +84,7 @@ The activation panel and visible overlays use `.canJoinAllSpaces` and `.fullScre
 
 ## State management and data flow
 
-SwiftUI feature models consume repository observations and expose explicit user intents. Data flow is unidirectional at the feature boundary:
+`AppShellViewModel` consumes the repository's GRDB observation stream and exposes explicit user intents for both panels. Data flow is unidirectional at the feature boundary:
 
 ```text
 AppKit/EventKit/SwiftUI event
@@ -96,6 +96,8 @@ AppKit/EventKit/SwiftUI event
 ```
 
 Local UI and persistence should update responsively. External Reminder work is asynchronous and represented with explicit pending/error/reconciliation states rather than blocking the main thread.
+
+Current window motion uses centralized AppKit frame/opacity hooks: Main opens in 0.20 seconds from beyond the right edge; Secondary opens leftward in 0.18 seconds; current closing uses 0.16 seconds. Context replacement changes only the SwiftUI model. These are functional development constants, not final Production Polish motion.
 
 ## Persistence boundary
 

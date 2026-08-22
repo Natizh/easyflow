@@ -41,3 +41,31 @@ Environment: macOS 26 toolchain/host, one 1470×956-point display, SwiftPM debug
 - **Not manually verified:** immediate keyboard focus, accidental-dismiss focus restoration, Secondary traversal/rendering, fullscreen overlay, multiple Spaces, multiple displays, and display rearrangement. Synthetic pointer events did not constitute reliable hardware-pointer evidence and are not counted.
 
 Append dated evidence for each environment used. Do not replace an unverified row with a claim based only on compilation or unit tests.
+
+## Chunk B/C local workspace checklist
+
+The following scenarios require real GUI validation after the local workspace implementation. Automated coverage is noted separately and is not a substitute.
+
+| Scenario | Procedure | Expected result |
+| --- | --- | --- |
+| Quick Note multiline | Type text and press Return | A newline is inserted; no note is committed yet |
+| Quick Note explicit commit | Press Command+Return with non-empty text | One inbox note appears and the composer clears |
+| Focus-loss/panel-close commit | Type a note, then change focus or close EasyFlow | One note is committed without duplicates |
+| Interrupted draft | Type, wait at least 400 ms, terminate/relaunch | The uncommitted draft is restored |
+| Restart persistence | Create/edit local objects, quit, and relaunch | Tasks, notes, Steps, styles, ordering, completion, and descriptions survive |
+| Main Task creation | Open `+ New Task`, enter title without effort, then choose effort | No hidden default; task finalizes only with valid title and explicit `1...4` effort |
+| Main Task ordering | Drag task rows and relaunch | Target highlights, final dense order persists, and rows do not flicker |
+| Task context | Move directly from Task A to Task B | Shared Secondary updates immediately without re-entering animation |
+| Description | Edit Description and leave the editor | Text persists locally and remains independent from Steps |
+| Steps | Add, edit, annotate, complete, reorder, and delete Steps | Completed Steps stay dimmed in place; order and notes persist |
+| Note organization | Drag an inbox Quick Note onto a Main Task row | Target highlights; the same note leaves inbox and appears below Steps |
+| Appearance | Right-click a task/Step and change color, highlight, underline | Restrained local style persists without changing priority or effort |
+| Completion | Check a Main Task | It leaves active tasks and appears under `Recently Completed` without a restore control |
+| Soft deletion | Delete a task/note and relaunch | It stays hidden from normal UI; no permanent purge runs |
+| Settings | Click the gear | A minimal surface shows only implemented storage/activation/panel/appearance information |
+| Panel motion | Open/close Main and Secondary, then switch contexts | Windows slide spatially; an open Secondary does not replay entrance for content changes |
+| Closed resources | Observe the resident process with panels closed | No database polling or animation timer causes sustained CPU activity |
+
+Current status: these Chunk B/C GUI scenarios are **not yet manually verified**. Persistence, migration, reorder, completion, style storage, idempotent draft commit, transactional note movement/rollback, observation-driven view-model updates, and prior panel-state regressions are automated.
+
+Closed-state process evidence after Chunks B/C (2026-08-22): the production Application Support database opened successfully; five one-second samples reported 0.0% CPU, about 16 MB resident memory, four-to-six threads, and unchanged accumulated CPU time. No workspace database exists inside or is tracked by the repository.

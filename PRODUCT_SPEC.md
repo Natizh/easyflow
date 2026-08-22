@@ -93,7 +93,7 @@ V1 does not add categories, tags, due dates, or a separate priority field.
 
 ### Creation and effort
 
-The small `+ New Task` control enters a low-friction inline creation flow. Creation eventually persists the EasyFlow representation, creates an Apple Reminder in the dedicated list, and stores the external association. The exact effort-selection interaction remains unresolved under [OQ-002](docs/OPEN_QUESTIONS.md#oq-002-effort-during-main-task-creation); do not replace it with a complex modal.
+The small `+ New Task` control enters a low-friction inline title and compact `1...4` effort flow. No effort is silently defaulted; the task is finalized only after both a non-empty title and explicit effort exist. Creation currently persists locally; Chunk D will add corresponding Reminder creation and external association. See [OQ-002](docs/OPEN_QUESTIONS.md#oq-002-effort-during-main-task-creation).
 
 Effort is editable and may eventually use dots, a segmented indicator, a subtle bar, or another compact native representation. The visual is intentionally not frozen.
 

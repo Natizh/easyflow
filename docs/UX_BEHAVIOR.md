@@ -67,7 +67,7 @@ The persistence mechanics arrive with the local workspace chunk. Chunk A establi
 | Secondary → empty/non-contextual Main area | Collapse Secondary; keep Main open |
 | Main ↔ Secondary traversal | Do not dismiss during legitimate traversal |
 
-Task hover should feel immediate. A tiny evidence-based anti-flicker debounce is allowed but unresolved under [OQ-010](OPEN_QUESTIONS.md#oq-010-main-task-hover-debounce).
+Task hover uses no debounce (`0 ms`) and replaces Secondary content immediately. [OQ-010](OPEN_QUESTIONS.md#oq-010-main-task-hover-debounce) is resolved unless measured flicker later justifies a documented change.
 
 ## Closing behavior
 
@@ -89,7 +89,7 @@ After meaningful Secondary interaction, Secondary receives 250 ms of re-entry gr
 
 - `+ New Task` starts a compact inline title flow.
 - Do not introduce a modal creation form.
-- Effort is mandatory conceptually, but when and how it is selected remains unresolved under [OQ-002](OPEN_QUESTIONS.md#oq-002-effort-during-main-task-creation).
+- The inline composer requires a non-empty title plus an explicit compact `1...4` effort choice. There is no hidden default; this resolves [OQ-002](OPEN_QUESTIONS.md#oq-002-effort-during-main-task-creation).
 - Hover reveals Description, Steps, then Attached Notes in Secondary.
 - Title, Description, effort, style, Step content, and Attached Notes remain editable through low-friction native controls.
 

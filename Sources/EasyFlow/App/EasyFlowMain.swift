@@ -7,9 +7,18 @@ final class EasyFlowAppDelegate: NSObject, NSApplicationDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApplication.shared.setActivationPolicy(.accessory)
 
-    let coordinator = AppShellCoordinator()
-    appShellCoordinator = coordinator
-    coordinator.start()
+    do {
+      let database = try AppDatabase.production()
+      let repository = WorkspaceRepository(database: database)
+      let coordinator = AppShellCoordinator(repository: repository)
+      appShellCoordinator = coordinator
+      coordinator.start()
+    } catch {
+      let alert = NSAlert(error: error)
+      alert.messageText = "EasyFlow could not open its local workspace."
+      alert.runModal()
+      NSApplication.shared.terminate(nil)
+    }
   }
 
   func applicationWillTerminate(_ notification: Notification) {

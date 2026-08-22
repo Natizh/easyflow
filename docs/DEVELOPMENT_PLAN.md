@@ -65,6 +65,8 @@ Acceptance: EasyFlow-specific data can be created, updated, reordered, moved, co
 
 Continue on the bounded local-workspace branch or a dedicated child branch if review size requires it; do not create bureaucracy by default.
 
+Status: implemented on `feat/local-workspace`; the Main and shared Secondary panels now expose the complete observed local workspace without EventKit.
+
 Implement:
 
 - immediate Quick Note capture and contextual browser;
@@ -79,7 +81,7 @@ Implement:
 - empty, loading, and local error states;
 - UI/state tests and repeatable drag/focus/manual checks.
 
-OQ-002, OQ-003, OQ-008, OQ-009, and OQ-010 must be resolved when they become blocking; no option is silently selected. OQ-001 is settled in `docs/UX_BEHAVIOR.md`.
+OQ-001, OQ-002, and OQ-010 are settled in `docs/UX_BEHAVIOR.md`. OQ-003 remains open; no Recently Completed restore control is implemented. OQ-008 and OQ-009 retain the current measured Chunk A constants.
 
 Acceptance: EasyFlow is useful as a complete local current-work workspace before EventKit is enabled.
 
