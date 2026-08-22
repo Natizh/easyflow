@@ -25,6 +25,8 @@ Acceptance: a future agent can understand EasyFlow and begin Chunk A without the
 
 Suggested branch: `feat/app-shell`
 
+Status: implemented on the feature branch; automated checks complete and real-device GUI smoke evidence recorded separately before integration.
+
 Implement:
 
 - resident/invisible app lifecycle and AppKit/SwiftUI bridge;

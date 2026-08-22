@@ -64,16 +64,16 @@ Deleted Main Tasks enter a local trash-like soft-deleted state. The permanent-de
 ## OQ-008: Panel width constraints
 
 **Domain:** UX<br>
-**Blocks:** final responsive panel constants
+**Status:** Resolved for Chunk A; retain as a prototype-tuning decision if real-device evidence requires adjustment
 
-The Main Panel target is approximately 20% of the current display width, with the Secondary Panel conceptually using another fifth. Exact minimum and maximum widths require prototype tuning so small screens remain usable and large displays do not create absurdly wide panels.
+Main and Secondary each use 20% of the selected display width, clamped independently to 360–520 points. Panels use an 8-point outer margin and gap plus a 12-point vertical inset. These constants preserve the one-fifth target on ordinary/wide displays while keeping small displays usable. Change them only with recorded prototype evidence.
 
 ## OQ-009: Closing grace interval
 
 **Domain:** UX<br>
-**Blocks:** final panel state-machine timing
+**Status:** Resolved for Chunk A; retain as a measured tuning decision
 
-After real Secondary Panel interaction, it should close first and the Main Panel shortly afterward using a grace interval under one second. Exact timing requires tuning. This does not change the requirement that an immediately abandoned accidental activation closes immediately.
+After real Secondary interaction and complete pointer exit, Secondary receives 250 ms of re-entry grace, then closes; Main closes 180 ms later. An engaged Main without Secondary receives 180 ms of re-entry grace. A newly opened, unengaged Main still closes immediately when abandoned. Central state-machine timers own these values.
 
 ## OQ-010: Main Task hover debounce
 
