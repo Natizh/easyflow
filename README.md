@@ -6,7 +6,7 @@ EasyFlow is a lightweight macOS edge workspace that keeps the user's current wor
 
 The repository bootstrap is complete and native application implementation is underway. The minimum deployment target is macOS 14, with macOS 26 as the primary development and experience target.
 
-EasyFlow is MIT-licensed. The Swift project, deterministic CI, private GitHub publication, and native app-shell vertical slice are the current implementation round.
+EasyFlow is MIT-licensed. The SwiftPM project and deterministic CI are configured; the private GitHub publication and native app-shell vertical slice are the current implementation round.
 
 ## Repository guide
 
@@ -22,11 +22,11 @@ EasyFlow is MIT-licensed. The Swift project, deterministic CI, private GitHub pu
 - [`docs/references/REFERENCE_PROJECTS.md`](docs/references/REFERENCE_PROJECTS.md): external references and licensing boundaries.
 - [`AGENTS.md`](AGENTS.md): operating rules for coding agents and contributors.
 
-## Intended technology
+## Technology and project structure
 
-EasyFlow is planned as a native macOS application using Swift, SwiftUI, AppKit, EventKit, ServiceManagement, SQLite, and GRDB. SwiftUI owns view composition; AppKit owns overlay-window, edge-monitoring, fullscreen/Spaces, and precision focus behavior.
+EasyFlow is a native macOS application using Swift, SwiftUI, AppKit, EventKit, ServiceManagement, SQLite, and GRDB. SwiftUI owns view composition; AppKit owns overlay-window, edge-monitoring, fullscreen/Spaces, and precision focus behavior.
 
-The intended SwiftPM layout, once the deployment target is approved, is:
+The SwiftPM layout grows by implemented responsibility:
 
 ```text
 Package.swift
@@ -43,7 +43,22 @@ Sources/EasyFlow/
 Tests/EasyFlowTests/
 ```
 
-Empty placeholder directories are not tracked. The first implementation stage is the native macOS shell described in the development plan.
+Empty placeholder directories are not tracked. EventKit authorization and ServiceManagement launch-at-login boundaries are compiled but are not yet connected to full product flows. Reminders synchronization remains Chunk D; local persistence remains Chunk B.
+
+## Build and test
+
+Requirements: macOS 14 or later and a Swift 6 toolchain/Xcode capable of building the package.
+
+```sh
+swift package resolve
+swift build
+swift test
+swift run EasyFlow
+```
+
+`swift run EasyFlow` launches the resident accessory process. Chunk A supplies the edge-triggered overlay behavior. Release packaging, signing, and launch-at-login activation are later production-polish work.
+
+GitHub Actions runs deterministic build and test checks on pushes to `main` and pull requests.
 
 ## Development workflow
 

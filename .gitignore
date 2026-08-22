@@ -6,7 +6,6 @@
 # Swift Package Manager
 .build/
 .swiftpm/
-Package.resolved
 
 # Xcode build and user state
 DerivedData/
