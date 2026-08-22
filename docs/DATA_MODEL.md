@@ -10,7 +10,7 @@
 - Migrations are versioned, tested, and non-destructive to production data.
 - Database work must not block UI interaction.
 
-The physical schema may be refined during Chunk B, but it must preserve the product concepts below. Any meaningful normalization change should update this document before or with implementation.
+Chunk B implements migration `v1-local-workspace` with `mainTask`, `taskStep`, `workspaceNote`, `quickNoteDraft`, and `appSetting` tables. Any meaningful normalization change must update this document before or with implementation.
 
 ## Conceptual relationships
 
@@ -69,7 +69,7 @@ Steps are exactly one level deep. The model has no parent-Step relationship and 
 
 ## Notes
 
-A unified note record is the preferred initial physical direction because a Quick Note becomes an Attached Note by moving ownership rather than duplicating content. The schema must express these equivalent states:
+A unified `workspaceNote` record is implemented because a Quick Note becomes an Attached Note by moving ownership rather than duplicating content. Nullable `mainTaskID` plus `deletedAt` expresses these states:
 
 ```text
 inbox
@@ -106,13 +106,15 @@ The generated display title is derived at presentation/domain level from the fir
 - Quick Notes: inbox order;
 - Attached Notes: local display order under the owning task if ordering is exposed.
 
-Reorder operations update affected rows in one transaction and preserve stable identities. The implementation may choose dense integers, gapped values, or another well-tested strategy; it must support deterministic order, bounded write amplification, persistence after restart, and normalization when required. Apple Reminders order never overwrites Main Task `sortIndex`.
+Reorder operations validate that the submitted UUID set exactly matches the current collection, then renumber it to dense integer indexes `0...n-1` in one transaction. This is deterministic, prevents duplicates/floating-point drift, and writes once per final UI drop rather than per pointer pixel. Apple Reminders order never overwrites Main Task `sortIndex`.
 
 ## Lifecycle operations
 
 ### Quick Note to Attached Note
 
-One transaction changes the existing note from inbox ownership to the target Main Task and assigns a target-local order. It preserves ID, body, explicit title, creation time, and sensible update/history information. A failed transaction leaves the inbox note unchanged.
+One transaction changes the existing note from null inbox ownership to the target Main Task and assigns a target-local order. It preserves ID, body, explicit title, and creation time while updating `updatedAt`. A failed transaction leaves the inbox note unchanged.
+
+Drafts use one `quickNoteDraft` row with a UUID revision. Committed notes retain that revision in a unique `sourceDraftRevision`, making focus-loss/panel-close/explicit-submit races idempotent. A late debounced save is ignored after its revision has already produced a note.
 
 ### Step completion
 
@@ -146,12 +148,12 @@ Expected indexes include active Main Task order, Steps by parent/order, inbox No
 
 ## Migrations and storage guarantees
 
-- Create an explicit numbered migrator from the first schema.
+- Use the explicit `v1-local-workspace` migrator from the first schema.
 - Test a fresh database and every supported upgrade path.
 - Apply migrations transactionally and fail safely with actionable diagnostics.
 - Never wipe a production database for a schema change.
 - Development-only destructive reset, if ever introduced, must be clearly gated and documented.
-- Store the database in the appropriate application-support location, never in the repository.
+- Store production data at the user's Application Support `EasyFlow/EasyFlow.sqlite` location, never in the repository. Tests use isolated in-memory or temporary databases.
 - Data must survive app close/relaunch, Mac restart, login/logout, and application updates.
 
 ## Test requirements

@@ -11,14 +11,16 @@ final class PanelPresentationCoordinator {
   private let activationPanel = ActivationEdgePanel()
   private let mainPanel = OverlayPanel()
   private let secondaryPanel = OverlayPanel()
-  private let viewModel = AppShellViewModel()
+  private let viewModel: AppShellViewModel
   private var previousApplication: NSRunningApplication?
 
   private let activationTrackingView = PointerTrackingView()
   private let mainHostingView: PointerTrackingHostingView<MainPanelView>
   private let secondaryHostingView: PointerTrackingHostingView<SecondaryPanelView>
+  private var currentLayout: PanelLayout?
 
-  init() {
+  init(repository: WorkspaceRepository) {
+    viewModel = AppShellViewModel(repository: repository)
     mainHostingView = PointerTrackingHostingView(
       rootView: MainPanelView(model: viewModel)
     )
@@ -52,16 +54,19 @@ final class PanelPresentationCoordinator {
   }
 
   func start(layout: PanelLayout) {
+    viewModel.start()
     apply(layout: layout)
     activationPanel.orderFrontRegardless()
   }
 
   func stop() {
+    viewModel.stop()
     hideAll(restoreFocus: false)
     activationPanel.orderOut(nil)
   }
 
   func apply(layout: PanelLayout) {
+    currentLayout = layout
     activationPanel.setFrame(layout.activationFrame, display: true)
     if !activationPanel.isVisible {
       activationPanel.orderFrontRegardless()
@@ -75,12 +80,21 @@ final class PanelPresentationCoordinator {
 
   func showMain(layout: PanelLayout) {
     capturePreviousApplicationIfNeeded()
-    apply(layout: layout)
+    currentLayout = layout
+    activationPanel.setFrame(layout.activationFrame, display: true)
 
     NSApplication.shared.activate(ignoringOtherApps: true)
-    mainPanel.alphaValue = 1
+    let wasVisible = mainPanel.isVisible
+    if !wasVisible {
+      mainPanel.setFrame(mainHiddenFrame(for: layout), display: false)
+      mainPanel.alphaValue = 0
+    }
     mainPanel.orderFrontRegardless()
     mainPanel.makeKey()
+    animate(duration: 0.20) {
+      self.mainPanel.animator().setFrame(layout.mainFrame, display: true)
+      self.mainPanel.animator().alphaValue = 1
+    }
   }
 
   func focusQuickNote() {
@@ -92,26 +106,53 @@ final class PanelPresentationCoordinator {
 
   func showSecondary(context: SecondaryPanelContext, layout: PanelLayout) {
     viewModel.secondaryContext = context
-    apply(layout: layout)
-    secondaryPanel.alphaValue = 1
+    currentLayout = layout
+    if secondaryPanel.isVisible {
+      secondaryPanel.orderFrontRegardless()
+      mainPanel.orderFrontRegardless()
+      return
+    }
+    secondaryPanel.setFrame(secondaryHiddenFrame(for: layout), display: false)
+    secondaryPanel.alphaValue = 0
     secondaryPanel.orderFrontRegardless()
     mainPanel.orderFrontRegardless()
+    animate(duration: 0.18) {
+      self.secondaryPanel.animator().setFrame(layout.secondaryFrame, display: true)
+      self.secondaryPanel.animator().alphaValue = 1
+    }
   }
 
   func hideSecondary() {
-    secondaryPanel.orderOut(nil)
-    viewModel.secondaryContext = nil
+    guard secondaryPanel.isVisible, let currentLayout else {
+      viewModel.secondaryContext = nil
+      return
+    }
+    animate(duration: 0.16) {
+      self.secondaryPanel.animator().setFrame(
+        self.secondaryHiddenFrame(for: currentLayout),
+        display: true
+      )
+      self.secondaryPanel.animator().alphaValue = 0
+    } completion: {
+      self.secondaryPanel.orderOut(nil)
+      self.viewModel.secondaryContext = nil
+    }
   }
 
   func hideAll(restoreFocus: Bool) {
+    viewModel.commitQuickNoteIfNeeded()
     secondaryPanel.orderOut(nil)
-    mainPanel.orderOut(nil)
     viewModel.secondaryContext = nil
-
-    if restoreFocus {
-      restorePreviousApplication()
-    } else {
-      previousApplication = nil
+    guard mainPanel.isVisible, let currentLayout else {
+      if restoreFocus { restorePreviousApplication() } else { previousApplication = nil }
+      return
+    }
+    animate(duration: 0.16) {
+      self.mainPanel.animator().setFrame(self.mainHiddenFrame(for: currentLayout), display: true)
+      self.mainPanel.animator().alphaValue = 0
+    } completion: {
+      self.mainPanel.orderOut(nil)
+      if restoreFocus { self.restorePreviousApplication() } else { self.previousApplication = nil }
     }
   }
 
@@ -129,5 +170,32 @@ final class PanelPresentationCoordinator {
     defer { previousApplication = nil }
     guard let previousApplication, !previousApplication.isTerminated else { return }
     previousApplication.activate(options: [])
+  }
+
+  private func mainHiddenFrame(for layout: PanelLayout) -> CGRect {
+    layout.mainFrame.offsetBy(dx: layout.mainFrame.width + 16, dy: 0)
+  }
+
+  private func secondaryHiddenFrame(for layout: PanelLayout) -> CGRect {
+    CGRect(
+      x: layout.mainFrame.minX,
+      y: layout.secondaryFrame.minY,
+      width: layout.secondaryFrame.width,
+      height: layout.secondaryFrame.height
+    )
+  }
+
+  private func animate(
+    duration: TimeInterval,
+    changes: () -> Void,
+    completion: (@MainActor @Sendable () -> Void)? = nil
+  ) {
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = duration
+      context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+      changes()
+    } completionHandler: {
+      Task { @MainActor in completion?() }
+    }
   }
 }

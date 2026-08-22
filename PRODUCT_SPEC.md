@@ -64,6 +64,8 @@ The visual hierarchy is calm, productive, and native. `+ New Task` is not a gian
 
 The Secondary Panel is reused for the Quick Notes browser or the currently hovered Main Task. It updates context in place; EasyFlow does not create a separate third notes/details window.
 
+Finished panel motion is spatial and native: Main slides out from and retreats into the right screen edge; Secondary slides left from Main and retracts toward it. Replacing content inside an already-visible Secondary Panel does not replay its entrance animation. Exact curves, duration, and material interpolation remain Production Polish tuning.
+
 ## Quick Notes
 
 Quick Notes form a low-friction capture inbox for temporary ideas, technical thoughts, fragments, scratch information, or context that may later belong to a Main Task. They are not the primary task-management system and should be easy to organize rather than becoming permanent clutter.
@@ -91,7 +93,7 @@ V1 does not add categories, tags, due dates, or a separate priority field.
 
 ### Creation and effort
 
-The small `+ New Task` control enters a low-friction inline creation flow. Creation eventually persists the EasyFlow representation, creates an Apple Reminder in the dedicated list, and stores the external association. The exact effort-selection interaction remains unresolved under [OQ-002](docs/OPEN_QUESTIONS.md#oq-002-effort-during-main-task-creation); do not replace it with a complex modal.
+The small `+ New Task` control enters a low-friction inline title and compact `1...4` effort flow. No effort is silently defaulted; the task is finalized only after both a non-empty title and explicit effort exist. Creation currently persists locally; Chunk D will add corresponding Reminder creation and external association. See [OQ-002](docs/OPEN_QUESTIONS.md#oq-002-effort-during-main-task-creation).
 
 Effort is editable and may eventually use dots, a segmented indicator, a subtle bar, or another compact native representation. The visual is intentionally not frozen.
 

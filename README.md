@@ -4,9 +4,9 @@ EasyFlow is a lightweight macOS edge workspace that keeps the user's current wor
 
 ## Status
 
-The repository bootstrap and Chunk A native app shell are implemented. The minimum deployment target is macOS 14, with macOS 26 as the primary development and experience target.
+The repository bootstrap and Chunks A–C are implemented. The minimum deployment target is macOS 14, with macOS 26 as the primary development and experience target.
 
-EasyFlow is MIT-licensed. The SwiftPM project and deterministic CI are configured. Chunk A provides the resident accessory lifecycle, rightmost-edge activation surface, central dwell/dismissal state machine, responsive Main/Secondary AppKit panels, SwiftUI placeholder content, and Quick Note focus foundation. Local data and full Reminder synchronization deliberately remain later chunks.
+EasyFlow is MIT-licensed. The SwiftPM project and deterministic CI are configured. The app now provides the resident edge shell plus a restart-safe local GRDB workspace: Quick Notes, explicitly estimated Main Tasks, task details, Description, Steps and notes, Attached Notes, ordering, completion, Recently Completed, soft deletion, styling, drag/drop, and minimal Settings. Full Apple Reminders synchronization deliberately remains Chunk D.
 
 ## Repository guide
 
@@ -57,7 +57,7 @@ swift test
 swift run EasyFlow
 ```
 
-`swift run EasyFlow` launches the resident accessory process and the Chunk A edge-triggered overlay. Release packaging, signing, launch-at-login activation, local persistence, and live Reminders flows are later work.
+`swift run EasyFlow` launches the resident accessory process and usable local-only workspace. Release packaging, signing, launch-at-login activation, and live Reminders flows are later work.
 
 GitHub Actions runs deterministic build and test checks on pushes to `main` and pull requests.
 

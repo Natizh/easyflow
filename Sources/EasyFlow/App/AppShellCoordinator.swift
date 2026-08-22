@@ -11,12 +11,13 @@ final class AppShellCoordinator {
   private var lastPointerRegion: PointerRegion?
 
   init(
+    repository: WorkspaceRepository,
     timing: PanelTiming = PanelTiming(),
     sizing: PanelSizing = PanelSizing()
   ) {
     stateMachine = PanelStateMachine(timing: timing)
     screenConfigurationMonitor = ScreenConfigurationMonitor()
-    panelPresenter = PanelPresentationCoordinator()
+    panelPresenter = PanelPresentationCoordinator(repository: repository)
     self.sizing = sizing
   }
 

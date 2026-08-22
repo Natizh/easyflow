@@ -22,9 +22,9 @@ Typing maintains one debounced persisted draft so interruption does not lose dat
 ## OQ-002: Effort during Main Task creation
 
 **Domain:** UX/Product<br>
-**Blocks:** final Main Task creation flow
+**Status:** Resolved
 
-Every Main Task needs effort `1...4`, but it is unresolved whether effort is required immediately after the title, receives a default, or uses an inline compact selector during creation. Do not introduce a modal form.
+Main Task creation uses an inline title field and compact `1...4` effort buttons. Effort has no hidden default; `Add` and keyboard submission finalize only when title and effort are both valid. No modal is used.
 
 ## OQ-003: Restore from Recently Completed
 
@@ -78,9 +78,9 @@ After real Secondary interaction and complete pointer exit, Secondary receives 2
 ## OQ-010: Main Task hover debounce
 
 **Domain:** UX<br>
-**Blocks:** final hover tuning
+**Status:** Resolved for the local workspace; revisit only with measured flicker evidence
 
-Main Task context switching must feel immediate, and no visible hover dwell has been approved. A tiny debounce may be used only if testing demonstrates it is necessary to prevent flicker; record the chosen implementation constant rather than treating the edge-activation dwell as precedent.
+Main Task context switching has no debounce (`0 ms`). Hover requests replace the shared Secondary context immediately without closing or replaying window entrance. A future debounce requires measured flicker evidence and remains unrelated to the 300 ms edge dwell.
 
 ## Decision discipline
 

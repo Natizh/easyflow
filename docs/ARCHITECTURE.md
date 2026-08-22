@@ -69,6 +69,7 @@ The panel coordinator owns both overlay windows as one coordinated interaction s
 - Secondary is immediately left of Main and changes content between Quick Notes and task details.
 - Panels use window levels and collection behavior suitable for fullscreen applications and Spaces without changing the underlying app layout.
 - The coordinator owns show/hide ordering, geometry, transition cancellation, previous-app focus context, and reconfiguration after display changes.
+- Presentation exposes centralized frame/opacity animation hooks: Main's hidden frame is beyond the right edge, while Secondary's hidden frame retracts toward Main. Context replacement never recreates the Secondary window.
 - SwiftUI renders content and emits semantic actions; it does not directly orchestrate global windows.
 
 Exact `NSPanel` flags, activation policy, collection behavior, and focus restoration calls are feasibility work for Chunk A and must be recorded after manual validation rather than guessed here.
@@ -83,7 +84,7 @@ The activation panel and visible overlays use `.canJoinAllSpaces` and `.fullScre
 
 ## State management and data flow
 
-SwiftUI feature models consume repository observations and expose explicit user intents. Data flow is unidirectional at the feature boundary:
+`AppShellViewModel` consumes the repository's GRDB observation stream and exposes explicit user intents for both panels. Data flow is unidirectional at the feature boundary:
 
 ```text
 AppKit/EventKit/SwiftUI event
@@ -96,9 +97,11 @@ AppKit/EventKit/SwiftUI event
 
 Local UI and persistence should update responsively. External Reminder work is asynchronous and represented with explicit pending/error/reconciliation states rather than blocking the main thread.
 
+Current window motion uses centralized AppKit frame/opacity hooks: Main opens in 0.20 seconds from beyond the right edge; Secondary opens leftward in 0.18 seconds; current closing uses 0.16 seconds. Context replacement changes only the SwiftUI model. These are functional development constants, not final Production Polish motion.
+
 ## Persistence boundary
 
-GRDB repositories own database access and versioned migrations. Domain services use narrow repository interfaces rather than raw SQL. Avoid an enterprise-style abstraction tower: records, repositories, and application operations should remain explicit and inspectable.
+`AppDatabase` owns the production Application Support location and versioned migrator. The actor-isolated `WorkspaceRepository` owns CRUD, transactions, dense ordering, draft idempotency, soft deletion, and a GRDB `ValueObservation` exposed as an async snapshot stream. Avoid an enterprise-style abstraction tower: records, repository operations, and SQL remain explicit and inspectable.
 
 Database observations notify only the affected feature state. Writes occur off the UI-critical path with clear transaction boundaries. Production databases are never wiped to resolve migration errors.
 
