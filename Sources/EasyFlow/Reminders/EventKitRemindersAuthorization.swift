@@ -1,4 +1,4 @@
-import EventKit
+@preconcurrency import EventKit
 
 enum RemindersAuthorizationStatus: Equatable, Sendable {
   case notDetermined
@@ -27,7 +27,15 @@ final class EventKitRemindersAuthorization: RemindersAuthorizing {
   }
 
   func requestFullAccess() async throws -> Bool {
-    try await eventStore.requestFullAccessToReminders()
+    try await withCheckedThrowingContinuation { continuation in
+      eventStore.requestFullAccessToReminders { isGranted, error in
+        if let error {
+          continuation.resume(throwing: error)
+        } else {
+          continuation.resume(returning: isGranted)
+        }
+      }
+    }
   }
 
   static func map(_ status: EKAuthorizationStatus) -> RemindersAuthorizationStatus {
