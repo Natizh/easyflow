@@ -47,6 +47,8 @@ Do not add Reminders or the complete task UI merely to fill this chunk.
 
 Suggested branch: `feat/local-workspace`
 
+Status: implemented and green on the feature branch; migration, reopen persistence, CRUD, ordering, completion, note movement/rollback, stable identity, relationships, and soft deletion are automated.
+
 Implement:
 
 - GRDB dependency, SQLite database, and versioned migrator;

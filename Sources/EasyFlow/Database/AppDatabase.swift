@@ -1,0 +1,126 @@
+import Foundation
+@preconcurrency import GRDB
+
+final class AppDatabase: @unchecked Sendable {
+  let queue: DatabaseQueue
+
+  init(path: String) throws {
+    var configuration = Configuration()
+    configuration.foreignKeysEnabled = true
+    configuration.busyMode = .timeout(5)
+    queue = try DatabaseQueue(path: path, configuration: configuration)
+    try Self.migrator.migrate(queue)
+  }
+
+  init(inMemoryNamed name: String = UUID().uuidString) throws {
+    var configuration = Configuration()
+    configuration.foreignKeysEnabled = true
+    queue = try DatabaseQueue(
+      path: "file:\(name)?mode=memory&cache=shared",
+      configuration: configuration
+    )
+    try Self.migrator.migrate(queue)
+  }
+
+  static func production() throws -> AppDatabase {
+    let fileManager = FileManager.default
+    let applicationSupport = try fileManager.url(
+      for: .applicationSupportDirectory,
+      in: .userDomainMask,
+      appropriateFor: nil,
+      create: true
+    )
+    let directory = applicationSupport.appendingPathComponent(
+      "EasyFlow",
+      isDirectory: true
+    )
+    try fileManager.createDirectory(
+      at: directory,
+      withIntermediateDirectories: true
+    )
+    return try AppDatabase(
+      path: directory.appendingPathComponent("EasyFlow.sqlite").path
+    )
+  }
+
+  static var migrator: DatabaseMigrator {
+    var migrator = DatabaseMigrator()
+    migrator.registerMigration("v1-local-workspace") { database in
+      try database.create(table: MainTask.databaseTableName) { table in
+        table.column("id", .text).primaryKey()
+        table.column("reminderIdentifier", .text).unique()
+        table.column("title", .text).notNull()
+        table.column("effort", .integer).notNull()
+        table.column("sortIndex", .integer).notNull()
+        table.column("taskDescription", .text).notNull().defaults(to: "")
+        table.column("textColor", .text)
+        table.column("highlightColor", .text)
+        table.column("isUnderlined", .boolean).notNull().defaults(to: false)
+        table.column("createdAt", .datetime).notNull()
+        table.column("updatedAt", .datetime).notNull()
+        table.column("completedAt", .datetime)
+        table.column("deletedAt", .datetime)
+        table.check(sql: "effort BETWEEN 1 AND 4")
+      }
+
+      try database.create(table: TaskStep.databaseTableName) { table in
+        table.column("id", .text).primaryKey()
+        table.column("mainTaskID", .text).notNull()
+          .references(MainTask.databaseTableName, onDelete: .cascade)
+        table.column("title", .text).notNull()
+        table.column("sortIndex", .integer).notNull()
+        table.column("isCompleted", .boolean).notNull().defaults(to: false)
+        table.column("notes", .text).notNull().defaults(to: "")
+        table.column("textColor", .text)
+        table.column("highlightColor", .text)
+        table.column("isUnderlined", .boolean).notNull().defaults(to: false)
+        table.column("createdAt", .datetime).notNull()
+        table.column("updatedAt", .datetime).notNull()
+        table.column("deletedAt", .datetime)
+      }
+
+      try database.create(table: WorkspaceNote.databaseTableName) { table in
+        table.column("id", .text).primaryKey()
+        table.column("title", .text)
+        table.column("body", .text).notNull()
+        table.column("mainTaskID", .text)
+          .references(MainTask.databaseTableName, onDelete: .cascade)
+        table.column("sourceDraftRevision", .text).unique()
+        table.column("sortIndex", .integer).notNull()
+        table.column("createdAt", .datetime).notNull()
+        table.column("updatedAt", .datetime).notNull()
+        table.column("deletedAt", .datetime)
+      }
+
+      try database.create(table: QuickNoteDraft.databaseTableName) { table in
+        table.column("id", .text).primaryKey()
+        table.column("revision", .text).notNull()
+        table.column("body", .text).notNull()
+        table.column("updatedAt", .datetime).notNull()
+      }
+
+      try database.create(table: "appSetting") { table in
+        table.column("key", .text).primaryKey()
+        table.column("value", .text).notNull()
+        table.column("updatedAt", .datetime).notNull()
+      }
+
+      try database.create(
+        index: "mainTask_active_order",
+        on: MainTask.databaseTableName,
+        columns: ["deletedAt", "completedAt", "sortIndex"]
+      )
+      try database.create(
+        index: "taskStep_parent_order",
+        on: TaskStep.databaseTableName,
+        columns: ["mainTaskID", "deletedAt", "sortIndex"]
+      )
+      try database.create(
+        index: "workspaceNote_location_order",
+        on: WorkspaceNote.databaseTableName,
+        columns: ["mainTaskID", "deletedAt", "sortIndex"]
+      )
+    }
+    return migrator
+  }
+}

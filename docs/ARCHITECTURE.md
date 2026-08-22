@@ -99,7 +99,7 @@ Local UI and persistence should update responsively. External Reminder work is a
 
 ## Persistence boundary
 
-GRDB repositories own database access and versioned migrations. Domain services use narrow repository interfaces rather than raw SQL. Avoid an enterprise-style abstraction tower: records, repositories, and application operations should remain explicit and inspectable.
+`AppDatabase` owns the production Application Support location and versioned migrator. The actor-isolated `WorkspaceRepository` owns CRUD, transactions, dense ordering, draft idempotency, soft deletion, and a GRDB `ValueObservation` exposed as an async snapshot stream. Avoid an enterprise-style abstraction tower: records, repository operations, and SQL remain explicit and inspectable.
 
 Database observations notify only the affected feature state. Writes occur off the UI-critical path with clear transaction boundaries. Production databases are never wiped to resolve migration errors.
 
