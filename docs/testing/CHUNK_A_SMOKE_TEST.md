@@ -36,7 +36,8 @@ Environment: macOS 26 toolchain/host, one 1470×956-point display, SwiftPM debug
 - **Verified:** process remained resident as a LaunchServices `UIElement`, with no Dock-centric application type and no menu-bar UI implemented.
 - **Verified:** only a transparent 3×956-point activation window was present while visible panels were closed, at corrected status-bar window layer 25.
 - **Verified:** five one-second `top` samples while closed reported 0.0% CPU, about 15 MB resident memory, four threads, and unchanged accumulated CPU time.
+- **User verified on the target Mac:** physical far-right edge activation works and the Main Panel visibly opens; the basic real-hardware activation path is functional.
 - **Automated only:** rightmost-display selection, activation-zone geometry, 300 ms dwell/cancellation, responsive frames, immediate/staged dismissal, context replacement, and traversal cancellation.
-- **Not manually verified in this environment:** physical edge activation, immediate keyboard focus, accidental-dismiss focus restoration, visible Main/Secondary rendering, fullscreen overlay, multiple Spaces, and multiple displays. Synthetic pointer events did not constitute reliable hardware-pointer evidence and are not counted.
+- **Not manually verified:** immediate keyboard focus, accidental-dismiss focus restoration, Secondary traversal/rendering, fullscreen overlay, multiple Spaces, multiple displays, and display rearrangement. Synthetic pointer events did not constitute reliable hardware-pointer evidence and are not counted.
 
 Append dated evidence for each environment used. Do not replace an unverified row with a claim based only on compilation or unit tests.

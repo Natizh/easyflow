@@ -69,6 +69,7 @@ The panel coordinator owns both overlay windows as one coordinated interaction s
 - Secondary is immediately left of Main and changes content between Quick Notes and task details.
 - Panels use window levels and collection behavior suitable for fullscreen applications and Spaces without changing the underlying app layout.
 - The coordinator owns show/hide ordering, geometry, transition cancellation, previous-app focus context, and reconfiguration after display changes.
+- Presentation exposes centralized frame/opacity animation hooks: Main's hidden frame is beyond the right edge, while Secondary's hidden frame retracts toward Main. Context replacement never recreates the Secondary window.
 - SwiftUI renders content and emits semantic actions; it does not directly orchestrate global windows.
 
 Exact `NSPanel` flags, activation policy, collection behavior, and focus restoration calls are feasibility work for Chunk A and must be recorded after manual validation rather than guessed here.

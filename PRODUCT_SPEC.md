@@ -64,6 +64,8 @@ The visual hierarchy is calm, productive, and native. `+ New Task` is not a gian
 
 The Secondary Panel is reused for the Quick Notes browser or the currently hovered Main Task. It updates context in place; EasyFlow does not create a separate third notes/details window.
 
+Finished panel motion is spatial and native: Main slides out from and retreats into the right screen edge; Secondary slides left from Main and retracts toward it. Replacing content inside an already-visible Secondary Panel does not replay its entrance animation. Exact curves, duration, and material interpolation remain Production Polish tuning.
+
 ## Quick Notes
 
 Quick Notes form a low-friction capture inbox for temporary ideas, technical thoughts, fragments, scratch information, or context that may later belong to a Main Task. They are not the primary task-management system and should be easy to organize rather than becoming permanent clutter.
