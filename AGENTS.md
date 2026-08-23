@@ -6,27 +6,25 @@ This file is the operational contract for AI coding agents and contributors. Rep
 
 1. Run `git status -sb` and preserve every unrelated or user-authored change.
 2. Read `PRODUCT_SPEC.md` and the documents relevant to the requested subsystem.
-3. Read applicable ADRs under `docs/decisions/` and inspect existing source and tests.
-4. Check `docs/OPEN_QUESTIONS.md`. Do not implement an unresolved option as though it were approved.
-5. Confirm the work belongs to v1; otherwise record it in `docs/BACKLOG.md` without expanding scope.
+3. Inspect the existing source, tests, and Git history before changing behavior.
+4. Confirm the work belongs to the requested release. Do not expand scope without approval.
 
 ## Sources of truth
 
 - Product behavior belongs in `PRODUCT_SPEC.md`.
 - Exact interaction and state transitions belong in `docs/UX_BEHAVIOR.md`.
-- implementation boundaries belong in `docs/ARCHITECTURE.md`.
-- persistence and lifecycle rules belong in `docs/DATA_MODEL.md`.
+- Implementation boundaries belong in `docs/ARCHITECTURE.md`.
+- Persistence and lifecycle rules belong in `docs/DATA_MODEL.md`.
 - EventKit behavior belongs in `docs/REMINDERS_SYNC.md`.
-- Architectural rationale belongs in ADRs.
-- Unresolved decisions belong in `docs/OPEN_QUESTIONS.md` and the relevant domain document.
+These tracked canonical documents are authoritative. A local `.agent-context/` directory may contain historical plans, testing notes, decision records, or reference research. Nothing in `.agent-context/` overrides the tracked documentation, source, or tests, and a fresh clone must remain understandable without it.
 
-When implementation reveals a real constraint, do not silently diverge. Update the relevant document and add or supersede an ADR when architectural intent changes.
+When implementation reveals a real constraint, do not silently diverge. Update the relevant canonical document and preserve rationale in the commit history.
 
 ## Work rounds and branches
 
 - Keep each round focused on one coherent product or engineering outcome. Large, bounded, end-to-end chunks are encouraged; unrelated changes are not.
 - Keep `main` as the integration branch and buildable once code exists.
-- Use bounded branches for substantial work, following the planned sequence: `feat/app-shell`, `feat/local-workspace`, `feat/reminders-sync`, and `feat/polish`.
+- Use a bounded branch for substantial work.
 - Use worktrees only when independent work is genuinely running in parallel.
 - Small documentation corrections do not require branch bureaucracy.
 - End completed file-changing rounds with understandable, reversible conventional commits such as `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, or `chore:`.

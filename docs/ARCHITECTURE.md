@@ -4,20 +4,18 @@
 
 EasyFlow is a continuously resident native macOS utility with a very low-cost hidden state. It combines precise system-style overlay behavior, SwiftUI content, local SQLite persistence, and a narrow EventKit integration. There is no custom server, account, browser runtime, telemetry, or analytics.
 
-The minimum deployment target is macOS 14. macOS 26 is the primary development and experience target. Newer appearance APIs remain availability-gated so the macOS 14 baseline remains functional. See ADR-006.
+The minimum deployment target is macOS 14. Newer appearance APIs remain availability-gated so the macOS 14 baseline remains functional.
 
-## Intended stack
+## Stack
 
 - **Swift and Swift Concurrency:** implementation language and structured asynchronous work.
 - **SwiftUI:** Main Panel and Secondary Panel content, rows, editors, Settings, appearance, and accessibility.
 - **AppKit:** `NSPanel` or equivalent overlay windows, window levels, collection behaviors, fullscreen/Spaces support, display geometry, event monitoring, focus, and lower-level drag handling when needed.
 - **EventKit:** permission-gated Apple Reminders access and change observation.
 - **SQLite with GRDB:** explicit local schema, migrations, observations, and testable persistence.
-- **ServiceManagement:** native launch-at-login configuration, expected through `SMAppService` where supported by the approved deployment target.
+- **ServiceManagement:** native launch-at-login configuration through `SMAppService`.
 
-Accepted rationale is recorded in `docs/decisions/`.
-
-## Target source layout
+## Source layout
 
 ```text
 Sources/EasyFlow/
@@ -32,8 +30,6 @@ Sources/EasyFlow/
   Utilities/   small cross-cutting helpers only
 Tests/EasyFlowTests/
 ```
-
-Directories are introduced with meaningful code rather than empty placeholders.
 
 ## Runtime composition
 
@@ -61,7 +57,7 @@ The app launches as a resident utility, initializes the local database and setti
 
 Appearance preference is stored in UserDefaults and drives both hosted panel surfaces. Standard and Frosted are macOS 14-safe; Liquid Glass is compiled behind a macOS 26 availability check. SMAppService reports and changes main-app login registration from Settings. Reduce Motion bypasses AppKit frame animation, while Reduce Transparency and increased contrast alter panel surfaces without changing layout.
 
-Production should operate without a Dock icon or menu-bar item. If development builds temporarily expose a Dock presence, the behavior is compile/configuration gated and documented as development-only.
+EasyFlow runs with the accessory activation policy and has no Dock icon or menu-bar item.
 
 ## Window and panel architecture
 
@@ -77,7 +73,7 @@ The panel coordinator owns both overlay windows as one coordinated interaction s
 
 Main Task pointer ownership is AppKit-backed. SwiftUI publishes actual visible row/title rectangles through one preference bridge; the flipped Main `NSHostingView` owns `mouseMoved`, left-button hit testing, thresholded `mouseDragged`, `mouseUp`, and Escape cancellation. This avoids SwiftUI hover/vertical-drag arbitration inside the task `ScrollView` while leaving rendering, wheel scrolling, checkbox, effort, context menus, and note-drop composition in SwiftUI.
 
-Exact `NSPanel` flags, activation policy, collection behavior, and focus restoration calls are feasibility work for Chunk A and must be recorded after manual validation rather than guessed here.
+Main and Secondary are borderless nonactivating `NSPanel` instances that can become key for editing but never become main windows. They join all Spaces, remain available beside fullscreen apps, ignore window cycling, and use status-bar window level. The app records the previously active application and restores it after an immediately abandoned activation where macOS permits.
 
 ## Edge activation
 
@@ -85,7 +81,7 @@ The display topology provider selects the screen with maximum `frame.maxX`. A tr
 
 The pure state machine separates pointer crossing, 300 ms potential activation, intentional activation, active interaction, immediate accidental exit, panel traversal, and staged closing. Its commands are the only source of dwell/close tasks. An 8-point gap is classified as a traversal bridge while the related panels are visible.
 
-The activation panel and visible overlays use `.canJoinAllSpaces` and `.fullScreenAuxiliary` at status-bar window level. The current-display fallback is not selected merely for convenience. If the preferred rightmost-edge model is impossible under supported macOS constraints, document the evidence and present the fallback before changing product behavior.
+The activation panel and visible overlays use `.canJoinAllSpaces` and `.fullScreenAuxiliary` at status-bar window level. EasyFlow does not install activation edges on other displays.
 
 ## State management and data flow
 
@@ -106,17 +102,17 @@ Window motion uses centralized AppKit frame/opacity hooks: Main opens in 0.22 se
 
 ## Persistence boundary
 
-`AppDatabase` owns the production Application Support location and versioned migrator. The actor-isolated `WorkspaceRepository` owns CRUD, transactions, dense ordering, draft idempotency, soft deletion, and a GRDB `ValueObservation` exposed as an async snapshot stream. Avoid an enterprise-style abstraction tower: records, repository operations, and SQL remain explicit and inspectable.
+`AppDatabase` owns the production Application Support location and versioned migrator. The actor-isolated `WorkspaceRepository` owns CRUD, transactions, dense ordering, draft idempotency, soft deletion, five-item deleted-task retention, and a GRDB `ValueObservation` exposed as an async snapshot stream. Records, repository operations, and SQL remain explicit and inspectable.
 
 Database observations notify only the affected feature state. Writes occur off the UI-critical path with clear transaction boundaries. Production databases are never wiped to resolve migration errors.
 
-See `docs/DATA_MODEL.md` and ADR-002.
+See `docs/DATA_MODEL.md`.
 
 ## Reminders boundary
 
 An EventKit adapter contains framework types and authorization/list operations. Reconciliation logic operates on application-owned representations so it can be tested with fakes. A Main Task's UUID is its stable EasyFlow identity; EventKit identifiers are mappings that may become unavailable or change.
 
-Only title, completion, and existence cross the boundary. Enriched EasyFlow metadata never leaks into Reminder fields by convenience. See `docs/REMINDERS_SYNC.md` and ADR-003.
+Only title, completion, and existence cross the boundary. Enriched EasyFlow metadata never leaks into Reminder fields. A purged deleted task may leave a minimal tombstone containing its UUID, Reminder identifier, deletion time, retry count, and non-content error code until external deletion succeeds. See `docs/REMINDERS_SYNC.md`.
 
 `RemindersSyncCoordinator` serializes runs on the main actor, consumes adapter snapshots, coalesces store notifications, and persists baselines/pending mutations through `WorkspaceRepository`. The stable ad-hoc development bundle `io.github.natizh.easyflow` supplies `NSRemindersFullAccessUsageDescription`; raw SwiftPM build/test remains permission-independent.
 
@@ -144,10 +140,10 @@ Exact actor annotations belong with implementation, but main-thread safety and i
 
 Automate pure logic for activation timers, panel transitions, sorting, reorder, Step completion, note moves, soft deletion, migrations, persistence, and reconciliation. Use protocol-backed EventKit fakes and temporary databases. Manually test window levels, fullscreen/Spaces, multiple-display geometry, pointer traversal, focus restoration, real permission dialogs, live iCloud propagation, animation, and launch-at-login.
 
-## CI direction
+## CI
 
-After the Swift package builds locally, use a minimal GitHub Actions workflow for pushes to `main` and pull requests. Select a GitHub-hosted macOS/Xcode image capable of building the macOS 14 baseline and run `swift build` plus `swift test`. Do not add signing, packaging, live EventKit tests, lint, or formatting until intentionally configured.
+GitHub Actions runs `swift package resolve`, `swift build`, and `swift test` on `macos-15` for pushes to `main` and pull requests. Signing, packaging, and live EventKit tests remain local release checks.
 
 ## Packaging
 
-`scripts/build-dev-app.sh` creates an ad-hoc-signed stable TCC bundle. `scripts/build-release-app.sh` creates an unsigned release configuration for later Developer ID signing/notarization. Both use `io.github.natizh.easyflow`, the Reminders usage description, and UIElement lifecycle. The scripts generate `EasyFlow.icns` when the final PNG iconset is present.
+`scripts/build-dev-app.sh` and `scripts/build-release-app.sh` create ad-hoc-signed app bundles for local use. Both use `io.github.natizh.easyflow`, the Reminders usage description, and UIElement lifecycle. The scripts generate `EasyFlow.icns` when a complete PNG iconset is present. Public distribution still requires Developer ID signing and notarization.

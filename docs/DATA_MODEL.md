@@ -10,7 +10,7 @@
 - Migrations are versioned, tested, and non-destructive to production data.
 - Database work must not block UI interaction.
 
-Chunk B implements `v1-local-workspace`. Chunk D adds `v2-reminders-sync`, safely rebuilding `mainTask.effort` as nullable and adding `reminderSync`; existing rated values and child relationships migrate without reset.
+The schema uses three migrations: `v1-local-workspace`, `v2-reminders-sync`, and `v3-deleted-task-retention`. Existing rated values and child relationships migrate without a reset.
 
 ## Conceptual relationships
 
@@ -50,6 +50,8 @@ Required concepts:
 | `deletedAt` | Optional soft-deletion timestamp |
 
 `reminderSync` is keyed by EasyFlow task UUID and stores current EventKit identifiers, origin, last successful title/completion baseline, external modification timestamp, sync-specific local-core update time, last success, pending create/update/delete, retry count, and a non-content error code. EventKit identifiers remain nullable/recoverable and never become local identity. `appSetting` stores the selected list identifier.
+
+`reminderDeletionTombstone` is independent of `mainTask`. It stores only the purged task UUID, current Reminder identifier, deletion timestamp, retry count, and non-content error code needed to finish an external deletion. It contains no task title, Description, style, Step, or note content and is removed after reconciliation confirms deletion.
 
 ## Step
 
@@ -124,11 +126,13 @@ Set `isCompleted` and `updatedAt`. Do not change `sortIndex`, delete, or hide th
 
 Set `completedAt` and preserve all Description, Steps, Attached Notes, style, order/history, and external mapping. Active queries exclude completed tasks; Recently Completed queries a bounded view ordered by recent completion without deleting older records.
 
-Restore/uncomplete behavior is unresolved in [OQ-003](OPEN_QUESTIONS.md#oq-003-restore-from-recently-completed).
+V1 has no restore or uncomplete operation. Completion remains final in EasyFlow and Apple Reminders.
 
 ### Main Task deletion
 
-After coordinating the external Reminder deletion, set `deletedAt` locally and retain the task, Description, Steps, notes, and styles. Queries exclude soft-deleted rows unless explicitly operating on trash/reconciliation. The purge age remains unresolved in [OQ-007](OPEN_QUESTIONS.md#oq-007-deleted-item-retention).
+Set `deletedAt` and mark external deletion pending in one transaction. Queries exclude soft-deleted rows unless they are operating on reconciliation. Retain only the five newest deleted Main Tasks, ordered by `deletedAt` descending and UUID descending. When the count reaches six, purge the oldest record; when timestamps tie, purge the lowest UUID first.
+
+Purging a Main Task deletes its Steps, Attached Notes, and `reminderSync` record through foreign-key cascades in the same transaction. Inbox Quick Notes have no parent task and remain untouched. Completed tasks with no `deletedAt` remain untouched. If the purged task still has a pending external deletion and a Reminder identifier, create a minimal `reminderDeletionTombstone` before deleting the full record.
 
 External disappearance must never translate directly into destruction of local metadata merely because an identifier lookup failed.
 
@@ -141,7 +145,7 @@ Prefer the same soft-delete approach when consistent with implementation. The us
 - A Step belongs to exactly one Main Task.
 - An attached Note belongs to exactly one Main Task; an inbox Note belongs to none.
 - Soft-deleting a Main Task makes its children unavailable to active UI but does not immediately cascade physical deletion.
-- Permanent purge, once approved, operates transactionally and accounts for associated records.
+- Permanent purge is transactional and cascades only through task-owned relationships.
 - Foreign keys and indexes should enforce valid parent relationships and support active ordered queries.
 
 Expected indexes include active Main Task order, Steps by parent/order, inbox Notes by order, attached Notes by parent/order, completion recency, soft deletion, and current external identifiers. Final names and SQL are implementation details.
@@ -167,4 +171,5 @@ Expected indexes include active Main Task order, Steps by parent/order, inbox No
 - migration from every schema version;
 - persistence across database reopen;
 - active-query exclusion of deleted/completed records as appropriate;
+- five-item deleted Main Task retention, FIFO purge, UUID tie ordering, child cascades, and Reminder tombstones;
 - identifier mapping loss without destructive metadata deletion.

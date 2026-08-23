@@ -9,7 +9,7 @@ This document defines interaction behavior and state transitions. Product scope 
 - **Secondary Panel region:** a contextual surface directly left of Main.
 - **Grace region:** the combined traversal area and short-lived state used to prevent dismissal while the pointer legitimately moves between panels.
 
-The preferred rightmost display is the screen with the greatest desktop-coordinate `frame.maxX`. A per-current-display edge is only an explicitly documented fallback after the preferred behavior is attempted and found technically infeasible.
+The rightmost display is the screen with the greatest desktop-coordinate `frame.maxX`. EasyFlow does not install activation edges on other displays.
 
 ## Activation state machine
 
@@ -28,11 +28,9 @@ The 300 ms value is an edge-activation protection only. It is not a task-hover d
 
 After intentional activation, keyboard input goes directly to the Quick Note capture field without an extra click. Focus must not move during `PotentialActivation`; a transient pointer crossing must never steal keystrokes from Safari, Xcode, Terminal, or another application.
 
-The window coordinator records the previously active application/window before activation. If EasyFlow takes focus and the interaction is immediately abandoned, it restores the prior context where macOS permits this without disruptive hacks. A real EasyFlow interaction may follow normal activation behavior. Exact AppKit calls and failure handling must be documented during Chunk A and covered by repeatable manual tests.
+The window coordinator records the previously active application before activation. If EasyFlow takes focus and the interaction is immediately abandoned, it restores the prior application where macOS permits. A real EasyFlow interaction follows normal activation behavior.
 
 ## Quick Note keyboard and data-safety semantics
-
-[OQ-001](OPEN_QUESTIONS.md#oq-001-quick-note-keyboard-semantics) is resolved as follows:
 
 - Intentional activation places keyboard focus in the Quick Note composer without a click.
 - `Return` inserts a newline, matching a native multiline notes editor.
@@ -41,7 +39,7 @@ The window coordinator records the previously active application/window before a
 - When EasyFlow closes or the composer loses focus, a non-whitespace draft is committed automatically; an empty/whitespace-only draft is discarded.
 - Relaunch restores an interrupted persisted draft until it has been committed.
 
-The persistence mechanics arrive with the local workspace chunk. Chunk A establishes intentional focus and semantic submit/focus-loss hooks without pretending notes are already stored. This design keeps ordinary `Return` behavior native, gives power users an explicit fast commit, and protects capture from accidental dismissal, focus changes, or process interruption.
+These semantics keep ordinary `Return` behavior native, provide an explicit fast commit, and protect capture from accidental dismissal, focus changes, or process interruption.
 
 ## Main and Secondary Panels
 
@@ -50,8 +48,8 @@ The persistence mechanics arrive with the local workspace chunk. Chunk A establi
 - Only one Secondary Panel exists. Its content changes in place rather than closing and reopening or spawning overlapping windows.
 - Main and Secondary overlay the current application and never resize or shift it.
 - The panels must remain available over maximized/fullscreen applications and across Spaces.
-- Each panel uses 20% of display width clamped to 360–520 points, with an 8-point outer margin/gap. These width constants remain subject only to evidence-based prototype tuning under [OQ-008](OPEN_QUESTIONS.md#oq-008-panel-width-constraints).
-- Real-device feedback replaces the original 12-point vertical inset with 8% of display height clamped to 64–96 points. Main and Secondary share identical vertical alignment and height, leaving a clearly visible band above and below.
+- Each panel uses 20% of display width clamped to 360–520 points, with an 8-point outer margin/gap.
+- The vertical inset is 8% of display height clamped to 64–96 points. Main and Secondary share identical vertical alignment and height, leaving a clearly visible band above and below.
 - Main visually slides from and back into the right edge. Secondary slides left from Main and retracts toward it with calmer independent timing: about 0.28 seconds to open and 0.35 seconds to close. Context replacement within a visible Secondary updates in place without replaying the entrance transition. Reduce Motion uses immediate frame changes.
 
 ## Context switching
@@ -75,13 +73,13 @@ Quick Notes and every visible Main Task row are full contextual hover surfaces. 
 
 Main Task contextual hover is resolved from AppKit `mouseMoved` against the current rendered row frames; it does not depend on SwiftUI hover delivery. Repeated movement within one row is deduplicated, A→B emits one replacement, and leaving rows toward the bridge does not clear Secondary.
 
-Task hover uses no debounce (`0 ms`) and replaces Secondary content immediately. [OQ-010](OPEN_QUESTIONS.md#oq-010-main-task-hover-debounce) is resolved unless measured flicker later justifies a documented change.
+Task hover uses no debounce (`0 ms`) and replaces Secondary content immediately.
 
 ## Closing behavior
 
 An immediately abandoned activation closes Main immediately or effectively immediately; do not impose a one-second dismissal delay.
 
-After meaningful Secondary interaction, Secondary receives 250 ms of re-entry grace and closes first; Main closes 180 ms later. An engaged Main without Secondary uses 180 ms. These values resolve [OQ-009](OPEN_QUESTIONS.md#oq-009-closing-grace-interval) for Chunk A. Pointer re-entry cancels pending close tasks. The 8-point panel gap belongs to the combined interaction bridge so the user does not fight dismissal while traversing.
+After meaningful Secondary interaction, Secondary receives 250 ms of re-entry grace and closes first; Main closes 180 ms later. An engaged Main without Secondary uses 180 ms. Pointer re-entry cancels pending close tasks. The 8-point panel gap belongs to the combined interaction bridge so the user does not fight dismissal while traversing.
 
 ## Quick Notes interaction
 
@@ -99,7 +97,7 @@ After meaningful Secondary interaction, Secondary receives 250 ms of re-entry gr
 
 - `+ New Task` starts a compact inline title flow.
 - Do not introduce a modal creation form.
-- The inline composer requires a non-empty title plus an explicit compact `1...4` effort choice. There is no hidden default; this resolves [OQ-002](OPEN_QUESTIONS.md#oq-002-effort-during-main-task-creation).
+- The inline composer requires a non-empty title plus an explicit compact `1...4` effort choice. There is no hidden default.
 - Hover reveals Description, Steps, then Attached Notes in Secondary.
 - Title, Description, effort, style, Step content, and Attached Notes remain editable through low-friction native controls.
 
@@ -134,8 +132,9 @@ Settings exposes the current SMAppService Launch at Login state, appearance sele
 
 - Completing a Step checks and dims it without moving or hiding it.
 - Completing a Main Task removes it from active tasks and adds it to Recently Completed while synchronizing completion.
-- Recently Completed presents a small bounded view without destroying older local history. Restore behavior is unresolved under [OQ-003](OPEN_QUESTIONS.md#oq-003-restore-from-recently-completed).
+- Recently Completed presents the five newest completed Main Tasks without destroying older local history. It has no restore or uncomplete action in v1.
 - Deleting a Main Task must make the external deletion consequence clear enough to avoid surprise, then delete the Reminder and soft-delete local context.
+- EasyFlow keeps the five newest deleted Main Tasks. A sixth deletion purges the oldest task and its owned local data without exposing a Trash UI.
 - Quick Note deletion should protect against accidental loss without turning trash into a heavy workflow.
 
 ## Reminders exceptional state
@@ -144,7 +143,7 @@ Normal synchronization is quiet. Settings shows only Connected, Needs Access, Sy
 
 For unrated imports, Task Detail displays `Set effort` and four immediate buttons. Assignment updates Main presentation and persistence only; it never marks synchronized title/completion pending.
 
-`Recently Completed` renders at most five tasks, ordered by completion time descending with stable UUID tie ordering. This presentation limit does not purge history and does not resolve restore behavior.
+`Recently Completed` renders at most five tasks, ordered by completion time descending with stable UUID tie ordering. This presentation limit does not purge history.
 
 Task Description uses a native measured text view: 42 points when empty/short, content-driven growth and shrinkage, and a 156-point cap with internal scrolling beyond it.
 
@@ -154,7 +153,7 @@ Use native typography, SF Symbols, adaptive contrast, macOS materials, restraine
 
 ## Manual smoke scenarios
 
-Chunk A and later GUI work must document repeatable tests for:
+Use these repeatable manual checks for window-server behavior:
 
 1. edge crossing shorter than the dwell does nothing and does not steal focus;
 2. an intentional dwell reveals Main and accepts typing;

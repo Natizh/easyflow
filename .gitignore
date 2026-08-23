@@ -38,3 +38,4 @@ Secrets.swift
 *.log
 .idea/
 .vscode/
+.agent-context/
