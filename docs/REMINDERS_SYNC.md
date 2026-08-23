@@ -62,7 +62,7 @@ Implemented selection order is: resolved persisted writable identifier; otherwis
 Initial reconciliation fetches reminders from the dedicated list and compares them with local Main Task mappings:
 
 - mapped local/external pairs are reconciled for title, completion, and existence;
-- an unmapped Reminder in the list becomes a local Main Task with a new EasyFlow UUID and local default metadata pending any unresolved effort UX policy;
+- an unmapped Reminder in the list becomes a local Main Task with a new EasyFlow UUID and unrated effort until the user assigns `1...4` locally;
 - a local Main Task without a valid mapping is not automatically deleted; classify it for repair, recreation, or external-disappearance handling;
 - local `sortIndex` is retained, and imported tasks receive deterministic local positions without mirroring Reminders order;
 - enriched local metadata is never overwritten by external data that does not own it.
@@ -85,21 +85,22 @@ Update local presentation promptly, save the Reminder title asynchronously, and 
 
 Mark the Reminder complete and move the local task from active tasks to Recently Completed. Coordinate the operation so partial failure is visible and recoverable.
 
-### Restore
+### Completion is final
 
-No restore behavior exists until [OQ-003](OPEN_QUESTIONS.md#oq-003-restore-from-recently-completed) is resolved. If enabled, restoration must also uncomplete the Reminder.
+V1 has no restore or uncomplete operation. A completed Main Task and its Reminder remain completed.
 
 ### Delete
 
-Delete the external Reminder and soft-delete the local record with all enriched context retained. A transport/permission/identifier failure must not be interpreted as permission to physically erase local context.
+Mark external deletion pending and soft-delete the local record. Keep full enriched context only while the task is among the five newest deleted Main Tasks. When retention purges an older task, preserve a minimal deletion tombstone if EventKit still needs a retry. A transport, permission, or identifier failure does not erase one of the five retained task records.
 
 ## External changes
 
-EasyFlow observes EventKit store changes and schedules a coalesced reconciliation rather than high-frequency polling. It must eventually handle:
+EasyFlow observes EventKit store changes and schedules a coalesced reconciliation rather than high-frequency polling. It handles:
 
 - external rename → update the local title cache while preserving local metadata;
 - external completion → move the local task to Recently Completed;
-- external deletion → record deliberate disappearance and retain local metadata according to reconciliation/soft-delete policy;
+- external uncompletion of a completed task → keep the local task completed and mark the Reminder completed again;
+- external deletion → require two confirmed disappearances, then soft-delete locally under the five-item retention policy;
 - a new Reminder in the EasyFlow list → import as a Main Task with a new UUID and deterministic local order.
 
 Framework notifications indicate that data changed, not necessarily the exact semantic delta. Re-fetch and compare through the adapter; make repeated reconciliation safe.
@@ -116,6 +117,7 @@ Framework notifications indicate that data changed, not necessarily the exact se
 - EventKit change notifications are coalesced for 500 ms and trigger one full-list reconciliation; there is no polling.
 - A first full-list disappearance records a recoverable missing state; a second confirmed disappearance soft-deletes locally while preserving enriched metadata.
 - Pending create/update/delete and retry count persist across relaunch.
+- Full deleted-task records are limited to the newest five. A pending external delete for purged data retains only task UUID, Reminder identifier, deletion time, retry count, and a non-content error code until the Reminder is absent.
 
 ## Adapter and test seams
 

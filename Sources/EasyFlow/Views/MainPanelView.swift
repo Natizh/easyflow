@@ -350,9 +350,6 @@ private struct SettingsView: View {
             }
           }
         }
-        Text("Launch at login and advanced appearance are reserved for Production Polish.")
-          .font(.caption)
-          .foregroundStyle(.secondary)
       }
       .formStyle(.grouped)
     }

@@ -114,10 +114,28 @@ final class RemindersSyncCoordinator: ObservableObject {
     list: ReminderListSnapshot,
     externalItems: [ReminderItemSnapshot]
   ) async throws {
+    let deletionTombstones = try await repository.reminderDeletionTombstones()
     let states = try await repository.syncTaskStates()
     var externalByID = Dictionary(
       uniqueKeysWithValues: externalItems.map { ($0.calendarItemIdentifier, $0) }
     )
+
+    for tombstone in deletionTombstones {
+      try Task.checkCancellation()
+      guard externalByID.removeValue(forKey: tombstone.calendarItemIdentifier) != nil else {
+        try await repository.completeReminderDeletion(taskID: tombstone.taskID)
+        continue
+      }
+      do {
+        try adapter.deleteReminder(identifier: tombstone.calendarItemIdentifier)
+        try await repository.completeReminderDeletion(taskID: tombstone.taskID)
+      } catch {
+        try await repository.markReminderDeletionFailure(
+          taskID: tombstone.taskID,
+          code: "delete"
+        )
+      }
+    }
 
     for state in states {
       try Task.checkCancellation()
@@ -191,6 +209,16 @@ final class RemindersSyncCoordinator: ObservableObject {
     sync: ReminderSyncRecord,
     external: ReminderItemSnapshot
   ) async throws {
+    let external =
+      if task.completedAt != nil && !external.isCompleted {
+        try adapter.updateReminder(
+          identifier: external.calendarItemIdentifier,
+          title: external.title,
+          isCompleted: true
+        )
+      } else {
+        external
+      }
     guard let baselineTitle = sync.baselineTitle,
       let baselineCompleted = sync.baselineCompleted
     else {

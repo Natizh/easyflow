@@ -34,12 +34,10 @@ EasyFlow runs throughout a Mac session, so the invisible state must use very lit
 
 ## Visibility, activation, and displays
 
-- Normal use has no persistent primary window, no menu-bar icon, and ultimately no Dock icon.
-- A development-only Dock presence may be used for debugging if documented; it must not redefine production behavior.
-- EasyFlow starts automatically when the user logs in and Settings opens from the Main Panel.
+- Normal use has no persistent primary window, menu-bar icon, or Dock icon.
+- EasyFlow can start automatically at login through the setting in the Main Panel.
 - The preferred activation surface is the far-right outer edge of the rightmost display in the current arrangement, determined using the desktop coordinate system (for example, the `NSScreen` with the greatest `frame.maxX`).
-- Only if implementation proves that model technically infeasible may EasyFlow fall back to the right edge of the display containing the cursor; the limitation and fallback require documentation and user visibility.
-- The activation hot zone is intentionally narrow. Its exact width is a tuning parameter.
+- The activation hot zone is a 3-point strip at that outer edge.
 - Intentional activation requires approximately 300 ms in the hot zone. Minor empirical tuning is allowed, but the interaction must remain immediate and must not become arbitrarily slower.
 - An accidental activation closes immediately or effectively immediately when the cursor leaves.
 
@@ -49,7 +47,7 @@ EasyFlow overlays ordinary, maximized, fullscreen, and Space-hosted applications
 
 EasyFlow has a Main Panel at the right edge and one contextual Secondary Panel immediately to its left.
 
-The Main Panel occupies about 20% of the current display width, clamped to 360–520 points in Chunk A. The Secondary Panel uses the same responsive rule. These implementation values remain evidence-based tuning parameters under [OQ-008](docs/OPEN_QUESTIONS.md#oq-008-panel-width-constraints), not a reinterpretation of the one-fifth product target.
+The Main Panel occupies about 20% of the current display width, clamped to 360–520 points. The Secondary Panel uses the same responsive rule.
 
 The Main Panel contains, in order:
 
@@ -70,7 +68,7 @@ Panel motion is spatial and native: Main slides out from and retreats into the r
 
 Quick Notes form a low-friction capture inbox for temporary ideas, technical thoughts, fragments, scratch information, or context that may later belong to a Main Task. They are not the primary task-management system and should be easy to organize rather than becoming permanent clutter.
 
-After intentional activation, the user can type into Quick Note capture without another click. The capture field behaves as a native multiline note editor: `Return` inserts a newline, `Command+Return` explicitly commits the note and clears the composer, and a non-empty draft is preserved automatically and committed when capture ends. See [OQ-001](docs/OPEN_QUESTIONS.md#oq-001-quick-note-keyboard-semantics) and `docs/UX_BEHAVIOR.md` for the settled data-safety semantics.
+After intentional activation, the user can type into Quick Note capture without another click. The capture field behaves as a native multiline note editor: `Return` inserts a newline, `Command+Return` commits the note and clears the composer, and a non-empty draft is preserved automatically and committed when capture ends. See `docs/UX_BEHAVIOR.md` for the data-safety semantics.
 
 Each Quick Note contains an app-owned ID, optional explicit title, body, creation and update timestamps, local order, and optional deletion metadata. When no explicit title exists, the UI derives a label from the first meaningful words without modifying or truncating the stored body. Browsing shows the explicit/generated title, creation time/date, and enough preview text for recognition.
 
@@ -95,9 +93,9 @@ V1 does not add categories, tags, due dates, or a separate priority field.
 
 ### Creation and effort
 
-The small `+ New Task` control enters a low-friction inline title and compact `1...4` effort flow. No effort is silently defaulted; the task is finalized only after both a non-empty title and explicit effort exist. Creation currently persists locally; Chunk D will add corresponding Reminder creation and external association. See [OQ-002](docs/OPEN_QUESTIONS.md#oq-002-effort-during-main-task-creation).
+The small `+ New Task` control enters an inline title and compact `1...4` effort flow. No effort is silently defaulted; the task is finalized only after both a non-empty title and explicit effort exist. EasyFlow persists the task locally and creates the corresponding Reminder during synchronization.
 
-Effort is editable and may eventually use dots, a segmented indicator, a subtle bar, or another compact native representation. The visual is intentionally not frozen.
+Effort is editable and appears as a compact four-dot indicator.
 
 ### Ordering and appearance
 
@@ -140,9 +138,9 @@ Completing a Main Task:
 2. removes it from active Main Tasks;
 3. places it in `Recently Completed`.
 
-The visible `Recently Completed` area shows the five most recently completed Main Tasks, newest first. It shows all available when fewer than five exist and never deletes older local history. Restore/uncomplete behavior remains unresolved under [OQ-003](docs/OPEN_QUESTIONS.md#oq-003-restore-from-recently-completed).
+The visible `Recently Completed` area shows the five most recently completed Main Tasks, newest first. It shows all available when fewer than five exist and never deletes older local history. V1 has no restore or uncomplete action; completed tasks remain completed.
 
-Deleting a Main Task deletes its external Apple Reminder and soft-deletes its local record. Local Description, Steps, Attached Notes, styles, and metadata remain temporarily recoverable. The retention period is unresolved under [OQ-007](docs/OPEN_QUESTIONS.md#oq-007-deleted-item-retention).
+Deleting a Main Task deletes its external Apple Reminder and soft-deletes its local record. EasyFlow retains the five newest deleted Main Tasks. Deleting a sixth permanently purges the oldest by `deletedAt`; equal timestamps use UUID order, with the lowest UUID purged first. The purge transaction removes the task's Steps, Attached Notes, and sync record without affecting inbox Quick Notes or completed-task history. If EventKit deletion still needs a retry, EasyFlow retains only the Reminder identifier and non-content retry metadata in a tombstone until reconciliation succeeds. V1 has no Trash UI.
 
 Quick Notes are easy to delete without needless accidental data loss. A consistent soft-delete design is preferred when natural, but ordinary use must not feel burdened by trash management.
 
@@ -156,7 +154,7 @@ The synchronized Main Task core is:
 - completion state;
 - existence/deletion.
 
-EasyFlow creates, renames, completes, and deletes corresponding reminders. It also reconciles external renames, completions, deletions, and new reminders created directly in the dedicated list.
+EasyFlow creates, renames, completes, and deletes corresponding reminders. It also reconciles external renames, completions, deletions, and new reminders created directly in the dedicated list. Completion is final in v1: externally uncompleting the Reminder does not restore the EasyFlow task, and EasyFlow marks the Reminder completed again.
 
 Local-only data includes EasyFlow order/priority, effort, styles, Description, Steps and their state/notes, Attached Notes, Quick Notes, trash metadata, and panel/UI state. Apple Reminders ordering does not need to match EasyFlow ordering.
 
@@ -168,11 +166,11 @@ An imported task's Task Detail shows an obvious `Set effort` control with `1...4
 
 The Main Panel gear opens Settings with real controls for Standard/Frosted/Liquid Glass appearance, native Launch at Login, and Reminders connection/recovery. Current activation and panel geometry are shown as factual information rather than fake toggles.
 
-EasyFlow starts automatically at login through a native mechanism such as `SMAppService`. First run handles Reminders authorization, finding or creating the EasyFlow list, and launch-at-login configuration. Authorization states include not determined, authorized, denied/restricted, and unavailable/error. Permission is not repeatedly requested once decided, and a graceful local experience remains available where technically reasonable.
+EasyFlow can register as a login item through `SMAppService`, and Settings reflects whether macOS enabled it or requires approval. First run handles Reminders authorization and finding or creating the EasyFlow list. Authorization states include not determined, authorized, denied/restricted, and unavailable/error. Permission is not repeatedly requested once decided, and the local workspace remains available when Reminders access is denied.
 
 The baseline design uses system typography, SF Symbols, macOS materials, adaptive light/dark mode, native spacing, restrained translucency/shadows, continuous corners, subtle animation, and appropriate context menus. Avoid a web-dashboard look, Electron chrome, giant controls, gratuitous gradients, and excessive animation.
 
-Standard and Frosted appearances work on the minimum deployment target, macOS 14. macOS 26 is the primary development target and adds optional Liquid Glass. Reduce Transparency falls back to an opaque native surface, and Liquid Glass never gates functionality. See [OQ-004](docs/OPEN_QUESTIONS.md#oq-004-minimum-macos-deployment-target) and ADR-006.
+Standard and Frosted appearances work on the minimum deployment target, macOS 14. macOS 26 adds optional Liquid Glass. Reduce Transparency falls back to an opaque native surface, and Liquid Glass never gates functionality.
 
 ## Performance, privacy, and reliability
 
@@ -185,7 +183,7 @@ Standard and Frosted appearances work on the minimum deployment target, macOS 14
 
 ## Explicit v1 exclusions
 
-V1 excludes Notion sync, custom backend/server/webhooks, accounts, collaboration, iPhone/iPad apps, tags, categories, project hierarchies, complex grouping, due dates, calendar integration, recurring tasks, dependencies, nested Steps, percentage completion, EasyFlow notifications, global shortcuts, embedded AI, telemetry, analytics, advertising, social features, reporting, Kanban, and team features. See `docs/BACKLOG.md` for deferred ideas.
+V1 excludes Notion sync, custom backend/server/webhooks, accounts, collaboration, iPhone/iPad apps, tags, categories, project hierarchies, complex grouping, due dates, calendar integration, recurring tasks, dependencies, nested Steps, percentage completion, EasyFlow notifications, global shortcuts, embedded AI, telemetry, analytics, advertising, social features, reporting, Kanban, and team features.
 
 ## Definition of Done
 
@@ -200,7 +198,7 @@ EasyFlow v1 is done when the user can:
 7. hover tasks and switch Secondary Panel context immediately without reopening the whole surface;
 8. edit Description, create/reorder/complete/style one-level Steps, and add Step notes;
 9. move Quick Notes into Attached Notes below Steps;
-10. see completed Main Tasks in Recently Completed and retain soft-deleted local context temporarily;
+10. see completed Main Tasks in Recently Completed and retain only the five newest soft-deleted Main Tasks;
 11. use the overlay over fullscreen applications and across Spaces without shifting the underlying app;
 12. restart the app or Mac without losing local metadata;
 13. open Settings from the Main Panel and use a native baseline appearance, with optional newer effects where supported;

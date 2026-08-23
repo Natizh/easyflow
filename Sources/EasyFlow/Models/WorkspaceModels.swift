@@ -202,6 +202,18 @@ struct ReminderSyncRecord: Codable, Equatable, Sendable,
   var lastErrorCode: String?
 }
 
+struct ReminderDeletionTombstone: Codable, Equatable, Sendable,
+  FetchableRecord, MutablePersistableRecord
+{
+  static let databaseTableName = "reminderDeletionTombstone"
+
+  var taskID: UUID
+  var calendarItemIdentifier: String
+  var deletedAt: Date
+  var retryCount: Int
+  var lastErrorCode: String?
+}
+
 struct SyncTaskState: Equatable, Sendable {
   var task: MainTask
   var sync: ReminderSyncRecord?
