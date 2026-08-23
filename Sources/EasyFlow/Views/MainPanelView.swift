@@ -7,7 +7,7 @@ struct MainPanelView: View {
     VStack(alignment: .leading, spacing: 16) {
       quickNotes
       mainTasks
-      recentlyCompleted
+      collapseStripAndRecentlyCompleted
       Spacer(minLength: 4)
       footer
     }
@@ -22,6 +22,9 @@ struct MainPanelView: View {
     }
     .onPreferenceChange(QuickNotesGeometryPreferenceKey.self) {
       model.updateQuickNotesFrame($0)
+    }
+    .onPreferenceChange(SecondaryCollapseStripGeometryPreferenceKey.self) {
+      model.updateSecondaryCollapseStripFrame($0)
     }
     .onPreferenceChange(QuickNoteRowGeometryPreferenceKey.self) { geometries in
       model.updateQuickNoteRows(Array(geometries.values))
@@ -133,6 +136,28 @@ struct MainPanelView: View {
       }
     }
     .contentShape(Rectangle())
+  }
+
+  private var collapseStripAndRecentlyCompleted: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      secondaryCollapseStrip
+      recentlyCompleted
+    }
+  }
+
+  private var secondaryCollapseStrip: some View {
+    Color.clear
+      .frame(maxWidth: .infinity)
+      .frame(height: 22)
+      .contentShape(Rectangle())
+      .background {
+        GeometryReader { proxy in
+          Color.clear.preference(
+            key: SecondaryCollapseStripGeometryPreferenceKey.self,
+            value: proxy.frame(in: .named(MainPanelCoordinateSpace.name))
+          )
+        }
+      }
   }
 
   private var footer: some View {

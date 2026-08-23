@@ -49,7 +49,7 @@ final class PointerTrackingHostingView<Content: View>: NSHostingView<Content>,
   var onPointerMoved: ((CGPoint) -> Void)?
   var onTaskHover: ((UUID) -> Void)?
   var onQuickNotesHover: (() -> Void)?
-  var onEmptyMain: (() -> Void)?
+  var onSecondaryCollapseStrip: (() -> Void)?
   var onTaskDragChanged: ((UUID, Int) -> Void)?
   var onTaskDragCommitted: ((UUID, Int) -> Void)?
   var onTaskDragCancelled: (() -> Void)?
@@ -86,6 +86,11 @@ final class PointerTrackingHostingView<Content: View>: NSHostingView<Content>,
   func updateQuickNotesFrame(_ frame: CGRect?) {
     contextRouter.updateQuickNotesFrame(frame)
     InputDiagnostics.record("registered quickNotes frame=\(String(describing: frame))")
+  }
+
+  func updateSecondaryCollapseStripFrame(_ frame: CGRect?) {
+    contextRouter.updateSecondaryCollapseStripFrame(frame)
+    InputDiagnostics.record("registered secondaryCollapseStrip frame=\(String(describing: frame))")
   }
 
   func updateQuickNoteRows(_ rows: [MainTaskRowGeometry]) {
@@ -158,7 +163,11 @@ final class PointerTrackingHostingView<Content: View>: NSHostingView<Content>,
         InputDiagnostics.record(
           "mouseMoved point=\(NSStringFromPoint(point)) context=emptyMain"
         )
-        onEmptyMain?()
+      case .secondaryCollapseStrip:
+        InputDiagnostics.record(
+          "mouseMoved point=\(NSStringFromPoint(point)) context=secondaryCollapseStrip"
+        )
+        onSecondaryCollapseStrip?()
       case .traversal:
         InputDiagnostics.record(
           "mouseMoved point=\(NSStringFromPoint(point)) context=traversal"

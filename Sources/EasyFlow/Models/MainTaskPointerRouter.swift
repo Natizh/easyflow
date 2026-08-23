@@ -102,6 +102,7 @@ struct MainTaskPointerRouter: Equatable, Sendable {
 enum MainPanelPointerContext: Equatable, Sendable {
   case quickNotes
   case task(UUID)
+  case secondaryCollapseStrip
   case empty
   case traversal
 }
@@ -109,6 +110,7 @@ enum MainPanelPointerContext: Equatable, Sendable {
 struct MainPanelContextRouter: Equatable, Sendable {
   private(set) var rows: [MainTaskRowGeometry] = []
   private(set) var quickNotesFrame: CGRect?
+  private(set) var secondaryCollapseStripFrame: CGRect?
   private(set) var currentContext: MainPanelPointerContext?
 
   mutating func updateRows(_ newRows: [MainTaskRowGeometry]) {
@@ -117,6 +119,10 @@ struct MainPanelContextRouter: Equatable, Sendable {
 
   mutating func updateQuickNotesFrame(_ frame: CGRect?) {
     quickNotesFrame = frame
+  }
+
+  mutating func updateSecondaryCollapseStripFrame(_ frame: CGRect?) {
+    secondaryCollapseStripFrame = frame
   }
 
   mutating func update(
@@ -130,6 +136,8 @@ struct MainPanelContextRouter: Equatable, Sendable {
       next = .task(task.taskID)
     } else if quickNotesFrame?.contains(point) == true {
       next = .quickNotes
+    } else if secondaryCollapseStripFrame?.contains(point) == true {
+      next = .secondaryCollapseStrip
     } else if isBetweenAdjacentRows(point, tolerance: rowGapTolerance) {
       next = .traversal
     } else if point.x <= leftTraversalWidth,

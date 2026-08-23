@@ -20,6 +20,9 @@ final class PanelPresentationCoordinator {
   private let secondaryHostingView: PointerTrackingHostingView<SecondaryPanelView>
   private var currentLayout: PanelLayout?
 
+  static let secondaryOpenAnimationDuration: TimeInterval = 0.28
+  static let secondaryCloseAnimationDuration: TimeInterval = 0.35
+
   init(repository: WorkspaceRepository, remindersSync: RemindersSyncCoordinator) {
     viewModel = AppShellViewModel(
       repository: repository,
@@ -52,6 +55,9 @@ final class PanelPresentationCoordinator {
     viewModel.onQuickNotesFrameChanged = { [weak mainHostingView] frame in
       mainHostingView?.updateQuickNotesFrame(frame)
     }
+    viewModel.onSecondaryCollapseStripFrameChanged = { [weak mainHostingView] frame in
+      mainHostingView?.updateSecondaryCollapseStripFrame(frame)
+    }
     viewModel.onQuickNoteRowsChanged = { [weak mainHostingView] rows in
       mainHostingView?.updateQuickNoteRows(rows)
     }
@@ -77,8 +83,8 @@ final class PanelPresentationCoordinator {
     mainHostingView.onQuickNotesHover = { [weak viewModel] in
       viewModel?.routedQuickNotesHover()
     }
-    mainHostingView.onEmptyMain = { [weak viewModel] in
-      viewModel?.routedEmptyMain()
+    mainHostingView.onSecondaryCollapseStrip = { [weak viewModel] in
+      viewModel?.routedSecondaryCollapseStrip()
     }
     mainHostingView.onTaskDragChanged = { [weak viewModel] taskID, insertion in
       viewModel?.routedTaskDragChanged(taskID: taskID, insertionIndex: insertion)
@@ -192,7 +198,7 @@ final class PanelPresentationCoordinator {
     mainPanel.orderFrontRegardless()
     secondaryPanel.orderFrontRegardless()
     secondaryPanel.order(.above, relativeTo: mainPanel.windowNumber)
-    animate(duration: 0.20) {
+    animate(duration: Self.secondaryOpenAnimationDuration) {
       self.secondaryPanel.animator().setFrame(intent.targetFrame, display: true)
       self.secondaryPanel.animator().alphaValue = intent.targetAlpha
     } completion: {
@@ -214,7 +220,7 @@ final class PanelPresentationCoordinator {
       viewModel.secondaryContext = nil
       return
     }
-    animate(duration: 0.18) {
+    animate(duration: Self.secondaryCloseAnimationDuration) {
       self.secondaryPanel.animator().setFrame(
         self.secondaryHiddenFrame(for: currentLayout),
         display: true

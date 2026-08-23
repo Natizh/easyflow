@@ -102,7 +102,7 @@ AppKit/EventKit/SwiftUI event
 
 Local UI and persistence should update responsively. External Reminder work is asynchronous and represented with explicit pending/error/reconciliation states rather than blocking the main thread.
 
-Window motion uses centralized AppKit frame/opacity hooks: Main opens in 0.22 seconds from beyond the right edge; Secondary opens leftward in 0.20 seconds; closing uses 0.18 seconds. Context replacement changes only the SwiftUI model. Reduce Motion bypasses animation.
+Window motion uses centralized AppKit frame/opacity hooks: Main opens in 0.22 seconds from beyond the right edge; Secondary opens leftward in 0.28 seconds and retracts in 0.35 seconds; Main closing remains 0.18 seconds. Context replacement changes only the SwiftUI model. Reduce Motion bypasses animation.
 
 ## Persistence boundary
 

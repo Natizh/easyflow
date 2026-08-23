@@ -127,8 +127,9 @@ Revalidate with the stable development app:
 4. Repeat with movement below 4 points; confirm no reorder.
 5. Confirm checkbox, effort, right-click menu, wheel/trackpad scrolling, and Quick Note attachment still work.
 6. Press Escape during a genuine reorder; confirm no database order change.
-7. With Secondary open on a task or Quick Notes, move onto clearly empty Main background/footer space; confirm Secondary retracts immediately while Main stays open.
-8. Repeat Main→gap→Secondary traversal; confirm the bridge does not trigger the empty-Main collapse.
+7. With Secondary open on a task or Quick Notes, move around clearly empty Main background/footer space; confirm Secondary stays open.
+8. Cross the invisible strip immediately above Recently Completed; confirm Secondary retracts while Main stays open.
+9. Repeat Main→gap→Secondary traversal; confirm the bridge and Secondary pointer entry do not trigger a collapse.
 
 If input still fails, launch from Terminal with structural diagnostics:
 

@@ -30,6 +30,14 @@ struct QuickNotesGeometryPreferenceKey: PreferenceKey {
   }
 }
 
+struct SecondaryCollapseStripGeometryPreferenceKey: PreferenceKey {
+  static let defaultValue: CGRect? = nil
+
+  static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) {
+    if let next = nextValue() { value = next }
+  }
+}
+
 struct QuickNoteRowGeometryPreferenceKey: PreferenceKey {
   static let defaultValue: [UUID: MainTaskRowGeometry] = [:]
 

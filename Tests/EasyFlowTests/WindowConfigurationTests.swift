@@ -34,4 +34,14 @@ struct WindowConfigurationTests {
     #expect(!panel.hasShadow)
     #expect(!panel.isOpaque)
   }
+
+  @Test("Secondary uses calmer independent motion")
+  func secondaryAnimationTiming() {
+    #expect(PanelPresentationCoordinator.secondaryOpenAnimationDuration == 0.28)
+    #expect(PanelPresentationCoordinator.secondaryCloseAnimationDuration == 0.35)
+    #expect(
+      PanelPresentationCoordinator.secondaryCloseAnimationDuration
+        > PanelPresentationCoordinator.secondaryOpenAnimationDuration
+    )
+  }
 }

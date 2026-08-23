@@ -36,7 +36,7 @@ final class AppShellCoordinator {
       self?.process(.requestSecondary(context))
     }
     panelPresenter.onSecondaryCleared = { [weak self] in
-      self?.process(.clearSecondary)
+      self?.clearSecondaryIfCurrentPointerAllows()
     }
     panelPresenter.onSettingsPresentationChanged = { [weak self] isPresented in
       guard let self else { return }
@@ -108,6 +108,26 @@ final class AppShellCoordinator {
   private func process(_ event: PanelEvent) {
     let commands = stateMachine.handle(event)
     commands.forEach(execute)
+  }
+
+  private func clearSecondaryIfCurrentPointerAllows() {
+    guard let layout else { return }
+    let region = layout.pointerRegion(
+      at: NSEvent.mouseLocation,
+      secondaryIsVisible: stateMachine.state.isSecondaryPresented
+    )
+    if !Self.shouldApplySecondaryClear(latestPointerRegion: region) {
+      lastPointerRegion = region
+      process(.pointerChanged(region))
+      return
+    }
+    process(.clearSecondary)
+  }
+
+  nonisolated static func shouldApplySecondaryClear(latestPointerRegion region: PointerRegion)
+    -> Bool
+  {
+    region != .secondary && region != .bridge
   }
 
   private func execute(_ command: PanelCommand) {
