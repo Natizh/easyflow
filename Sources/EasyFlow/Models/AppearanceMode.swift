@@ -17,7 +17,9 @@ enum AppearanceMode: String, CaseIterable, Identifiable, Sendable {
 
   static var available: [AppearanceMode] {
     var modes: [AppearanceMode] = [.standard, .frosted]
-    if #available(macOS 26, *) { modes.append(.liquidGlass) }
+    #if compiler(>=6.2)
+      if #available(macOS 26, *) { modes.append(.liquidGlass) }
+    #endif
     return modes
   }
 }
