@@ -77,3 +77,21 @@ User-confirmed working before the fix round: physical far-right activation, visi
 User-confirmed defects before the fix round: misaligned Quick Note caret, no visible saved-note rows in Main, copy-style internal reorder semantics, insufficient vertical margins, no obvious Settings dismissal, and no observed Secondary Panel.
 
 The fixes are automated but require a new user pass: AppKit caret/text geometry, compact observed Main inbox, direct insertion-bar reorder, 8%-clamped vertical margins, Done/Escape/Command+W Settings dismissal, explicit contextual hover surfaces, Secondary z-order, and bridge traversal. Fullscreen, Spaces, multi-display, focus restoration, and the repaired user-visible flows remain unverified until manually exercised.
+
+## Chunk D Reminders checklist
+
+Build and launch the stable TCC identity with `./scripts/build-dev-app.sh` and `open .build/dev/EasyFlow.app`.
+
+1. Grant the fresh full-access Reminders prompt.
+2. Confirm the existing manually created writable `EasyFlow` list is selected and no duplicate appears.
+3. Create, rename, complete, and delete a local Main Task; verify the corresponding Reminder lifecycle.
+4. Create a Reminder manually in the list; verify import with `?` effort, assign `1...4` locally, and confirm no Reminder metadata changes.
+5. Rename, complete, and delete externally; verify local title, Recently Completed, and retained soft-deleted metadata.
+6. Relaunch and confirm list/task mappings persist without duplicate creation.
+7. Revoke access; confirm the local workspace remains usable and Settings shows recovery. Restore permission and retry.
+8. If available, repeat from another Apple device after iCloud propagation.
+9. After sync settles, measure hidden CPU/memory and confirm there is no polling.
+
+End-to-end user mutation scenarios and visual no-duplicate confirmation are not verified by the fake-adapter suite and remain manually incomplete.
+
+Development-bundle evidence (2026-08-23): the ad-hoc-signed `io.github.natizh.easyflow` app launched under a stable TCC identity, obtained access, persisted one Reminders list identifier, and reached two mappings with no pending mutation. The exact-list no-create path is automated; the user still needs to visually confirm that no duplicate list appeared. After synchronization settled, five one-second samples reported 0.0% CPU, about 22 MB resident memory, three threads, and unchanged accumulated CPU time; a three-second stack sample showed the main/event threads blocked idle.

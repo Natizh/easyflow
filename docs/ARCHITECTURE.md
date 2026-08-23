@@ -114,6 +114,8 @@ An EventKit adapter contains framework types and authorization/list operations. 
 
 Only title, completion, and existence cross the boundary. Enriched EasyFlow metadata never leaks into Reminder fields by convenience. See `docs/REMINDERS_SYNC.md` and ADR-003.
 
+`RemindersSyncCoordinator` serializes runs on the main actor, consumes adapter snapshots, coalesces store notifications, and persists baselines/pending mutations through `WorkspaceRepository`. The stable ad-hoc development bundle `io.github.natizh.easyflow` supplies `NSRemindersFullAccessUsageDescription`; raw SwiftPM build/test remains permission-independent.
+
 ## Concurrency
 
 - UI and AppKit window mutations run on the main actor.

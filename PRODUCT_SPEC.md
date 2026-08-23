@@ -89,7 +89,7 @@ A Main Task may own multiple Attached Notes.
 
 ## Main Tasks
 
-Main Tasks are high-level tasks and the only EasyFlow objects synchronized through Apple Reminders. Each has a short title, effort `1...4`, local sort position, optional text style, local Description, local Steps, local Attached Notes, and lifecycle metadata.
+Main Tasks are high-level tasks and the only EasyFlow objects synchronized through Apple Reminders. EasyFlow-created tasks require effort `1...4`; externally imported reminders may be unrated and display `?` until effort is assigned locally. Every task retains local order, optional style, Description, Steps, Attached Notes, and lifecycle metadata.
 
 V1 does not add categories, tags, due dates, or a separate priority field.
 
@@ -157,6 +157,8 @@ The synchronized Main Task core is:
 EasyFlow creates, renames, completes, and deletes corresponding reminders. It also reconciles external renames, completions, deletions, and new reminders created directly in the dedicated list.
 
 Local-only data includes EasyFlow order/priority, effort, styles, Description, Steps and their state/notes, Attached Notes, Quick Notes, trash metadata, and panel/UI state. Apple Reminders ordering does not need to match EasyFlow ordering.
+
+Imported unrated tasks remain fully usable and synchronizable. Effort is never encoded into Reminder priority, notes, URL, title, tags, or another EventKit field.
 
 ## Settings, permissions, and appearance
 

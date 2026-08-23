@@ -91,6 +91,8 @@ Acceptance: EasyFlow is useful as a complete local current-work workspace before
 
 Suggested branch: `feat/reminders-sync`
 
+Status: implemented on the bounded branch with v2 migration, stable development bundle/TCC identity, EventKit adapter, exact-list selection, durable mapping/retry state, serialized three-way reconciliation, external imports, and exceptional Settings state. Live user authorization remains manual verification.
+
 Implement:
 
 - EventKit authorization states and first-run flow;

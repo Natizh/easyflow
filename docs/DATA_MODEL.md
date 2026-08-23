@@ -10,7 +10,7 @@
 - Migrations are versioned, tested, and non-destructive to production data.
 - Database work must not block UI interaction.
 
-Chunk B implements migration `v1-local-workspace` with `mainTask`, `taskStep`, `workspaceNote`, `quickNoteDraft`, and `appSetting` tables. Any meaningful normalization change must update this document before or with implementation.
+Chunk B implements `v1-local-workspace`. Chunk D adds `v2-reminders-sync`, safely rebuilding `mainTask.effort` as nullable and adding `reminderSync`; existing rated values and child relationships migrate without reset.
 
 ## Conceptual relationships
 
@@ -39,7 +39,7 @@ Required concepts:
 | `id` | App-owned UUID and stable local identity |
 | `reminderIdentifier` | Optional current EventKit mapping; never sole identity |
 | `titleCache` | Local title used for responsive/offline presentation and reconciliation |
-| `effort` | Integer constrained to `1...4` |
+| `effort` | `NULL` only for externally imported unrated tasks; otherwise `1...4` |
 | `sortIndex` | Local authoritative priority/order among active tasks |
 | `textColor` / style | Optional cosmetic metadata |
 | `highlight` | Optional cosmetic metadata |
@@ -49,7 +49,7 @@ Required concepts:
 | `completedAt` | Optional completion timestamp |
 | `deletedAt` | Optional soft-deletion timestamp |
 
-The schema may keep external mapping fields in a dedicated table if reconciliation history requires it. The exact physical representation belongs to Chunk B/D design, but identifiers must be nullable and recoverable rather than assumed eternal.
+`reminderSync` is keyed by EasyFlow task UUID and stores current EventKit identifiers, origin, last successful title/completion baseline, external modification timestamp, sync-specific local-core update time, last success, pending create/update/delete, retry count, and a non-content error code. EventKit identifiers remain nullable/recoverable and never become local identity. `appSetting` stores the selected list identifier.
 
 ## Step
 
