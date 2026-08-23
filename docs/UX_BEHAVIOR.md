@@ -18,7 +18,7 @@ The preferred rightmost display is the screen with the greatest desktop-coordina
 | Hidden | App resident; no visible UI | Minimal idle activity; observe edge entry without a high-frequency render loop | Pointer enters hot zone → `PotentialActivation` |
 | PotentialActivation | Pointer enters narrow hot zone | Start approximately 300 ms dwell; do not expose UI or take focus on a mere crossing | Dwell completes → `MainVisible`; pointer exits → `Hidden` |
 | MainVisible | Intentional dwell completed | Reveal Main Panel and prepare Quick Note input | Pointer immediately abandons → `Hidden`; context hover → `SecondaryVisible`; editing/drag/settings → `Interacting` |
-| SecondaryVisible | Quick Notes or Main Task context active | Keep Main open; show one contextual Secondary Panel | Context changes → update in place; return to empty Main area → collapse Secondary; leave all regions after grace → staged closing |
+| SecondaryVisible | Quick Notes or Main Task context active | Keep Main open; show one contextual Secondary Panel | Context changes → update in place; explicit collapse strip above Recently Completed → collapse Secondary; leave all regions after grace → staged closing |
 | Interacting | Keyboard, click, edit, drag, or Settings interaction begins | Do not dismiss while the user is interacting; cancel stale hover/close timers | Interaction ends → appropriate visible state; explicit/qualified exit → staged closing |
 | StagedClosing | Pointer leaves after genuine Secondary interaction | Close Secondary first, then Main after a short grace interval under one second | Re-entry → cancel closing; timers complete → `Hidden` |
 
@@ -52,7 +52,7 @@ The persistence mechanics arrive with the local workspace chunk. Chunk A establi
 - The panels must remain available over maximized/fullscreen applications and across Spaces.
 - Each panel uses 20% of display width clamped to 360–520 points, with an 8-point outer margin/gap. These width constants remain subject only to evidence-based prototype tuning under [OQ-008](OPEN_QUESTIONS.md#oq-008-panel-width-constraints).
 - Real-device feedback replaces the original 12-point vertical inset with 8% of display height clamped to 64–96 points. Main and Secondary share identical vertical alignment and height, leaving a clearly visible band above and below.
-- Main visually slides from and back into the right edge. Secondary slides left from Main and retracts toward it. Context replacement within a visible Secondary updates in place without replaying the entrance transition. Reduce Motion uses immediate frame changes.
+- Main visually slides from and back into the right edge. Secondary slides left from Main and retracts toward it with calmer independent timing: about 0.28 seconds to open and 0.35 seconds to close. Context replacement within a visible Secondary updates in place without replaying the entrance transition. Reduce Motion uses immediate frame changes.
 
 ## Context switching
 
@@ -65,10 +65,11 @@ The persistence mechanics arrive with the local workspace chunk. Chunk A establi
 | Quick Notes → Task | Reuse Secondary and replace browser with task details |
 | Task → Quick Notes | Reuse Secondary and replace details with browser |
 | Secondary → another Main Task | Keep Main open and switch context |
-| Secondary → empty/non-contextual Main area | Collapse Secondary; keep Main open |
+| Secondary → empty/non-contextual Main area | Keep Secondary open |
+| Secondary → invisible collapse strip above Recently Completed | Collapse Secondary; keep Main open |
 | Main ↔ Secondary traversal | Do not dismiss during legitimate traversal |
 
-The AppKit Main-context router owns this distinction. Quick Notes and task row rectangles are contextual; empty background, section/footer space, and non-owned areas emit the central `clearSecondary` event immediately. Narrow gaps between adjacent task rows and leftward movement through the Main edge toward Secondary are traversal regions, so they never collapse the panel mid-crossing. `clearSecondary` transitions to engaged Main and issues only `hideSecondary`.
+The AppKit Main-context router owns this distinction. Quick Notes and task row rectangles are contextual. Empty background, section/footer space, gaps, and other non-owned areas do not clear Secondary. One invisible horizontal strip immediately above Recently Completed emits the central `clearSecondary` event; `clearSecondary` transitions to engaged Main and issues only `hideSecondary`. Narrow gaps between adjacent task rows and leftward movement through the Main edge toward Secondary are traversal regions, so they never collapse the panel mid-crossing.
 
 Quick Notes and every visible Main Task row are full contextual hover surfaces. The AppKit capture editor emits native hover entry. Secondary opens above Main at a nonzero visible start alpha, settles entirely inside the selected display directly left of Main, and content replacement never replays entrance.
 

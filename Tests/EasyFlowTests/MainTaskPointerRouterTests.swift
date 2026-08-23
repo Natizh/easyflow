@@ -65,12 +65,13 @@ struct MainTaskPointerRouterTests {
     #expect(cancelledMouseUp == nil)
   }
 
-  @Test("Main contextual regions distinguish Quick Notes, tasks, empty space, and traversal")
+  @Test("Main contextual regions distinguish Quick Notes, tasks, collapse strip, and empty space")
   func mainContextClassification() {
     var router = MainPanelContextRouter()
     let rows = configuredRouter().rows
     router.updateRows(rows)
     router.updateQuickNotesFrame(CGRect(x: 0, y: 140, width: 220, height: 90))
+    router.updateSecondaryCollapseStripFrame(CGRect(x: 0, y: 240, width: 220, height: 22))
 
     #expect(
       router.update(at: CGPoint(x: 80, y: 20), previousPoint: nil)
@@ -81,9 +82,27 @@ struct MainTaskPointerRouterTests {
         == .quickNotes
     )
     #expect(
-      router.update(at: CGPoint(x: 100, y: 260), previousPoint: CGPoint(x: 80, y: 160))
+      router.update(at: CGPoint(x: 100, y: 250), previousPoint: CGPoint(x: 80, y: 160))
+        == .secondaryCollapseStrip
+    )
+    #expect(
+      router.update(at: CGPoint(x: 100, y: 280), previousPoint: CGPoint(x: 100, y: 250))
         == .empty
     )
+  }
+
+  @Test("Generic empty Main space is not the collapse strip")
+  func emptyMainIsNotCollapseStrip() {
+    var router = MainPanelContextRouter()
+    router.updateRows(configuredRouter().rows)
+    router.updateQuickNotesFrame(CGRect(x: 0, y: 140, width: 220, height: 90))
+    router.updateSecondaryCollapseStripFrame(CGRect(x: 0, y: 240, width: 220, height: 22))
+
+    #expect(
+      router.update(at: CGPoint(x: 100, y: 300), previousPoint: nil)
+        == .empty
+    )
+    #expect(router.currentContext == .empty)
   }
 
   @Test("Row gaps and leftward bridge exit do not produce empty Main context")

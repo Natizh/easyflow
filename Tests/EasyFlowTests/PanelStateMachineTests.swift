@@ -129,8 +129,8 @@ struct PanelStateMachineTests {
     #expect(machine.state == .secondaryVisible(context: .quickNotes))
   }
 
-  @Test("Empty Main space collapses only Secondary")
-  func emptyMainCollapsesSecondaryOnly() {
+  @Test("Explicit collapse intent hides only Secondary")
+  func explicitCollapseHidesSecondaryOnly() {
     var machine = activatedMachine()
     _ = machine.handle(.requestSecondary(.quickNotes))
 
@@ -138,6 +138,53 @@ struct PanelStateMachineTests {
     #expect(machine.state == .mainVisible(isEngaged: true))
     #expect(machine.state.isMainPresented)
     #expect(!machine.state.isSecondaryPresented)
+  }
+
+  @Test("Secondary pointer entry cancels a pending dismissal")
+  func secondaryPointerCancelsPendingDismissal() {
+    var machine = activatedMachine()
+    _ = machine.handle(.requestSecondary(.quickNotes))
+    _ = machine.handle(.pointerChanged(.outside))
+
+    #expect(
+      machine.handle(.pointerChanged(.secondary)) == [
+        .cancel(timer: .secondaryDismissal)
+      ])
+    #expect(machine.state == .secondaryVisible(context: .quickNotes))
+    #expect(machine.handle(.secondaryDismissalElapsed).isEmpty)
+  }
+
+  @Test("Bridge to Secondary traversal remains stable")
+  func bridgeToSecondaryTraversalIsStable() {
+    var machine = activatedMachine()
+    _ = machine.handle(.requestSecondary(.quickNotes))
+
+    #expect(machine.handle(.pointerChanged(.bridge)).isEmpty)
+    #expect(machine.state == .secondaryVisible(context: .quickNotes))
+    #expect(machine.handle(.pointerChanged(.secondary)).isEmpty)
+    #expect(machine.state == .secondaryVisible(context: .quickNotes))
+  }
+
+  @Test("Stale Main collapse cannot win after pointer reaches Secondary or bridge")
+  func latestPointerLocationGatesStaleCollapse() {
+    #expect(!AppShellCoordinator.shouldApplySecondaryClear(latestPointerRegion: .secondary))
+    #expect(!AppShellCoordinator.shouldApplySecondaryClear(latestPointerRegion: .bridge))
+    #expect(AppShellCoordinator.shouldApplySecondaryClear(latestPointerRegion: .main))
+    #expect(AppShellCoordinator.shouldApplySecondaryClear(latestPointerRegion: .outside))
+  }
+
+  @Test("Context replacement does not change presented state")
+  func contextReplacementDoesNotReopenState() {
+    var machine = activatedMachine()
+    let first = UUID()
+    let second = UUID()
+
+    _ = machine.handle(.requestSecondary(.task(id: first)))
+    #expect(
+      machine.handle(.requestSecondary(.task(id: second))) == [
+        .showSecondary(.task(id: second))
+      ])
+    #expect(machine.state == .secondaryVisible(context: .task(id: second)))
   }
 
   private func activatedMachine() -> PanelStateMachine {

@@ -39,6 +39,7 @@ final class AppShellViewModel: ObservableObject {
   var onSettingsPresentationChanged: ((Bool) -> Void)?
   var onTaskRowsChanged: (([MainTaskRowGeometry]) -> Void)?
   var onQuickNotesFrameChanged: ((CGRect?) -> Void)?
+  var onSecondaryCollapseStripFrameChanged: ((CGRect?) -> Void)?
   var onQuickNoteRowsChanged: (([MainTaskRowGeometry]) -> Void)?
   var onStepRowsChanged: (([MainTaskRowGeometry]) -> Void)?
   var onStepExclusionsChanged: (([UUID: [CGRect]]) -> Void)?
@@ -154,6 +155,10 @@ final class AppShellViewModel: ObservableObject {
     onQuickNotesFrameChanged?(frame)
   }
 
+  func updateSecondaryCollapseStripFrame(_ frame: CGRect?) {
+    onSecondaryCollapseStripFrameChanged?(frame)
+  }
+
   func updateQuickNoteRows(_ rows: [MainTaskRowGeometry]) {
     onQuickNoteRowsChanged?(rows)
   }
@@ -176,8 +181,8 @@ final class AppShellViewModel: ObservableObject {
     requestSecondary(.quickNotes)
   }
 
-  func routedEmptyMain() {
-    InputDiagnostics.record("context=emptyMain clearSecondary")
+  func routedSecondaryCollapseStrip() {
+    InputDiagnostics.record("context=secondaryCollapseStrip clearSecondary")
     clearSecondary()
   }
 
