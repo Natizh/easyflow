@@ -14,6 +14,7 @@ final class FakeRemindersAdapter: RemindersAdapter {
   var updateReminderCount = 0
   var deleteReminderCount = 0
   var failCreateCount = 0
+  var failDeleteCount = 0
   var requestAccessCount = 0
   private var nextID = 1
 
@@ -83,6 +84,10 @@ final class FakeRemindersAdapter: RemindersAdapter {
 
   func deleteReminder(identifier: String) throws {
     deleteReminderCount += 1
+    if failDeleteCount > 0 {
+      failDeleteCount -= 1
+      throw CocoaError(.fileWriteUnknown)
+    }
     for listID in Array(itemsByList.keys) {
       itemsByList[listID]?.removeAll { $0.calendarItemIdentifier == identifier }
     }
@@ -327,6 +332,12 @@ struct RemindersSyncCoordinatorTests {
     #expect(adapter.itemsByList["real-list"]?.first?.title == "Renamed")
     #expect(adapter.itemsByList["real-list"]?.first?.isCompleted == true)
 
+    adapter.itemsByList["real-list"]?[0].isCompleted = false
+    coordinator.synchronize()
+    try await connected(coordinator)
+    #expect(adapter.itemsByList["real-list"]?.first?.isCompleted == true)
+    #expect(try await repository.snapshot().recentlyCompleted.map(\.id) == [task.id])
+
     try await repository.softDeleteMainTask(id: task.id)
     coordinator.synchronize()
     try await connected(coordinator)
@@ -366,6 +377,44 @@ struct RemindersSyncCoordinatorTests {
     coordinator.synchronize()
     try await connected(coordinator)
     #expect(adapter.itemsByList["real-list"]!.count == 1)
+  }
+
+  @Test("Purged task data leaves a minimal pending-delete retry tombstone")
+  func purgedTaskDeleteRetry() async throws {
+    let database = try AppDatabase(inMemoryNamed: UUID().uuidString)
+    let repository = WorkspaceRepository(database: database)
+    var tasks: [MainTask] = []
+    for index in 0..<6 {
+      tasks.append(
+        try await repository.createMainTask(title: "Delete \(index)", effort: .one)
+      )
+    }
+    let adapter = configuredAdapter()
+    let coordinator = RemindersSyncCoordinator(repository: repository, adapter: adapter)
+    coordinator.synchronize()
+    try await connected(coordinator)
+    #expect(adapter.itemsByList["real-list"]?.count == 6)
+
+    for task in tasks {
+      try await repository.softDeleteMainTask(id: task.id)
+    }
+    #expect(try await repository.syncTaskStates().count == 5)
+    #expect(try await repository.reminderDeletionTombstones().count == 1)
+
+    adapter.failDeleteCount = 1
+    coordinator.synchronize()
+    try await connected(coordinator)
+    let failedTombstone = try #require(
+      try await repository.reminderDeletionTombstones().first
+    )
+    #expect(failedTombstone.retryCount == 1)
+    #expect(adapter.itemsByList["real-list"]?.count == 1)
+
+    coordinator.synchronize()
+    try await connected(coordinator)
+    #expect(try await repository.reminderDeletionTombstones().isEmpty)
+    #expect(adapter.itemsByList["real-list"]?.isEmpty == true)
+    #expect(try await repository.syncTaskStates().count == 5)
   }
 
   @Test("Missing external item requires two full reconciliations before soft delete")
@@ -431,7 +480,7 @@ struct RemindersSyncCoordinatorTests {
 @Suite("Reminders migration")
 struct RemindersMigrationTests {
   @Test("v1 fixture migrates without data loss and allows unrated imports")
-  func v1ToV2() async throws {
+  func v1ToCurrent() async throws {
     let directory = FileManager.default.temporaryDirectory
       .appendingPathComponent(UUID().uuidString, isDirectory: true)
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -466,5 +515,116 @@ struct RemindersMigrationTests {
     #expect(tasks.count == 2)
     #expect(tasks.contains { $0.task.effort == nil })
     #expect(tasks.first(where: { $0.task.id == id })?.task.taskDescription == "Preserve")
+  }
+
+  @Test("v2 fixture enforces deleted-task retention during migration")
+  func v2DeletedTaskRetentionMigration() async throws {
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let path = directory.appendingPathComponent("migration.sqlite").path
+    let taskIDs = (1...7).map {
+      UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", $0))!
+    }
+    let purgedStepID = UUID()
+    let purgedAttachedNoteID = UUID()
+    let inboxNoteID = UUID()
+
+    do {
+      var configuration = Configuration()
+      configuration.foreignKeysEnabled = true
+      let queue = try DatabaseQueue(path: path, configuration: configuration)
+      try AppDatabase.migrator.migrate(queue, upTo: "v2-reminders-sync")
+      try await queue.write { database in
+        for (index, id) in taskIDs.enumerated() {
+          let timestamp = Date(timeIntervalSince1970: TimeInterval(index))
+          try database.execute(
+            sql: """
+              INSERT INTO mainTask (
+                id, reminderIdentifier, title, effort, sortIndex, taskDescription,
+                isUnderlined, createdAt, updatedAt, deletedAt
+              ) VALUES (?, ?, ?, 1, ?, ?, 0, ?, ?, ?)
+              """,
+            arguments: [
+              id, index == 0 ? "pending-delete" : nil, "Deleted \(index)", index,
+              "Local context", timestamp, timestamp, timestamp,
+            ]
+          )
+        }
+        try database.execute(
+          sql: """
+            INSERT INTO reminderSync (
+              taskID, calendarItemIdentifier, origin, baselineTitle,
+              baselineCompleted, localCoreUpdatedAt, pendingMutation,
+              retryCount, lastErrorCode
+            ) VALUES (?, ?, 'local', ?, 0, ?, 'delete', 2, 'delete')
+            """,
+          arguments: [
+            taskIDs[0], "pending-delete", "Deleted 0", Date(timeIntervalSince1970: 0),
+          ]
+        )
+        var step = TaskStep(
+          id: purgedStepID,
+          mainTaskID: taskIDs[0],
+          title: "Owned",
+          sortIndex: 0,
+          isCompleted: false,
+          notes: "",
+          textColor: nil,
+          highlightColor: nil,
+          isUnderlined: false,
+          createdAt: Date(timeIntervalSince1970: 0),
+          updatedAt: Date(timeIntervalSince1970: 0),
+          deletedAt: nil
+        )
+        try step.insert(database)
+        var attached = WorkspaceNote(
+          id: purgedAttachedNoteID,
+          title: nil,
+          body: "Owned",
+          mainTaskID: taskIDs[0],
+          sourceDraftRevision: nil,
+          sortIndex: 0,
+          createdAt: Date(timeIntervalSince1970: 0),
+          updatedAt: Date(timeIntervalSince1970: 0),
+          deletedAt: nil
+        )
+        try attached.insert(database)
+        var inbox = WorkspaceNote(
+          id: inboxNoteID,
+          title: nil,
+          body: "Independent",
+          mainTaskID: nil,
+          sourceDraftRevision: nil,
+          sortIndex: 0,
+          createdAt: Date(timeIntervalSince1970: 0),
+          updatedAt: Date(timeIntervalSince1970: 0),
+          deletedAt: nil
+        )
+        try inbox.insert(database)
+      }
+    }
+
+    let database = try AppDatabase(path: path)
+    let result = try await database.queue.read { db in
+      (
+        try UUID.fetchAll(
+          db,
+          sql: "SELECT id FROM mainTask WHERE deletedAt IS NOT NULL ORDER BY deletedAt, id"
+        ),
+        try TaskStep.fetchOne(db, key: purgedStepID),
+        try WorkspaceNote.fetchOne(db, key: purgedAttachedNoteID),
+        try WorkspaceNote.fetchOne(db, key: inboxNoteID),
+        try ReminderDeletionTombstone.fetchAll(db)
+      )
+    }
+    #expect(result.0 == Array(taskIDs.suffix(5)))
+    #expect(result.1 == nil)
+    #expect(result.2 == nil)
+    #expect(result.3?.body == "Independent")
+    #expect(result.4.count == 1)
+    #expect(result.4.first?.taskID == taskIDs[0])
+    #expect(result.4.first?.retryCount == 2)
   }
 }

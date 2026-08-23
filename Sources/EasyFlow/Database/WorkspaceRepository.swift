@@ -6,6 +6,8 @@ private final class ObservationTokenBox: @unchecked Sendable {
 }
 
 actor WorkspaceRepository {
+  static let deletedMainTaskRetentionLimit = 5
+
   private let database: AppDatabase
   private let now: @Sendable () -> Date
 
@@ -154,6 +156,7 @@ actor WorkspaceRepository {
         mutation: .delete,
         timestamp: timestamp
       )
+      try Self.enforceDeletedMainTaskRetention(in: database)
     }
   }
 
@@ -409,6 +412,30 @@ actor WorkspaceRepository {
     }
   }
 
+  func reminderDeletionTombstones() throws -> [ReminderDeletionTombstone] {
+    try database.queue.read { database in
+      try ReminderDeletionTombstone
+        .order(Column("deletedAt"), Column("taskID"))
+        .fetchAll(database)
+    }
+  }
+
+  func completeReminderDeletion(taskID: UUID) throws {
+    try database.queue.write { database in
+      _ = try ReminderDeletionTombstone.deleteOne(database, key: taskID)
+    }
+  }
+
+  func markReminderDeletionFailure(taskID: UUID, code: String) throws {
+    try database.queue.write { database in
+      guard var tombstone = try ReminderDeletionTombstone.fetchOne(database, key: taskID)
+      else { return }
+      tombstone.retryCount += 1
+      tombstone.lastErrorCode = code
+      try tombstone.update(database)
+    }
+  }
+
   func storedReminderListIdentifier() throws -> String? {
     try database.queue.read { database in
       try String.fetchOne(
@@ -502,8 +529,9 @@ actor WorkspaceRepository {
         throw WorkspaceError.taskNotFound
       }
       let timestamp = now()
+      let effectiveIsCompleted = isCompleted || task.completedAt != nil
       task.title = title
-      task.completedAt = isCompleted ? (task.completedAt ?? timestamp) : nil
+      task.completedAt = effectiveIsCompleted ? (task.completedAt ?? timestamp) : nil
       task.reminderIdentifier = calendarItemIdentifier
       task.updatedAt = timestamp
       try task.update(database)
@@ -526,7 +554,7 @@ actor WorkspaceRepository {
       sync.calendarItemIdentifier = calendarItemIdentifier
       sync.externalIdentifier = externalIdentifier
       sync.baselineTitle = title
-      sync.baselineCompleted = isCompleted
+      sync.baselineCompleted = effectiveIsCompleted
       sync.baselineExternalModifiedAt = externalModifiedAt
       sync.lastSuccessfulSyncAt = timestamp
       sync.pendingMutation = nil
@@ -548,6 +576,7 @@ actor WorkspaceRepository {
       guard var task = try MainTask.fetchOne(database, key: taskID) else {
         throw WorkspaceError.taskNotFound
       }
+      let effectiveIsCompleted = isCompleted || task.completedAt != nil
       task.reminderIdentifier = calendarItemIdentifier
       try task.update(database)
       var sync =
@@ -569,7 +598,7 @@ actor WorkspaceRepository {
       sync.calendarItemIdentifier = calendarItemIdentifier
       sync.externalIdentifier = externalIdentifier
       sync.baselineTitle = title
-      sync.baselineCompleted = isCompleted
+      sync.baselineCompleted = effectiveIsCompleted
       sync.baselineExternalModifiedAt = externalModifiedAt
       sync.lastSuccessfulSyncAt = now()
       sync.pendingMutation = nil
@@ -602,6 +631,7 @@ actor WorkspaceRepository {
         sync.lastSuccessfulSyncAt = timestamp
         try sync.update(database)
       }
+      try Self.enforceDeletedMainTaskRetention(in: database)
     }
   }
 
@@ -709,5 +739,39 @@ actor WorkspaceRepository {
     sync.pendingMutation = mutation
     sync.lastErrorCode = nil
     try sync.save(database)
+  }
+
+  private static func enforceDeletedMainTaskRetention(in database: Database) throws {
+    let deletedCount =
+      try MainTask
+      .filter(Column("deletedAt") != nil)
+      .fetchCount(database)
+    let purgeCount = deletedCount - deletedMainTaskRetentionLimit
+    guard purgeCount > 0 else { return }
+
+    let tasksToPurge =
+      try MainTask
+      .filter(Column("deletedAt") != nil)
+      .order(Column("deletedAt"), Column("id"))
+      .limit(purgeCount)
+      .fetchAll(database)
+
+    for task in tasksToPurge {
+      let sync = try ReminderSyncRecord.fetchOne(database, key: task.id)
+      if sync?.pendingMutation == .delete,
+        let calendarItemIdentifier = sync?.calendarItemIdentifier ?? task.reminderIdentifier,
+        let deletedAt = task.deletedAt
+      {
+        var tombstone = ReminderDeletionTombstone(
+          taskID: task.id,
+          calendarItemIdentifier: calendarItemIdentifier,
+          deletedAt: deletedAt,
+          retryCount: sync?.retryCount ?? 0,
+          lastErrorCode: sync?.lastErrorCode
+        )
+        try tombstone.save(database)
+      }
+      _ = try MainTask.deleteOne(database, key: task.id)
+    }
   }
 }

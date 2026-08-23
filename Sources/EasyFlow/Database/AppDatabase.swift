@@ -175,6 +175,54 @@ final class AppDatabase: @unchecked Sendable {
         columns: ["pendingMutation", "retryCount"]
       )
     }
+    migrator.registerMigration("v3-deleted-task-retention") { database in
+      try database.create(table: ReminderDeletionTombstone.databaseTableName) { table in
+        table.column("taskID", .text).primaryKey()
+        table.column("calendarItemIdentifier", .text).notNull().unique()
+        table.column("deletedAt", .datetime).notNull()
+        table.column("retryCount", .integer).notNull().defaults(to: 0)
+        table.column("lastErrorCode", .text)
+      }
+      try database.create(
+        index: "reminderDeletionTombstone_deletedAt",
+        on: ReminderDeletionTombstone.databaseTableName,
+        columns: ["deletedAt", "taskID"]
+      )
+
+      let excessDeletedTaskIDs = """
+        SELECT id
+        FROM mainTask
+        WHERE deletedAt IS NOT NULL
+        ORDER BY deletedAt DESC, id DESC
+        LIMIT -1 OFFSET 5
+        """
+      try database.execute(
+        sql: """
+          INSERT INTO reminderDeletionTombstone (
+            taskID, calendarItemIdentifier, deletedAt, retryCount, lastErrorCode
+          )
+          SELECT mainTask.id, reminderSync.calendarItemIdentifier,
+                 mainTask.deletedAt, reminderSync.retryCount, reminderSync.lastErrorCode
+          FROM mainTask
+          JOIN reminderSync ON reminderSync.taskID = mainTask.id
+          WHERE mainTask.id IN (\(excessDeletedTaskIDs))
+            AND reminderSync.pendingMutation = 'delete'
+            AND reminderSync.calendarItemIdentifier IS NOT NULL
+          """
+      )
+      try database.execute(
+        sql: "DELETE FROM taskStep WHERE mainTaskID IN (\(excessDeletedTaskIDs))"
+      )
+      try database.execute(
+        sql: "DELETE FROM workspaceNote WHERE mainTaskID IN (\(excessDeletedTaskIDs))"
+      )
+      try database.execute(
+        sql: "DELETE FROM reminderSync WHERE taskID IN (\(excessDeletedTaskIDs))"
+      )
+      try database.execute(
+        sql: "DELETE FROM mainTask WHERE id IN (\(excessDeletedTaskIDs))"
+      )
+    }
     return migrator
   }
 }
