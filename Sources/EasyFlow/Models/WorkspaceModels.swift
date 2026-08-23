@@ -37,7 +37,7 @@ struct MainTask: Codable, Equatable, Identifiable, Sendable,
   var id: UUID
   var reminderIdentifier: String?
   var title: String
-  var effort: Effort
+  var effort: Effort?
   var sortIndex: Int
   var taskDescription: String
   var textColor: StyleColor?
@@ -157,4 +157,39 @@ enum WorkspaceError: Error, Equatable {
   case stepNotFound
   case noteNotFound
   case invalidOrder
+}
+
+enum TaskOrigin: String, Codable, DatabaseValueConvertible, Sendable {
+  case local
+  case reminders
+}
+
+enum SyncPendingMutation: String, Codable, DatabaseValueConvertible, Sendable {
+  case create
+  case update
+  case delete
+}
+
+struct ReminderSyncRecord: Codable, Equatable, Sendable,
+  FetchableRecord, MutablePersistableRecord
+{
+  static let databaseTableName = "reminderSync"
+
+  var taskID: UUID
+  var calendarItemIdentifier: String?
+  var externalIdentifier: String?
+  var origin: TaskOrigin
+  var baselineTitle: String?
+  var baselineCompleted: Bool?
+  var baselineExternalModifiedAt: Date?
+  var localCoreUpdatedAt: Date
+  var lastSuccessfulSyncAt: Date?
+  var pendingMutation: SyncPendingMutation?
+  var retryCount: Int
+  var lastErrorCode: String?
+}
+
+struct SyncTaskState: Equatable, Sendable {
+  var task: MainTask
+  var sync: ReminderSyncRecord?
 }

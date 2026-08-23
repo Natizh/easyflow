@@ -23,7 +23,7 @@ struct MainPanelView: View {
       RoundedRectangle(cornerRadius: 22, style: .continuous)
         .strokeBorder(.white.opacity(0.10), lineWidth: 1)
     }
-    .sheet(isPresented: $model.isSettingsPresented) { SettingsView() }
+    .sheet(isPresented: $model.isSettingsPresented) { SettingsView(model: model) }
     .alert(
       "EasyFlow",
       isPresented: Binding(
@@ -259,22 +259,36 @@ private struct MainTaskRow: View {
 }
 
 struct EffortIndicator: View {
-  let effort: Effort
+  let effort: Effort?
 
   var body: some View {
-    HStack(spacing: 2) {
-      ForEach(1...4, id: \.self) { value in
-        Circle()
-          .fill(value <= effort.rawValue ? Color.accentColor : Color.secondary.opacity(0.2))
-          .frame(width: 5, height: 5)
+    Group {
+      if let effort {
+        HStack(spacing: 2) {
+          ForEach(1...4, id: \.self) { value in
+            Circle()
+              .fill(
+                value <= effort.rawValue
+                  ? Color.accentColor : Color.secondary.opacity(0.2)
+              )
+              .frame(width: 5, height: 5)
+          }
+        }
+        .accessibilityLabel("Effort \(effort.rawValue) of 4")
+      } else {
+        Text("?")
+          .font(.caption.weight(.bold))
+          .foregroundStyle(.secondary)
+          .help("Effort not set")
+          .accessibilityLabel("Effort not set")
       }
     }
-    .accessibilityLabel("Effort \(effort.rawValue) of 4")
   }
 }
 
 private struct SettingsView: View {
   @Environment(\.dismiss) private var dismiss
+  @ObservedObject var model: AppShellViewModel
 
   var body: some View {
     VStack(spacing: 0) {
@@ -293,6 +307,17 @@ private struct SettingsView: View {
           LabeledContent("Activation", value: "Far-right edge · 300 ms")
           LabeledContent("Panels", value: "20% · 360–520 pt")
           LabeledContent("Appearance", value: "Standard")
+          HStack {
+            Text("Reminders")
+            Spacer()
+            Text(remindersStatusLabel).foregroundStyle(.secondary)
+            if model.remindersStatus != .connected {
+              Button("Retry") { model.retryRemindersSync() }
+            }
+            if model.remindersStatus == .denied {
+              Button("Privacy Settings") { model.openRemindersPrivacySettings() }
+            }
+          }
         }
         Text("Launch at login and advanced appearance are reserved for Production Polish.")
           .font(.caption)
@@ -306,6 +331,18 @@ private struct SettingsView: View {
       Button("") { dismiss() }
         .keyboardShortcut("w", modifiers: .command)
         .hidden()
+    }
+  }
+
+  private var remindersStatusLabel: String {
+    switch model.remindersStatus {
+    case .connected: "Connected"
+    case .needsAccess: "Needs Access"
+    case .requesting: "Requesting…"
+    case .synchronizing: "Synchronizing…"
+    case .denied: "Access Denied"
+    case .ambiguousList: "Multiple EasyFlow Lists"
+    case .error: "Error"
     }
   }
 }

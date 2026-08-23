@@ -71,6 +71,13 @@ actor WorkspaceRepository {
         deletedAt: nil
       )
       try task.insert(database)
+      try Self.markPending(
+        database,
+        taskID: task.id,
+        origin: .local,
+        mutation: .create,
+        timestamp: timestamp
+      )
       return task
     }
   }
@@ -100,6 +107,15 @@ actor WorkspaceRepository {
       }
       task.updatedAt = now()
       try task.update(database)
+      if title != nil {
+        try Self.markPending(
+          database,
+          taskID: task.id,
+          origin: .local,
+          mutation: .update,
+          timestamp: task.updatedAt
+        )
+      }
     }
   }
 
@@ -112,6 +128,13 @@ actor WorkspaceRepository {
       task.completedAt = timestamp
       task.updatedAt = timestamp
       try task.update(database)
+      try Self.markPending(
+        database,
+        taskID: task.id,
+        origin: .local,
+        mutation: .update,
+        timestamp: timestamp
+      )
     }
   }
 
@@ -124,6 +147,13 @@ actor WorkspaceRepository {
       task.deletedAt = timestamp
       task.updatedAt = timestamp
       try task.update(database)
+      try Self.markPending(
+        database,
+        taskID: task.id,
+        origin: .local,
+        mutation: .delete,
+        timestamp: timestamp
+      )
     }
   }
 
@@ -370,6 +400,211 @@ actor WorkspaceRepository {
     }
   }
 
+  func syncTaskStates() throws -> [SyncTaskState] {
+    try database.queue.read { database in
+      let tasks = try MainTask.order(Column("createdAt"), Column("id")).fetchAll(database)
+      let records = try ReminderSyncRecord.fetchAll(database)
+      let recordsByTask = Dictionary(uniqueKeysWithValues: records.map { ($0.taskID, $0) })
+      return tasks.map { SyncTaskState(task: $0, sync: recordsByTask[$0.id]) }
+    }
+  }
+
+  func storedReminderListIdentifier() throws -> String? {
+    try database.queue.read { database in
+      try String.fetchOne(
+        database,
+        sql: "SELECT value FROM appSetting WHERE key = ?",
+        arguments: ["reminders.listIdentifier"]
+      )
+    }
+  }
+
+  func storeReminderListIdentifier(_ identifier: String) throws {
+    try database.queue.write { database in
+      try database.execute(
+        sql: """
+          INSERT INTO appSetting (key, value, updatedAt) VALUES (?, ?, ?)
+          ON CONFLICT(key) DO UPDATE SET value = excluded.value, updatedAt = excluded.updatedAt
+          """,
+        arguments: ["reminders.listIdentifier", identifier, now()]
+      )
+    }
+  }
+
+  @discardableResult
+  func importReminder(
+    title: String,
+    isCompleted: Bool,
+    calendarItemIdentifier: String,
+    externalIdentifier: String?,
+    externalModifiedAt: Date?
+  ) throws -> MainTask {
+    let timestamp = now()
+    return try database.queue.write { database in
+      if let mapping =
+        try ReminderSyncRecord
+        .filter(Column("calendarItemIdentifier") == calendarItemIdentifier)
+        .fetchOne(database),
+        let existing = try MainTask.fetchOne(database, key: mapping.taskID)
+      {
+        return existing
+      }
+      let nextIndex = try Self.nextSortIndex(
+        in: database,
+        table: MainTask.databaseTableName,
+        predicate: "deletedAt IS NULL AND completedAt IS NULL"
+      )
+      var task = MainTask(
+        id: UUID(),
+        reminderIdentifier: calendarItemIdentifier,
+        title: title,
+        effort: nil,
+        sortIndex: nextIndex,
+        taskDescription: "",
+        textColor: nil,
+        highlightColor: nil,
+        isUnderlined: false,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        completedAt: isCompleted ? timestamp : nil,
+        deletedAt: nil
+      )
+      try task.insert(database)
+      var sync = ReminderSyncRecord(
+        taskID: task.id,
+        calendarItemIdentifier: calendarItemIdentifier,
+        externalIdentifier: externalIdentifier,
+        origin: .reminders,
+        baselineTitle: title,
+        baselineCompleted: isCompleted,
+        baselineExternalModifiedAt: externalModifiedAt,
+        localCoreUpdatedAt: timestamp,
+        lastSuccessfulSyncAt: timestamp,
+        pendingMutation: nil,
+        retryCount: 0,
+        lastErrorCode: nil
+      )
+      try sync.insert(database)
+      return task
+    }
+  }
+
+  func applyExternalCore(
+    taskID: UUID,
+    title: String,
+    isCompleted: Bool,
+    calendarItemIdentifier: String,
+    externalIdentifier: String?,
+    externalModifiedAt: Date?
+  ) throws {
+    try database.queue.write { database in
+      guard var task = try MainTask.fetchOne(database, key: taskID) else {
+        throw WorkspaceError.taskNotFound
+      }
+      let timestamp = now()
+      task.title = title
+      task.completedAt = isCompleted ? (task.completedAt ?? timestamp) : nil
+      task.reminderIdentifier = calendarItemIdentifier
+      task.updatedAt = timestamp
+      try task.update(database)
+      var sync =
+        try ReminderSyncRecord.fetchOne(database, key: taskID)
+        ?? ReminderSyncRecord(
+          taskID: taskID,
+          calendarItemIdentifier: nil,
+          externalIdentifier: nil,
+          origin: .reminders,
+          baselineTitle: nil,
+          baselineCompleted: nil,
+          baselineExternalModifiedAt: nil,
+          localCoreUpdatedAt: timestamp,
+          lastSuccessfulSyncAt: nil,
+          pendingMutation: nil,
+          retryCount: 0,
+          lastErrorCode: nil
+        )
+      sync.calendarItemIdentifier = calendarItemIdentifier
+      sync.externalIdentifier = externalIdentifier
+      sync.baselineTitle = title
+      sync.baselineCompleted = isCompleted
+      sync.baselineExternalModifiedAt = externalModifiedAt
+      sync.lastSuccessfulSyncAt = timestamp
+      sync.pendingMutation = nil
+      sync.retryCount = 0
+      sync.lastErrorCode = nil
+      try sync.save(database)
+    }
+  }
+
+  func markSyncSuccess(
+    taskID: UUID,
+    calendarItemIdentifier: String,
+    externalIdentifier: String?,
+    title: String,
+    isCompleted: Bool,
+    externalModifiedAt: Date?
+  ) throws {
+    try database.queue.write { database in
+      guard var task = try MainTask.fetchOne(database, key: taskID) else {
+        throw WorkspaceError.taskNotFound
+      }
+      task.reminderIdentifier = calendarItemIdentifier
+      try task.update(database)
+      var sync =
+        try ReminderSyncRecord.fetchOne(database, key: taskID)
+        ?? ReminderSyncRecord(
+          taskID: taskID,
+          calendarItemIdentifier: nil,
+          externalIdentifier: nil,
+          origin: .local,
+          baselineTitle: nil,
+          baselineCompleted: nil,
+          baselineExternalModifiedAt: nil,
+          localCoreUpdatedAt: now(),
+          lastSuccessfulSyncAt: nil,
+          pendingMutation: nil,
+          retryCount: 0,
+          lastErrorCode: nil
+        )
+      sync.calendarItemIdentifier = calendarItemIdentifier
+      sync.externalIdentifier = externalIdentifier
+      sync.baselineTitle = title
+      sync.baselineCompleted = isCompleted
+      sync.baselineExternalModifiedAt = externalModifiedAt
+      sync.lastSuccessfulSyncAt = now()
+      sync.pendingMutation = nil
+      sync.retryCount = 0
+      sync.lastErrorCode = nil
+      try sync.save(database)
+    }
+  }
+
+  func markSyncFailure(taskID: UUID, code: String) throws {
+    try database.queue.write { database in
+      guard var sync = try ReminderSyncRecord.fetchOne(database, key: taskID) else {
+        return
+      }
+      sync.retryCount += 1
+      sync.lastErrorCode = code
+      try sync.update(database)
+    }
+  }
+
+  func confirmExternalDeletion(taskID: UUID) throws {
+    try database.queue.write { database in
+      guard var task = try MainTask.fetchOne(database, key: taskID) else { return }
+      let timestamp = now()
+      task.deletedAt = timestamp
+      task.updatedAt = timestamp
+      try task.update(database)
+      if var sync = try ReminderSyncRecord.fetchOne(database, key: taskID) {
+        sync.pendingMutation = nil
+        sync.lastSuccessfulSyncAt = timestamp
+        try sync.update(database)
+      }
+    }
+  }
+
   private static func fetchSnapshot(_ database: Database) throws -> WorkspaceSnapshot {
     let activeTasks =
       try MainTask
@@ -445,5 +680,34 @@ actor WorkspaceRepository {
         arguments: [index, timestamp, id]
       )
     }
+  }
+
+  private static func markPending(
+    _ database: Database,
+    taskID: UUID,
+    origin: TaskOrigin,
+    mutation: SyncPendingMutation,
+    timestamp: Date
+  ) throws {
+    var sync =
+      try ReminderSyncRecord.fetchOne(database, key: taskID)
+      ?? ReminderSyncRecord(
+        taskID: taskID,
+        calendarItemIdentifier: nil,
+        externalIdentifier: nil,
+        origin: origin,
+        baselineTitle: nil,
+        baselineCompleted: nil,
+        baselineExternalModifiedAt: nil,
+        localCoreUpdatedAt: timestamp,
+        lastSuccessfulSyncAt: nil,
+        pendingMutation: nil,
+        retryCount: 0,
+        lastErrorCode: nil
+      )
+    sync.localCoreUpdatedAt = timestamp
+    sync.pendingMutation = mutation
+    sync.lastErrorCode = nil
+    try sync.save(database)
   }
 }

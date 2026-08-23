@@ -61,6 +61,15 @@ swift run EasyFlow
 
 GitHub Actions runs deterministic build and test checks on pushes to `main` and pull requests.
 
+For real Reminders authorization, build a stable ad-hoc-signed development app with:
+
+```sh
+./scripts/build-dev-app.sh
+open .build/dev/EasyFlow.app
+```
+
+The development bundle uses identifier `io.github.natizh.easyflow` and includes the required full-access Reminders usage description. Release signing, notarization, and packaging remain Chunk E.
+
 The automated Chunk A suite covers state transitions, timing commands, display selection, responsive geometry, traversal, AppKit window configuration, and prepared EventKit/ServiceManagement boundaries. Physical pointer activation, focus restoration, fullscreen, Spaces, and multi-display behavior require the manual checklist; compilation is not treated as proof of those behaviors.
 
 ## Development workflow

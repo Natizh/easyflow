@@ -123,6 +123,10 @@ Settings provides a visible `Done` control, Escape dismissal, and Command+W dism
 - Deleting a Main Task must make the external deletion consequence clear enough to avoid surprise, then delete the Reminder and soft-delete local context.
 - Quick Note deletion should protect against accidental loss without turning trash into a heavy workflow.
 
+## Reminders exceptional state
+
+Normal synchronization is quiet. Settings shows only Connected, Needs Access, Synchronizing, Access Denied, ambiguity, or error/retry state. Tasks imported from Reminders show a compact `?` with “Effort not set”; Task Detail offers `1...4`, and assignment remains local.
+
 ## Appearance and accessibility
 
 Use native typography, SF Symbols, adaptive contrast, macOS materials, restrained animation, context menus, continuous corners, and light/dark mode. Standard appearance is the baseline; newer Liquid Glass behavior is optional when available. Controls, focus indicators, VoiceOver labels, keyboard navigation where appropriate, reduced motion, and sufficient contrast are part of production polish.

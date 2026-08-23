@@ -55,7 +55,7 @@ Do not repeatedly prompt after authorization has been decided.
 4. If no suitable list exists, create it in an available writable Reminders source and persist its identifier.
 5. If the source/list is unavailable or duplicated ambiguously, stop destructive reconciliation and present a recoverable state rather than guessing.
 
-The exact duplicate-list choice should be documented during EventKit implementation based on API behavior; it must prioritize preservation over destructive convenience.
+Implemented selection order is: resolved persisted writable identifier; otherwise exactly one writable exact-name `EasyFlow` list; otherwise create only when none exists; otherwise stop with ambiguity. The user's manually created single list is reused when discovered and is never duplicated by that path.
 
 ## Initial import and reconciliation
 
@@ -67,7 +67,9 @@ Initial reconciliation fetches reminders from the dedicated list and compares th
 - local `sortIndex` is retained, and imported tasks receive deterministic local positions without mirroring Reminders order;
 - enriched local metadata is never overwritten by external data that does not own it.
 
-Conflict precedence for simultaneous title/completion changes must be documented against available EventKit timestamps and behavior during Chunk D. Until then, reconciliation must be conservative, idempotent, and non-destructive rather than inventing a hidden last-writer policy.
+Three-way reconciliation compares local synchronized core, the last successful baseline, and the current external snapshot per field. One-sided changes propagate; equal concurrent changes advance the baseline; different concurrent changes use sync-specific local-core time and EventKit modification time only when reliable. Missing evidence becomes a retained conflict/error rather than silent overwrite.
+
+External imports append deterministically with `effort = NULL` and origin `reminders`. Equal titles never imply identity. Existing local active and completed tasks without mappings create distinct reminders.
 
 ## EasyFlow-originated mutations
 
@@ -111,6 +113,9 @@ Framework notifications indicate that data changed, not necessarily the exact se
 - Never log Reminder titles or task/note bodies in production diagnostics.
 - Never synchronize local-only fields by accident.
 - Reconciliation runs are serialized and idempotent.
+- EventKit change notifications are coalesced for 500 ms and trigger one full-list reconciliation; there is no polling.
+- A first full-list disappearance records a recoverable missing state; a second confirmed disappearance soft-deletes locally while preserving enriched metadata.
+- Pending create/update/delete and retry count persist across relaunch.
 
 ## Adapter and test seams
 
