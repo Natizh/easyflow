@@ -21,12 +21,8 @@ struct SecondaryPanelView: View {
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     .coordinateSpace(name: SecondaryPanelCoordinateSpace.name)
     .padding(20)
-    .background(.ultraThinMaterial)
-    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-    .overlay {
-      RoundedRectangle(cornerRadius: 22, style: .continuous)
-        .strokeBorder(.white.opacity(0.10), lineWidth: 1)
-    }
+    .easyFlowPanelSurface(model.appearanceMode)
+    .tint(EasyFlowBrand.indigo)
     .onTapGesture { model.registerInteraction() }
     .onPreferenceChange(StepRowGeometryPreferenceKey.self) { geometries in
       model.updateStepRows(Array(geometries.values))
@@ -299,6 +295,8 @@ private struct StepRow: View {
     .opacity(step.isCompleted ? 0.52 : 1)
     .padding(8)
     .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel("Step: \(step.title)")
     .background {
       GeometryReader { proxy in
         let frame = proxy.frame(in: .named(SecondaryPanelCoordinateSpace.name))

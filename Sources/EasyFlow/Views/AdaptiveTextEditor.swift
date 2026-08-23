@@ -39,6 +39,7 @@ struct AdaptiveTextEditor: NSViewRepresentable {
     textView.textContainer?.lineFragmentPadding = 0
     textView.textContainer?.widthTracksTextView = true
     textView.string = text
+    textView.setAccessibilityLabel("Task Description")
     scrollView.documentView = textView
     context.coordinator.textView = textView
     context.coordinator.scrollView = scrollView

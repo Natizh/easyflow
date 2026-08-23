@@ -38,6 +38,50 @@ struct WorkspaceViewModelTests {
     #expect(states == [true, false])
   }
 
+  @Test("Routed Quick Note drag attaches the same note transactionally")
+  func routedNoteAttachment() async throws {
+    let repository = WorkspaceRepository(
+      database: try AppDatabase(inMemoryNamed: UUID().uuidString)
+    )
+    let task = try await repository.createMainTask(title: "Target", effort: .one)
+    let note = try #require(
+      try await repository.commitDraft(body: "Move me", revision: UUID())
+    )
+    let model = AppShellViewModel(repository: repository)
+    model.routedNoteDragCommitted(
+      noteID: note.id,
+      insertionIndex: nil,
+      taskTargetID: task.id
+    )
+    try await eventually {
+      let snapshot = try await repository.snapshot()
+      return snapshot.quickNotes.isEmpty
+        && snapshot.attachedNotesByTask[task.id]?.first?.id == note.id
+    }
+  }
+
+  @Test("Routed Step drag commits one geometry-derived order")
+  func routedStepReorder() async throws {
+    let repository = WorkspaceRepository(
+      database: try AppDatabase(inMemoryNamed: UUID().uuidString)
+    )
+    let task = try await repository.createMainTask(title: "Task", effort: .two)
+    let first = try await repository.createStep(mainTaskID: task.id, title: "First")
+    let second = try await repository.createStep(mainTaskID: task.id, title: "Second")
+    let model = AppShellViewModel(repository: repository)
+    model.start()
+    try await eventually {
+      model.snapshot.stepsByTask[task.id]?.count == 2
+    }
+    model.secondaryContext = .task(id: task.id)
+    model.routedStepDragCommitted(stepID: first.id, insertionIndex: 2)
+    try await eventually {
+      try await repository.snapshot().stepsByTask[task.id]?.map(\.id)
+        == [second.id, first.id]
+    }
+    model.stop()
+  }
+
   @Test("Main Task composer has no hidden effort default")
   func taskRequiresExplicitEffort() async throws {
     let repository = WorkspaceRepository(

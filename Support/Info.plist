@@ -10,6 +10,8 @@
   <string>io.github.natizh.easyflow</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
+  <key>CFBundleIconFile</key>
+  <string>EasyFlow</string>
   <key>CFBundleName</key>
   <string>EasyFlow</string>
   <key>CFBundlePackageType</key>

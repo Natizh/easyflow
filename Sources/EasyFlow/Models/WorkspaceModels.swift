@@ -159,6 +159,19 @@ enum WorkspaceError: Error, Equatable {
   case invalidOrder
 }
 
+extension WorkspaceError: LocalizedError {
+  var errorDescription: String? {
+    switch self {
+    case .emptyTitle: "Enter a title first."
+    case .emptyNote: "The note is empty."
+    case .taskNotFound: "That task is no longer available."
+    case .stepNotFound: "That step is no longer available."
+    case .noteNotFound: "That note is no longer available."
+    case .invalidOrder: "The list changed while you were reordering it. Try again."
+    }
+  }
+}
+
 enum TaskOrigin: String, Codable, DatabaseValueConvertible, Sendable {
   case local
   case reminders

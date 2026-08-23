@@ -26,6 +26,12 @@ final class AppShellViewModel: ObservableObject {
   @Published private(set) var routedNoteAttachmentTargetID: UUID?
   @Published private(set) var routedStepDragID: UUID?
   @Published private(set) var routedStepInsertionIndex: Int?
+  @Published var appearanceMode: AppearanceMode {
+    didSet {
+      UserDefaults.standard.set(appearanceMode.rawValue, forKey: "appearanceMode")
+    }
+  }
+  @Published private(set) var launchAtLoginStatus: LaunchAtLoginStatus
 
   var onInteraction: (() -> Void)?
   var onSecondaryRequested: ((SecondaryPanelContext) -> Void)?
@@ -39,6 +45,7 @@ final class AppShellViewModel: ObservableObject {
 
   private let repository: WorkspaceRepository
   private let remindersSync: RemindersSyncCoordinator
+  private let launchAtLoginService: LaunchAtLoginService
   private var remindersStatusCancellable: AnyCancellable?
   private var observationTask: Task<Void, Never>?
   private var draftSaveTask: Task<Void, Never>?
@@ -57,6 +64,12 @@ final class AppShellViewModel: ObservableObject {
         adapter: DisabledRemindersAdapter()
       )
     self.remindersSync = sync
+    launchAtLoginService = LaunchAtLoginService()
+    launchAtLoginStatus = launchAtLoginService.status
+    appearanceMode =
+      AppearanceMode(
+        rawValue: UserDefaults.standard.string(forKey: "appearanceMode") ?? "standard"
+      ) ?? .standard
     remindersStatus = sync.status
     remindersStatusCancellable = sync.$status.sink { [weak self] in
       self?.remindersStatus = $0
@@ -98,6 +111,20 @@ final class AppShellViewModel: ObservableObject {
 
   func openRemindersPrivacySettings() {
     EventKitRemindersAdapter.openPrivacySettings()
+  }
+
+  func refreshLaunchAtLoginStatus() {
+    launchAtLoginStatus = launchAtLoginService.status
+  }
+
+  func setLaunchAtLogin(_ isEnabled: Bool) {
+    do {
+      try launchAtLoginService.setEnabled(isEnabled)
+      refreshLaunchAtLoginStatus()
+    } catch {
+      errorMessage = "EasyFlow couldn't update Launch at Login."
+      refreshLaunchAtLoginStatus()
+    }
   }
 
   func requestQuickNoteFocus() {

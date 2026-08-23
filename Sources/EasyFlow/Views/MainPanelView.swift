@@ -14,12 +14,8 @@ struct MainPanelView: View {
     .padding(20)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     .coordinateSpace(name: MainPanelCoordinateSpace.name)
-    .background(.ultraThinMaterial)
-    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-    .overlay {
-      RoundedRectangle(cornerRadius: 22, style: .continuous)
-        .strokeBorder(.white.opacity(0.10), lineWidth: 1)
-    }
+    .easyFlowPanelSurface(model.appearanceMode)
+    .tint(EasyFlowBrand.indigo)
     .sheet(isPresented: $model.isSettingsPresented) { SettingsView(model: model) }
     .onPreferenceChange(MainTaskGeometryPreferenceKey.self) { geometries in
       model.updateTaskRows(Array(geometries.values))
@@ -141,7 +137,7 @@ struct MainPanelView: View {
 
   private var footer: some View {
     HStack {
-      Text("Local Workspace").font(.caption2).foregroundStyle(.tertiary)
+      EasyFlowMark()
       Spacer()
       Button {
         model.isSettingsPresented = true
@@ -200,6 +196,8 @@ private struct MainTaskRow: View {
         Spacer(minLength: 6)
       }
       .contentShape(Rectangle())
+      .accessibilityLabel(task.title)
+      .accessibilityHint("Drag to reorder. Hover for task details.")
       .background {
         GeometryReader { proxy in
           Color.clear.preference(
@@ -295,10 +293,26 @@ private struct SettingsView: View {
       Divider()
       Form {
         Section("EasyFlow") {
-          LabeledContent("Storage", value: "Local SQLite with GRDB")
+          LabeledContent("Storage", value: "Stored on this Mac")
           LabeledContent("Activation", value: "Far-right edge · 300 ms")
           LabeledContent("Panels", value: "20% · 360–520 pt")
-          LabeledContent("Appearance", value: "Standard")
+          Picker("Appearance", selection: $model.appearanceMode) {
+            ForEach(AppearanceMode.available) { mode in
+              Text(mode.label).tag(mode)
+            }
+          }
+          Toggle(
+            "Launch at Login",
+            isOn: Binding(
+              get: { model.launchAtLoginStatus == .enabled },
+              set: { model.setLaunchAtLogin($0) }
+            )
+          )
+          if model.launchAtLoginStatus == .requiresApproval {
+            Text("Approve EasyFlow in System Settings > General > Login Items.")
+              .font(.caption)
+              .foregroundStyle(.secondary)
+          }
           HStack {
             Text("Reminders")
             Spacer()
@@ -317,8 +331,9 @@ private struct SettingsView: View {
       }
       .formStyle(.grouped)
     }
-    .frame(width: 430, height: 290)
+    .frame(width: 430, height: 360)
     .onExitCommand { dismiss() }
+    .onAppear { model.refreshLaunchAtLoginStatus() }
     .background {
       Button("") { dismiss() }
         .keyboardShortcut("w", modifiers: .command)
@@ -355,6 +370,9 @@ private struct CompactQuickNoteRow: View {
     .padding(.vertical, 5)
     .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 8))
     .contentShape(Rectangle())
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel(note.displayTitle)
+    .accessibilityHint("Drag to reorder or attach to a Main Task.")
     .background {
       GeometryReader { proxy in
         let frame = proxy.frame(in: .named(MainPanelCoordinateSpace.name))
