@@ -48,6 +48,9 @@ final class PanelPresentationCoordinator {
     viewModel.onTaskRowsChanged = { [weak mainHostingView] rows in
       mainHostingView?.updateTaskRows(rows)
     }
+    viewModel.onQuickNotesFrameChanged = { [weak mainHostingView] frame in
+      mainHostingView?.updateQuickNotesFrame(frame)
+    }
 
     activationTrackingView.onPointerMoved = { [weak self] point in
       self?.onPointerMoved?(point)
@@ -60,6 +63,12 @@ final class PanelPresentationCoordinator {
     }
     mainHostingView.onTaskHover = { [weak viewModel] taskID in
       viewModel?.routedTaskHover(taskID)
+    }
+    mainHostingView.onQuickNotesHover = { [weak viewModel] in
+      viewModel?.routedQuickNotesHover()
+    }
+    mainHostingView.onEmptyMain = { [weak viewModel] in
+      viewModel?.routedEmptyMain()
     }
     mainHostingView.onTaskDragChanged = { [weak viewModel] taskID, insertion in
       viewModel?.routedTaskDragChanged(taskID: taskID, insertionIndex: insertion)

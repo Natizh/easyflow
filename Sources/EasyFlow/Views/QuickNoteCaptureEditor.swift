@@ -6,7 +6,6 @@ struct QuickNoteCaptureEditor: NSViewRepresentable {
   let focusRequestID: Int
   let onCommit: () -> Void
   let onFocusLost: () -> Void
-  let onHover: () -> Void
 
   func makeCoordinator() -> Coordinator {
     Coordinator(parent: self)
@@ -23,7 +22,6 @@ struct QuickNoteCaptureEditor: NSViewRepresentable {
     textView.delegate = context.coordinator
     textView.string = text
     textView.onCommit = onCommit
-    textView.onHover = onHover
     textView.configureForEasyFlowCapture()
     scrollView.documentView = textView
     context.coordinator.textView = textView
@@ -34,7 +32,6 @@ struct QuickNoteCaptureEditor: NSViewRepresentable {
     context.coordinator.parent = self
     guard let textView = scrollView.documentView as? QuickNoteCaptureTextView else { return }
     textView.onCommit = onCommit
-    textView.onHover = onHover
     if textView.string != text {
       textView.string = text
     }
@@ -83,8 +80,6 @@ struct QuickNoteCaptureEditor: NSViewRepresentable {
 
 final class QuickNoteCaptureTextView: NSTextView {
   var onCommit: (() -> Void)?
-  var onHover: (() -> Void)?
-  private var hoverTrackingArea: NSTrackingArea?
 
   func configureForEasyFlowCapture() {
     font = NSFont.preferredFont(forTextStyle: .body)
@@ -110,21 +105,4 @@ final class QuickNoteCaptureTextView: NSTextView {
     setAccessibilityLabel("Quick Note")
   }
 
-  override func updateTrackingAreas() {
-    super.updateTrackingAreas()
-    if let hoverTrackingArea { removeTrackingArea(hoverTrackingArea) }
-    let area = NSTrackingArea(
-      rect: bounds,
-      options: [.activeAlways, .inVisibleRect, .mouseEnteredAndExited],
-      owner: self,
-      userInfo: nil
-    )
-    addTrackingArea(area)
-    hoverTrackingArea = area
-  }
-
-  override func mouseEntered(with event: NSEvent) {
-    super.mouseEntered(with: event)
-    onHover?()
-  }
 }

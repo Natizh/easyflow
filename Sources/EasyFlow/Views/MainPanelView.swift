@@ -26,6 +26,9 @@ struct MainPanelView: View {
     .onPreferenceChange(MainTaskGeometryPreferenceKey.self) { geometries in
       model.updateTaskRows(Array(geometries.values))
     }
+    .onPreferenceChange(QuickNotesGeometryPreferenceKey.self) {
+      model.updateQuickNotesFrame($0)
+    }
     .alert(
       "EasyFlow",
       isPresented: Binding(
@@ -49,14 +52,10 @@ struct MainPanelView: View {
         ),
         focusRequestID: model.focusRequestID,
         onCommit: model.commitQuickNoteIfNeeded,
-        onFocusLost: model.commitQuickNoteIfNeeded,
-        onHover: { model.requestSecondary(.quickNotes) }
+        onFocusLost: model.commitQuickNoteIfNeeded
       )
       .frame(minHeight: 76, maxHeight: 110)
       .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-      .onContinuousHover { phase in
-        if case .active = phase { model.requestSecondary(.quickNotes) }
-      }
       if !model.snapshot.quickNotes.isEmpty {
         ScrollView {
           LazyVStack(spacing: 3) {
@@ -97,8 +96,13 @@ struct MainPanelView: View {
       }
     }
     .contentShape(Rectangle())
-    .onContinuousHover { phase in
-      if case .active = phase { model.requestSecondary(.quickNotes) }
+    .background {
+      GeometryReader { proxy in
+        Color.clear.preference(
+          key: QuickNotesGeometryPreferenceKey.self,
+          value: proxy.frame(in: .named(MainPanelCoordinateSpace.name))
+        )
+      }
     }
   }
 
@@ -154,7 +158,6 @@ struct MainPanelView: View {
       }
     }
     .contentShape(Rectangle())
-    .onHover { if $0 { model.clearSecondary() } }
   }
 
   private var footer: some View {
@@ -383,7 +386,6 @@ private struct CompactQuickNoteRow: View {
     .padding(.vertical, 5)
     .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 8))
     .contentShape(Rectangle())
-    .onHover { if $0 { model.requestSecondary(.quickNotes) } }
     .contextMenu {
       Button("Delete", role: .destructive) { model.deleteNote(note.id) }
     }

@@ -129,6 +129,17 @@ struct PanelStateMachineTests {
     #expect(machine.state == .secondaryVisible(context: .quickNotes))
   }
 
+  @Test("Empty Main space collapses only Secondary")
+  func emptyMainCollapsesSecondaryOnly() {
+    var machine = activatedMachine()
+    _ = machine.handle(.requestSecondary(.quickNotes))
+
+    #expect(machine.handle(.clearSecondary) == [.hideSecondary])
+    #expect(machine.state == .mainVisible(isEngaged: true))
+    #expect(machine.state.isMainPresented)
+    #expect(!machine.state.isSecondaryPresented)
+  }
+
   private func activatedMachine() -> PanelStateMachine {
     var machine = PanelStateMachine(timing: timing)
     _ = machine.handle(.pointerChanged(.activationEdge))
