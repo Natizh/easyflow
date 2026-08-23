@@ -105,7 +105,7 @@ Main Task order is authoritative only inside EasyFlow and persists locally after
 
 Main Task reorder begins from the task title/body region after a small desktop-pointer movement threshold; it is not grip-only. Checkbox, effort, context menu, contextual hover, and Quick Note attachment retain separate interactions.
 
-Internal Main Task, Step, and Quick Note reorder is a positional move with a horizontal insertion bar between rows—not a copy or container drop. Quick Note attachment to a Main Task is the separate target-highlighted move interaction.
+Internal Main Task, Step, and Quick Note reorder is a positional move with a horizontal insertion bar between rows—not a copy or container drop. Quick Note rows/cards are directly draggable; the same drag either reorders within the inbox or becomes the target-highlighted transactional move into a Main Task.
 
 Right-click/contextual actions may set text color, highlight, and underline. These styles are cosmetic only and do not affect priority, effort, synchronization, or completion. Do not add an elaborate styling inspector.
 
@@ -140,7 +140,7 @@ Completing a Main Task:
 2. removes it from active Main Tasks;
 3. places it in `Recently Completed`.
 
-The visible `Recently Completed` area shows exactly the three most recently completed Main Tasks, newest first. It shows all available when fewer than three exist and never deletes older local history. Restore/uncomplete behavior remains unresolved under [OQ-003](docs/OPEN_QUESTIONS.md#oq-003-restore-from-recently-completed).
+The visible `Recently Completed` area shows the five most recently completed Main Tasks, newest first. It shows all available when fewer than five exist and never deletes older local history. Restore/uncomplete behavior remains unresolved under [OQ-003](docs/OPEN_QUESTIONS.md#oq-003-restore-from-recently-completed).
 
 Deleting a Main Task deletes its external Apple Reminder and soft-deletes its local record. Local Description, Steps, Attached Notes, styles, and metadata remain temporarily recoverable. The retention period is unresolved under [OQ-007](docs/OPEN_QUESTIONS.md#oq-007-deleted-item-retention).
 

@@ -21,6 +21,11 @@ final class AppShellViewModel: ObservableObject {
   @Published private(set) var remindersStatus: RemindersSyncStatus
   @Published private(set) var routedTaskDragID: UUID?
   @Published private(set) var routedTaskInsertionIndex: Int?
+  @Published private(set) var routedNoteDragID: UUID?
+  @Published private(set) var routedNoteInsertionIndex: Int?
+  @Published private(set) var routedNoteAttachmentTargetID: UUID?
+  @Published private(set) var routedStepDragID: UUID?
+  @Published private(set) var routedStepInsertionIndex: Int?
 
   var onInteraction: (() -> Void)?
   var onSecondaryRequested: ((SecondaryPanelContext) -> Void)?
@@ -28,6 +33,9 @@ final class AppShellViewModel: ObservableObject {
   var onSettingsPresentationChanged: ((Bool) -> Void)?
   var onTaskRowsChanged: (([MainTaskRowGeometry]) -> Void)?
   var onQuickNotesFrameChanged: ((CGRect?) -> Void)?
+  var onQuickNoteRowsChanged: (([MainTaskRowGeometry]) -> Void)?
+  var onStepRowsChanged: (([MainTaskRowGeometry]) -> Void)?
+  var onStepExclusionsChanged: (([UUID: [CGRect]]) -> Void)?
 
   private let repository: WorkspaceRepository
   private let remindersSync: RemindersSyncCoordinator
@@ -119,6 +127,18 @@ final class AppShellViewModel: ObservableObject {
     onQuickNotesFrameChanged?(frame)
   }
 
+  func updateQuickNoteRows(_ rows: [MainTaskRowGeometry]) {
+    onQuickNoteRowsChanged?(rows)
+  }
+
+  func updateStepRows(_ rows: [MainTaskRowGeometry]) {
+    onStepRowsChanged?(rows)
+  }
+
+  func updateStepExclusions(_ exclusions: [UUID: [CGRect]]) {
+    onStepExclusionsChanged?(exclusions)
+  }
+
   func routedTaskHover(_ taskID: UUID) {
     InputDiagnostics.record("hover task=\(taskID.uuidString)")
     requestSecondary(.task(id: taskID))
@@ -147,6 +167,50 @@ final class AppShellViewModel: ObservableObject {
   func routedTaskDragCancelled() {
     routedTaskDragID = nil
     routedTaskInsertionIndex = nil
+  }
+
+  func routedNoteDragChanged(noteID: UUID, insertionIndex: Int?, taskTargetID: UUID?) {
+    routedNoteDragID = noteID
+    routedNoteInsertionIndex = insertionIndex
+    routedNoteAttachmentTargetID = taskTargetID
+  }
+
+  func routedNoteDragCommitted(noteID: UUID, insertionIndex: Int?, taskTargetID: UUID?) {
+    if let taskTargetID {
+      moveQuickNote(noteID, to: taskTargetID)
+    } else if let insertionIndex {
+      reorderQuickNote(draggedID: noteID, toInsertionIndex: insertionIndex)
+    }
+    routedNoteDragCancelled()
+  }
+
+  func routedNoteDragCancelled() {
+    routedNoteDragID = nil
+    routedNoteInsertionIndex = nil
+    routedNoteAttachmentTargetID = nil
+  }
+
+  func routedStepDragChanged(stepID: UUID, insertionIndex: Int) {
+    routedStepDragID = stepID
+    routedStepInsertionIndex = insertionIndex
+  }
+
+  func routedStepDragCommitted(stepID: UUID, insertionIndex: Int) {
+    guard let taskID = secondaryContext?.taskID else {
+      routedStepDragCancelled()
+      return
+    }
+    reorderStep(
+      mainTaskID: taskID,
+      draggedID: stepID,
+      toInsertionIndex: insertionIndex
+    )
+    routedStepDragCancelled()
+  }
+
+  func routedStepDragCancelled() {
+    routedStepDragID = nil
+    routedStepInsertionIndex = nil
   }
 
   func clearSecondary() {

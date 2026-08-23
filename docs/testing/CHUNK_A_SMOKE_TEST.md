@@ -100,7 +100,7 @@ Development-bundle evidence (2026-08-23): the ad-hoc-signed `io.github.natizh.ea
 
 Confirmed before this fix: Main opens, Quick Notes and synchronized Main Tasks are usable, Reminders sync operates, and external imports show `?` effort.
 
-Confirmed defects before this fix: Secondary had never appeared; Main Task reorder required the tiny grip; imported effort assignment was unreachable because Task Detail was invisible. The product now also fixes `Recently Completed` to exactly the newest three.
+Confirmed defects before this fix: Secondary had never appeared; Main Task reorder required the tiny grip; imported effort assignment was unreachable because Task Detail was invisible. Chunk E later supersedes the temporary recent-three limit with newest five.
 
 Required user revalidation:
 
@@ -111,7 +111,7 @@ Required user revalidation:
 5. Import a Reminder, confirm `?`, hover it, choose `Set effort` `1...4`, and confirm dots plus restart persistence without Reminder metadata changes.
 6. Drag a Main Task from its title/body—not a grip—and confirm the insertion line and final order.
 7. Confirm checkbox click, right-click menu, and Quick Note attachment remain functional.
-8. Complete at least four tasks; confirm only the newest three display and the fourth remains stored.
+8. Complete at least six tasks; confirm only the newest five display and the sixth remains stored.
 
 These repaired user-visible behaviors require user revalidation and are not marked manually verified by automated tests.
 

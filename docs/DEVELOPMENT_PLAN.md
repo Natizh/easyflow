@@ -69,7 +69,7 @@ Status: implemented on `feat/local-workspace`; the Main and shared Secondary pan
 
 Real-device fix round status: AppKit capture geometry, visible compact inbox, direct insertion reorder, adaptive 64–96-point vertical margins, dismissible Settings, and reliable contextual Secondary activation are implemented on `fix/manual-ux-round-1` before Chunk D.
 
-Second real-device corrective round: `fix/manual-ux-round-2` hardens the end-to-end Secondary window intent/ordering/hover path, expands Main Task reorder to the title/body with a 4-point threshold, exposes imported effort assignment, and fixes Recently Completed to the newest three.
+Second real-device corrective round: `fix/manual-ux-round-2` hardens the end-to-end Secondary window intent/ordering/hover path, expands Main Task reorder to the title/body with a 4-point threshold, exposes imported effort assignment, and bounds Recently Completed. Chunk E supersedes that bound with the settled newest-five presentation.
 
 After that SwiftUI hover/drag approach failed again on hardware, `fix/appkit-pointer-routing` moves only critical Main Task pointer routing to AppKit using rendered-frame registration, explicit mouse capture, and optional structural DEBUG diagnostics. Chunk E remains blocked on user revalidation.
 

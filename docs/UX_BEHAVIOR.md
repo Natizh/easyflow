@@ -117,6 +117,8 @@ Use a direct drag gesture when it materially improves responsiveness over macOS 
 
 Internal reorder uses direct local gestures and a thin insertion bar at an exact collection boundary. It never highlights a row as a container or uses copy-style `NSItemProvider` semantics. Only Quick Note attachment uses a cross-window payload and target-row highlight.
 
+Compact Quick Note rows have no grip or arrow-only target. AppKit captures the row drag: movement within the inbox resolves an insertion boundary, while movement over a Main Task switches to attachment targeting. Steps likewise remove the grip; AppKit captures row background outside the registered checkbox/title/notes editing rectangles.
+
 For Main Tasks, the title/body region—not a tiny grip—is the direct reorder surface. A 4-point movement threshold separates click from drag. Checkbox and effort controls remain outside that gesture; right-click context menus, hover, scrolling, and note attachment remain available.
 
 The Main `NSHostingView` captures the left-button sequence only when mouse-down hits the registered title/body rectangle. It suppresses ScrollView drag arbitration for that sequence, derives insertion from actual row midpoints, commits once on mouse-up, and cancels without writes on Escape. Normal wheel/trackpad scrolling remains SwiftUI-owned outside a reorder sequence.
@@ -139,7 +141,9 @@ Normal synchronization is quiet. Settings shows only Connected, Needs Access, Sy
 
 For unrated imports, Task Detail displays `Set effort` and four immediate buttons. Assignment updates Main presentation and persistence only; it never marks synchronized title/completion pending.
 
-`Recently Completed` renders at most three tasks, ordered by completion time descending with stable UUID tie ordering. This presentation limit does not purge history and does not resolve restore behavior.
+`Recently Completed` renders at most five tasks, ordered by completion time descending with stable UUID tie ordering. This presentation limit does not purge history and does not resolve restore behavior.
+
+Task Description uses a native measured text view: 42 points when empty/short, content-driven growth and shrinkage, and a 156-point cap with internal scrolling beyond it.
 
 ## Appearance and accessibility
 

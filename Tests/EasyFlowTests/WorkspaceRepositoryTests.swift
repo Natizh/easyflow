@@ -199,7 +199,7 @@ struct WorkspaceRepositoryTests {
     #expect(snapshot.attachedNotesByTask[task.id]?.map(\.id) == [note.id])
   }
 
-  @Test("Recently Completed returns exactly the newest three without deleting history")
+  @Test("Recently Completed returns exactly the newest five without deleting history")
   func recentlyCompletedLimit() async throws {
     let database = try AppDatabase(inMemoryNamed: UUID().uuidString)
     let repository = WorkspaceRepository(database: database)
@@ -229,10 +229,11 @@ struct WorkspaceRepositoryTests {
     }
 
     let snapshot = try await repository.snapshot()
-    #expect(snapshot.recentlyCompleted.count == 3)
+    #expect(snapshot.recentlyCompleted.count == 5)
     let tiedNewest = tasks.suffix(2).map(\.id).sorted { $0.uuidString < $1.uuidString }
     #expect(Array(snapshot.recentlyCompleted.prefix(2).map(\.id)) == tiedNewest)
     #expect(snapshot.recentlyCompleted[2].id == tasks[3].id)
+    #expect(snapshot.recentlyCompleted[4].id == tasks[1].id)
     let retainedCount = try await database.queue.read { db in
       try MainTask.filter(Column("completedAt") != nil).fetchCount(db)
     }
@@ -241,7 +242,7 @@ struct WorkspaceRepositoryTests {
 
   @Test(
     "Recently Completed count is bounded only in presentation",
-    arguments: [1, 3, 4, 10]
+    arguments: [1, 3, 5, 6, 10]
   )
   func recentlyCompletedCounts(taskCount: Int) async throws {
     let database = try AppDatabase(inMemoryNamed: UUID().uuidString)
@@ -254,7 +255,7 @@ struct WorkspaceRepositoryTests {
       try await repository.completeMainTask(id: task.id)
     }
     let snapshot = try await repository.snapshot()
-    #expect(snapshot.recentlyCompleted.count == min(taskCount, 3))
+    #expect(snapshot.recentlyCompleted.count == min(taskCount, 5))
     let retainedCount = try await database.queue.read { db in
       try MainTask.filter(Column("completedAt") != nil).fetchCount(db)
     }
