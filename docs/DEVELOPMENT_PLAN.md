@@ -67,6 +67,8 @@ Continue on the bounded local-workspace branch or a dedicated child branch if re
 
 Status: implemented on `feat/local-workspace`; the Main and shared Secondary panels now expose the complete observed local workspace without EventKit.
 
+Real-device fix round status: AppKit capture geometry, visible compact inbox, direct insertion reorder, adaptive 64–96-point vertical margins, dismissible Settings, and reliable contextual Secondary activation are implemented on `fix/manual-ux-round-1` before Chunk D.
+
 Implement:
 
 - immediate Quick Note capture and contextual browser;

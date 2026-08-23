@@ -18,6 +18,18 @@ struct PanelLayoutTests {
     #expect(sizing.width(for: displayWidth) == expected)
   }
 
+  @Test(
+    "Vertical inset exposes a substantial responsive band",
+    arguments: [
+      (CGFloat(700), CGFloat(64)),
+      (CGFloat(956), CGFloat(76.48)),
+      (CGFloat(1_440), CGFloat(96)),
+    ]
+  )
+  func responsiveVerticalInset(displayHeight: CGFloat, expected: CGFloat) {
+    #expect(abs(PanelSizing().verticalInset(for: displayHeight) - expected) < 0.001)
+  }
+
   @Test("Main anchors to the right and Secondary sits immediately to its left")
   func panelFrames() {
     let display = DisplaySnapshot(
@@ -29,6 +41,10 @@ struct PanelLayoutTests {
     #expect(layout.mainFrame.width == 512)
     #expect(layout.mainFrame.maxX == display.frame.maxX - 8)
     #expect(layout.secondaryFrame.maxX == layout.mainFrame.minX - 8)
+    #expect(layout.mainFrame.minY == display.frame.minY + 96)
+    #expect(layout.mainFrame.height == display.frame.height - 192)
+    #expect(layout.secondaryFrame.minY == layout.mainFrame.minY)
+    #expect(layout.secondaryFrame.height == layout.mainFrame.height)
     #expect(layout.activationFrame.width == 3)
     #expect(layout.activationFrame.maxX == display.frame.maxX)
   }
@@ -46,6 +62,12 @@ struct PanelLayoutTests {
         at: CGPoint(x: display.frame.maxX - 1, y: display.frame.midY),
         secondaryIsVisible: false
       ) == .activationEdge
+    )
+    #expect(
+      layout.pointerRegion(
+        at: CGPoint(x: layout.mainFrame.minX - 4, y: layout.mainFrame.midY),
+        secondaryIsVisible: true
+      ) == .bridge
     )
     #expect(
       layout.pointerRegion(

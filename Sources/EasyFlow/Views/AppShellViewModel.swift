@@ -9,12 +9,19 @@ final class AppShellViewModel: ObservableObject {
   @Published var isCreatingTask = false
   @Published var newTaskTitle = ""
   @Published var newTaskEffort: Effort?
-  @Published var isSettingsPresented = false
+  @Published var isSettingsPresented = false {
+    didSet {
+      if oldValue != isSettingsPresented {
+        onSettingsPresentationChanged?(isSettingsPresented)
+      }
+    }
+  }
   @Published var errorMessage: String?
 
   var onInteraction: (() -> Void)?
   var onSecondaryRequested: ((SecondaryPanelContext) -> Void)?
   var onSecondaryCleared: (() -> Void)?
+  var onSettingsPresentationChanged: ((Bool) -> Void)?
 
   private let repository: WorkspaceRepository
   private var observationTask: Task<Void, Never>?
@@ -86,6 +93,7 @@ final class AppShellViewModel: ObservableObject {
     draftSaveTask?.cancel()
     quickNoteDraft = ""
     draftRevision = UUID()
+    requestQuickNoteFocus()
     Task { [weak self, repository] in
       do {
         _ = try await repository.commitDraft(body: body, revision: revision)
@@ -168,6 +176,21 @@ final class AppShellViewModel: ObservableObject {
     }
   }
 
+  func reorderMainTask(draggedID: UUID, toInsertionIndex: Int) {
+    guard
+      let ids = ReorderLogic.moving(
+        snapshot.activeTasks.map(\.id),
+        draggedID: draggedID,
+        toInsertionIndex: toInsertionIndex
+      )
+    else { return }
+    Task { [weak self, repository] in
+      do { try await repository.reorderMainTasks(ids: ids) } catch {
+        self?.errorMessage = error.localizedDescription
+      }
+    }
+  }
+
   func createStep(mainTaskID: UUID, title: String) {
     Task { [weak self, repository] in
       do { _ = try await repository.createStep(mainTaskID: mainTaskID, title: title) } catch {
@@ -221,6 +244,21 @@ final class AppShellViewModel: ObservableObject {
     }
   }
 
+  func reorderStep(mainTaskID: UUID, draggedID: UUID, toInsertionIndex: Int) {
+    guard let current = snapshot.stepsByTask[mainTaskID],
+      let ids = ReorderLogic.moving(
+        current.map(\.id),
+        draggedID: draggedID,
+        toInsertionIndex: toInsertionIndex
+      )
+    else { return }
+    Task { [weak self, repository] in
+      do { try await repository.reorderSteps(mainTaskID: mainTaskID, ids: ids) } catch {
+        self?.errorMessage = error.localizedDescription
+      }
+    }
+  }
+
   func updateNote(id: UUID, title: String?, body: String) {
     Task { [weak self, repository] in
       do { try await repository.updateNote(id: id, title: title, body: body) } catch {
@@ -243,6 +281,21 @@ final class AppShellViewModel: ObservableObject {
         snapshot.quickNotes.map(\.id),
         draggedID: draggedID,
         before: targetID
+      )
+    else { return }
+    Task { [weak self, repository] in
+      do { try await repository.reorderQuickNotes(ids: ids) } catch {
+        self?.errorMessage = error.localizedDescription
+      }
+    }
+  }
+
+  func reorderQuickNote(draggedID: UUID, toInsertionIndex: Int) {
+    guard
+      let ids = ReorderLogic.moving(
+        snapshot.quickNotes.map(\.id),
+        draggedID: draggedID,
+        toInsertionIndex: toInsertionIndex
       )
     else { return }
     Task { [weak self, repository] in

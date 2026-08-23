@@ -32,6 +32,8 @@ struct SecondaryPanelView: View {
 
 private struct QuickNotesBrowser: View {
   @ObservedObject var model: AppShellViewModel
+  @State private var draggedNoteID: UUID?
+  @State private var insertionIndex: Int?
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
@@ -45,8 +47,37 @@ private struct QuickNotesBrowser: View {
       } else {
         ScrollView {
           LazyVStack(spacing: 10) {
-            ForEach(model.snapshot.quickNotes) { note in
-              NoteCard(note: note, model: model, isInbox: true)
+            ForEach(Array(model.snapshot.quickNotes.enumerated()), id: \.element.id) {
+              index, note in
+              if insertionIndex == index { ReorderInsertionBar() }
+              NoteCard(
+                note: note,
+                model: model,
+                isInbox: true,
+                onReorderChanged: { translation in
+                  draggedNoteID = note.id
+                  insertionIndex = ReorderLogic.insertionIndex(
+                    ids: model.snapshot.quickNotes.map(\.id),
+                    draggedID: note.id,
+                    translation: translation,
+                    rowExtent: 132
+                  )
+                },
+                onReorderEnded: {
+                  if let insertionIndex {
+                    model.reorderQuickNote(
+                      draggedID: note.id,
+                      toInsertionIndex: insertionIndex
+                    )
+                  }
+                  draggedNoteID = nil
+                  insertionIndex = nil
+                }
+              )
+              .opacity(draggedNoteID == note.id ? 0.55 : 1)
+            }
+            if insertionIndex == model.snapshot.quickNotes.count {
+              ReorderInsertionBar()
             }
           }
         }
@@ -59,13 +90,29 @@ private struct NoteCard: View {
   let note: WorkspaceNote
   @ObservedObject var model: AppShellViewModel
   let isInbox: Bool
-  @State private var isDropTarget = false
+  let onReorderChanged: ((CGFloat) -> Void)?
+  let onReorderEnded: (() -> Void)?
 
   var body: some View {
     VStack(alignment: .leading, spacing: 7) {
-      Text(note.displayTitle)
-        .font(.headline)
-        .lineLimit(1)
+      HStack {
+        if let onReorderChanged, let onReorderEnded {
+          DirectReorderHandle(
+            onChanged: onReorderChanged,
+            onEnded: onReorderEnded
+          )
+        }
+        Text(note.displayTitle)
+          .font(.headline)
+          .lineLimit(1)
+        Spacer()
+        if isInbox {
+          Image(systemName: "arrowshape.turn.up.right")
+            .foregroundStyle(.secondary)
+            .workspaceDrag("note:\(note.id.uuidString)")
+            .help("Attach to Main Task")
+        }
+      }
       PersistedTextField(title: "Optional title", value: note.title ?? "") {
         model.updateNote(id: note.id, title: $0, body: note.body)
       }
@@ -86,16 +133,8 @@ private struct NoteCard: View {
       }
     }
     .padding(10)
-    .background(
-      isDropTarget ? Color.accentColor.opacity(0.16) : Color.secondary.opacity(0.08),
-      in: RoundedRectangle(cornerRadius: 10)
-    )
+    .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
     .help(note.displayTitle + "\n" + note.preview)
-    .workspaceDrag("note:\(note.id.uuidString)")
-    .workspaceDrop(isTargeted: $isDropTarget) { payload in
-      guard isInbox else { return false }
-      return model.handleQuickNoteDrop(payload, on: note.id)
-    }
   }
 }
 
@@ -103,6 +142,8 @@ private struct TaskDetailView: View {
   let task: MainTask
   @ObservedObject var model: AppShellViewModel
   @State private var newStepTitle = ""
+  @State private var draggedStepID: UUID?
+  @State private var stepInsertionIndex: Int?
 
   private var steps: [TaskStep] { model.snapshot.stepsByTask[task.id] ?? [] }
   private var attachedNotes: [WorkspaceNote] {
@@ -134,8 +175,37 @@ private struct TaskDetailView: View {
         }
         section("Steps") {
           VStack(spacing: 7) {
-            ForEach(steps) { step in
-              StepRow(step: step, taskID: task.id, model: model)
+            ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
+              if stepInsertionIndex == index { ReorderInsertionBar() }
+              StepRow(
+                step: step,
+                taskID: task.id,
+                model: model,
+                onReorderChanged: { translation in
+                  draggedStepID = step.id
+                  stepInsertionIndex = ReorderLogic.insertionIndex(
+                    ids: steps.map(\.id),
+                    draggedID: step.id,
+                    translation: translation,
+                    rowExtent: 72
+                  )
+                },
+                onReorderEnded: {
+                  if let stepInsertionIndex {
+                    model.reorderStep(
+                      mainTaskID: task.id,
+                      draggedID: step.id,
+                      toInsertionIndex: stepInsertionIndex
+                    )
+                  }
+                  draggedStepID = nil
+                  stepInsertionIndex = nil
+                }
+              )
+              .opacity(draggedStepID == step.id ? 0.55 : 1)
+            }
+            if stepInsertionIndex == steps.count {
+              ReorderInsertionBar()
             }
             HStack {
               TextField("New step", text: $newStepTitle).onSubmit(addStep)
@@ -155,7 +225,13 @@ private struct TaskDetailView: View {
           } else {
             VStack(spacing: 10) {
               ForEach(attachedNotes) { note in
-                NoteCard(note: note, model: model, isInbox: false)
+                NoteCard(
+                  note: note,
+                  model: model,
+                  isInbox: false,
+                  onReorderChanged: nil,
+                  onReorderEnded: nil
+                )
               }
             }
           }
@@ -188,11 +264,16 @@ private struct StepRow: View {
   let step: TaskStep
   let taskID: UUID
   @ObservedObject var model: AppShellViewModel
-  @State private var isDropTarget = false
+  let onReorderChanged: (CGFloat) -> Void
+  let onReorderEnded: () -> Void
 
   var body: some View {
     VStack(alignment: .leading, spacing: 5) {
       HStack {
+        DirectReorderHandle(
+          onChanged: onReorderChanged,
+          onEnded: onReorderEnded
+        )
         Button {
           model.updateStep(id: step.id, isCompleted: !step.isCompleted)
         } label: {
@@ -221,14 +302,7 @@ private struct StepRow: View {
     }
     .opacity(step.isCompleted ? 0.52 : 1)
     .padding(8)
-    .background(
-      isDropTarget ? Color.accentColor.opacity(0.16) : Color.secondary.opacity(0.07),
-      in: RoundedRectangle(cornerRadius: 8)
-    )
-    .workspaceDrag("step:\(step.id.uuidString)")
-    .workspaceDrop(isTargeted: $isDropTarget) {
-      model.handleStepDrop($0, taskID: taskID, on: step.id)
-    }
+    .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
     .contextMenu {
       AppearanceMenu(style: step.style) { model.updateStep(id: step.id, style: $0) }
       Divider()

@@ -50,7 +50,8 @@ The persistence mechanics arrive with the local workspace chunk. Chunk A establi
 - Only one Secondary Panel exists. Its content changes in place rather than closing and reopening or spawning overlapping windows.
 - Main and Secondary overlay the current application and never resize or shift it.
 - The panels must remain available over maximized/fullscreen applications and across Spaces.
-- Each panel uses 20% of display width clamped to 360–520 points, with an 8-point outer margin/gap and 12-point vertical inset. These settled Chunk A constants remain subject only to evidence-based prototype tuning under [OQ-008](OPEN_QUESTIONS.md#oq-008-panel-width-constraints).
+- Each panel uses 20% of display width clamped to 360–520 points, with an 8-point outer margin/gap. These width constants remain subject only to evidence-based prototype tuning under [OQ-008](OPEN_QUESTIONS.md#oq-008-panel-width-constraints).
+- Real-device feedback replaces the original 12-point vertical inset with 8% of display height clamped to 64–96 points. Main and Secondary share identical vertical alignment and height, leaving a clearly visible band above and below.
 - Main visually slides from and back into the right edge. Secondary slides left from Main and retracts toward it. Context replacement within a visible Secondary updates in place without replaying the entrance transition. Current development motion may remain restrained; final spring, duration, opacity/material interpolation, and reduced-motion tuning belong to Production Polish.
 
 ## Context switching
@@ -78,6 +79,8 @@ After meaningful Secondary interaction, Secondary receives 250 ms of re-entry gr
 ## Quick Notes interaction
 
 - Intentional activation routes typing to the capture field.
+- Capture uses an AppKit-backed `NSTextView`/`NSScrollView` with system body typography, a 10×9-point text-container inset, zero line-fragment padding, native selection/IME behavior, and no independent fake caret geometry.
+- Committed notes appear immediately below the composer in a bounded compact inbox and remain available in the Secondary browser.
 - The browser shows generated/explicit title, creation date/time, and identifying preview.
 - Opening supports reading and editing without changing the underlying body merely to generate a label.
 - Notes can be deleted and reordered locally.
@@ -105,6 +108,12 @@ Main Tasks, Steps, and retained Quick Note ordering use stable row identity and 
 - cancellation that leaves the original order intact.
 
 Use a direct drag gesture when it materially improves responsiveness over macOS system drag behavior.
+
+Internal reorder now uses direct local grip gestures and a thin insertion bar at an exact collection boundary. It never highlights a row as a container or uses copy-style `NSItemProvider` semantics. Only Quick Note attachment uses a cross-window payload and target-row highlight.
+
+## Settings dismissal
+
+Settings provides a visible `Done` control, Escape dismissal, and Command+W dismissal. While presented, Settings holds the EasyFlow interaction open; closing returns to Main and re-evaluates the pointer state rather than trapping or orphaning focus.
 
 ## Completion and deletion interaction
 

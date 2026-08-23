@@ -71,6 +71,7 @@ The panel coordinator owns both overlay windows as one coordinated interaction s
 - The coordinator owns show/hide ordering, geometry, transition cancellation, previous-app focus context, and reconfiguration after display changes.
 - Presentation exposes centralized frame/opacity animation hooks: Main's hidden frame is beyond the right edge, while Secondary's hidden frame retracts toward Main. Context replacement never recreates the Secondary window.
 - SwiftUI renders content and emits semantic actions; it does not directly orchestrate global windows.
+- Secondary is ordered in front after Main during its entrance, and AppKit capture/saved-note hover surfaces emit explicit context requests. Main↔Secondary gap geometry remains one bridge region.
 
 Exact `NSPanel` flags, activation policy, collection behavior, and focus restoration calls are feasibility work for Chunk A and must be recorded after manual validation rather than guessed here.
 

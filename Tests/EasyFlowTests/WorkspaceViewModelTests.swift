@@ -17,11 +17,25 @@ struct WorkspaceViewModelTests {
     model.commitQuickNoteIfNeeded()
 
     try await eventually {
-      let snapshot = try await repository.snapshot()
-      return snapshot.quickNotes.count == 1 && snapshot.draft == nil
+      model.snapshot.quickNotes.count == 1 && model.snapshot.draft == nil
     }
     #expect(model.quickNoteDraft.isEmpty)
+    #expect(model.snapshot.quickNotes.first?.body == "Captured thought")
     model.stop()
+  }
+
+  @Test("Settings presentation emits dismiss-state changes")
+  func settingsDismissState() async throws {
+    let repository = WorkspaceRepository(
+      database: try AppDatabase(inMemoryNamed: UUID().uuidString)
+    )
+    let model = AppShellViewModel(repository: repository)
+    var states: [Bool] = []
+    model.onSettingsPresentationChanged = { states.append($0) }
+
+    model.isSettingsPresented = true
+    model.isSettingsPresented = false
+    #expect(states == [true, false])
   }
 
   @Test("Main Task composer has no hidden effort default")

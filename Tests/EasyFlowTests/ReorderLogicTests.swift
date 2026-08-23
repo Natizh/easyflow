@@ -21,4 +21,30 @@ struct ReorderLogicTests {
     #expect(ReorderLogic.moving(ids, draggedID: UUID(), before: ids[0]) == nil)
     #expect(ReorderLogic.moving(ids, draggedID: ids[0], before: UUID()) == nil)
   }
+
+  @Test("Insertion boundaries distinguish before and after rows")
+  func insertionBoundaries() throws {
+    let ids = [UUID(), UUID(), UUID(), UUID()]
+    #expect(
+      ReorderLogic.insertionIndex(
+        ids: ids,
+        draggedID: ids[1],
+        translation: 52,
+        rowExtent: 46
+      ) == 3
+    )
+    #expect(
+      ReorderLogic.insertionIndex(
+        ids: ids,
+        draggedID: ids[2],
+        translation: -50,
+        rowExtent: 46
+      ) == 1
+    )
+    #expect(
+      try #require(
+        ReorderLogic.moving(ids, draggedID: ids[1], toInsertionIndex: 3)
+      ) == [ids[0], ids[2], ids[1], ids[3]]
+    )
+  }
 }
