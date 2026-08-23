@@ -48,17 +48,27 @@ final class PointerTrackingHostingView<Content: View>: NSHostingView<Content>,
 {
   var onPointerMoved: ((CGPoint) -> Void)?
   var onTaskHover: ((UUID) -> Void)?
+  var onQuickNotesHover: (() -> Void)?
+  var onEmptyMain: (() -> Void)?
   var onTaskDragChanged: ((UUID, Int) -> Void)?
   var onTaskDragCommitted: ((UUID, Int) -> Void)?
   var onTaskDragCancelled: (() -> Void)?
   private var pointerTrackingArea: NSTrackingArea?
   private var taskRouter = MainTaskPointerRouter()
+  private var contextRouter = MainPanelContextRouter()
+  private var lastMousePoint: CGPoint?
 
   override var acceptsFirstResponder: Bool { true }
 
   func updateTaskRows(_ rows: [MainTaskRowGeometry]) {
     taskRouter.updateRows(rows)
+    contextRouter.updateRows(rows)
     InputDiagnostics.record("registered task rows=\(rows.count)")
+  }
+
+  func updateQuickNotesFrame(_ frame: CGRect?) {
+    contextRouter.updateQuickNotesFrame(frame)
+    InputDiagnostics.record("registered quickNotes frame=\(String(describing: frame))")
   }
 
   override func hitTest(_ point: NSPoint) -> NSView? {
@@ -92,17 +102,36 @@ final class PointerTrackingHostingView<Content: View>: NSHostingView<Content>,
 
   override func mouseMoved(with event: NSEvent) {
     let point = convert(event.locationInWindow, from: nil)
-    if let taskID = taskRouter.updateHover(at: point) {
-      InputDiagnostics.record(
-        "mouseMoved point=\(NSStringFromPoint(point)) hit=task id=\(taskID.uuidString)"
-      )
-      onTaskHover?(taskID)
+    if let context = contextRouter.update(at: point, previousPoint: lastMousePoint) {
+      switch context {
+      case .task(let taskID):
+        InputDiagnostics.record(
+          "mouseMoved point=\(NSStringFromPoint(point)) context=task id=\(taskID.uuidString)"
+        )
+        onTaskHover?(taskID)
+      case .quickNotes:
+        InputDiagnostics.record(
+          "mouseMoved point=\(NSStringFromPoint(point)) context=quickNotes"
+        )
+        onQuickNotesHover?()
+      case .empty:
+        InputDiagnostics.record(
+          "mouseMoved point=\(NSStringFromPoint(point)) context=emptyMain"
+        )
+        onEmptyMain?()
+      case .traversal:
+        InputDiagnostics.record(
+          "mouseMoved point=\(NSStringFromPoint(point)) context=traversal"
+        )
+      }
     }
+    lastMousePoint = point
     reportPointer()
   }
 
   override func mouseExited(with event: NSEvent) {
-    _ = taskRouter.updateHover(at: convert(event.locationInWindow, from: nil))
+    contextRouter.pointerLeftMain()
+    lastMousePoint = nil
     reportPointer()
   }
 

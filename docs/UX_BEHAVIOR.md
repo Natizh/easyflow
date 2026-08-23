@@ -68,6 +68,8 @@ The persistence mechanics arrive with the local workspace chunk. Chunk A establi
 | Secondary → empty/non-contextual Main area | Collapse Secondary; keep Main open |
 | Main ↔ Secondary traversal | Do not dismiss during legitimate traversal |
 
+The AppKit Main-context router owns this distinction. Quick Notes and task row rectangles are contextual; empty background, section/footer space, and non-owned areas emit the central `clearSecondary` event immediately. Narrow gaps between adjacent task rows and leftward movement through the Main edge toward Secondary are traversal regions, so they never collapse the panel mid-crossing. `clearSecondary` transitions to engaged Main and issues only `hideSecondary`.
+
 Quick Notes and every visible Main Task row are full contextual hover surfaces. The AppKit capture editor emits native hover entry. Secondary opens above Main at a nonzero visible start alpha, settles entirely inside the selected display directly left of Main, and content replacement never replays entrance.
 
 Main Task contextual hover is resolved from AppKit `mouseMoved` against the current rendered row frames; it does not depend on SwiftUI hover delivery. Repeated movement within one row is deduplicated, A→B emits one replacement, and leaving rows toward the bridge does not clear Secondary.

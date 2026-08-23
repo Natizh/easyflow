@@ -26,7 +26,7 @@ struct MainTaskPointerRouterTests {
   @Test("Checkbox and effort regions are outside reorder initiation")
   func excludedControls() {
     let router = configuredRouter()
-    #expect(router.taskForReorder(at: CGPoint(x: 12, y: 20)) == nil)
+    #expect(router.taskForReorder(at: CGPoint(x: 24, y: 20)) == nil)
     #expect(router.taskForReorder(at: CGPoint(x: 205, y: 20)) == nil)
     #expect(router.taskForReorder(at: CGPoint(x: 80, y: 20)) == firstID)
   }
@@ -65,17 +65,55 @@ struct MainTaskPointerRouterTests {
     #expect(cancelledMouseUp == nil)
   }
 
+  @Test("Main contextual regions distinguish Quick Notes, tasks, empty space, and traversal")
+  func mainContextClassification() {
+    var router = MainPanelContextRouter()
+    let rows = configuredRouter().rows
+    router.updateRows(rows)
+    router.updateQuickNotesFrame(CGRect(x: 0, y: 140, width: 220, height: 90))
+
+    #expect(
+      router.update(at: CGPoint(x: 80, y: 20), previousPoint: nil)
+        == .task(firstID)
+    )
+    #expect(
+      router.update(at: CGPoint(x: 80, y: 160), previousPoint: CGPoint(x: 80, y: 20))
+        == .quickNotes
+    )
+    #expect(
+      router.update(at: CGPoint(x: 100, y: 260), previousPoint: CGPoint(x: 80, y: 160))
+        == .empty
+    )
+  }
+
+  @Test("Row gaps and leftward bridge exit do not produce empty Main context")
+  func contextualTraversal() {
+    var router = MainPanelContextRouter()
+    router.updateRows(configuredRouter().rows)
+
+    #expect(
+      router.update(at: CGPoint(x: 80, y: 47), previousPoint: CGPoint(x: 80, y: 20))
+        == .traversal
+    )
+    router.pointerLeftMain()
+    #expect(
+      router.update(at: CGPoint(x: 10, y: 20), previousPoint: CGPoint(x: 80, y: 20))
+        == nil
+    )
+    #expect(router.currentContext == .traversal)
+  }
+
   private func configuredRouter() -> MainTaskPointerRouter {
     var router = MainTaskPointerRouter()
     router.updateRows([
       MainTaskRowGeometry(
         taskID: firstID,
-        rowFrame: CGRect(x: 0, y: 0, width: 220, height: 44),
+        rowFrame: CGRect(x: 20, y: 0, width: 200, height: 44),
         reorderFrame: CGRect(x: 32, y: 0, width: 150, height: 44)
       ),
       MainTaskRowGeometry(
         taskID: secondID,
-        rowFrame: CGRect(x: 0, y: 50, width: 220, height: 70),
+        rowFrame: CGRect(x: 20, y: 50, width: 200, height: 70),
         reorderFrame: CGRect(x: 32, y: 50, width: 150, height: 70)
       ),
     ])

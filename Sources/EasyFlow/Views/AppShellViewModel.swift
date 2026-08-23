@@ -27,6 +27,7 @@ final class AppShellViewModel: ObservableObject {
   var onSecondaryCleared: (() -> Void)?
   var onSettingsPresentationChanged: ((Bool) -> Void)?
   var onTaskRowsChanged: (([MainTaskRowGeometry]) -> Void)?
+  var onQuickNotesFrameChanged: ((CGRect?) -> Void)?
 
   private let repository: WorkspaceRepository
   private let remindersSync: RemindersSyncCoordinator
@@ -114,9 +115,23 @@ final class AppShellViewModel: ObservableObject {
     onTaskRowsChanged?(rows)
   }
 
+  func updateQuickNotesFrame(_ frame: CGRect?) {
+    onQuickNotesFrameChanged?(frame)
+  }
+
   func routedTaskHover(_ taskID: UUID) {
     InputDiagnostics.record("hover task=\(taskID.uuidString)")
     requestSecondary(.task(id: taskID))
+  }
+
+  func routedQuickNotesHover() {
+    InputDiagnostics.record("context=quickNotes")
+    requestSecondary(.quickNotes)
+  }
+
+  func routedEmptyMain() {
+    InputDiagnostics.record("context=emptyMain clearSecondary")
+    clearSecondary()
   }
 
   func routedTaskDragChanged(taskID: UUID, insertionIndex: Int) {

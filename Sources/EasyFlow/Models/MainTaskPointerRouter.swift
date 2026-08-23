@@ -94,3 +94,73 @@ struct MainTaskPointerRouter: Equatable, Sendable {
     insertionIndex = nil
   }
 }
+
+enum MainPanelPointerContext: Equatable, Sendable {
+  case quickNotes
+  case task(UUID)
+  case empty
+  case traversal
+}
+
+struct MainPanelContextRouter: Equatable, Sendable {
+  private(set) var rows: [MainTaskRowGeometry] = []
+  private(set) var quickNotesFrame: CGRect?
+  private(set) var currentContext: MainPanelPointerContext?
+
+  mutating func updateRows(_ newRows: [MainTaskRowGeometry]) {
+    rows = newRows.sorted { $0.rowFrame.minY < $1.rowFrame.minY }
+  }
+
+  mutating func updateQuickNotesFrame(_ frame: CGRect?) {
+    quickNotesFrame = frame
+  }
+
+  mutating func update(
+    at point: CGPoint,
+    previousPoint: CGPoint?,
+    leftTraversalWidth: CGFloat = 24,
+    rowGapTolerance: CGFloat = 12
+  ) -> MainPanelPointerContext? {
+    let next: MainPanelPointerContext
+    if let task = rows.first(where: { $0.rowFrame.contains(point) }) {
+      next = .task(task.taskID)
+    } else if quickNotesFrame?.contains(point) == true {
+      next = .quickNotes
+    } else if isBetweenAdjacentRows(point, tolerance: rowGapTolerance) {
+      next = .traversal
+    } else if point.x <= leftTraversalWidth,
+      let previousPoint,
+      point.x < previousPoint.x
+    {
+      next = .traversal
+    } else {
+      next = .empty
+    }
+
+    guard next != currentContext else { return nil }
+    currentContext = next
+    return next
+  }
+
+  mutating func pointerLeftMain() {
+    currentContext = .traversal
+  }
+
+  private func isBetweenAdjacentRows(_ point: CGPoint, tolerance: CGFloat) -> Bool {
+    guard rows.count > 1 else { return false }
+    for index in 0..<(rows.count - 1) {
+      let upper = rows[index].rowFrame
+      let lower = rows[index + 1].rowFrame
+      let gap = lower.minY - upper.maxY
+      guard gap >= 0, gap <= tolerance else { continue }
+      let horizontalRange = min(upper.minX, lower.minX)...max(upper.maxX, lower.maxX)
+      if horizontalRange.contains(point.x),
+        point.y >= upper.maxY,
+        point.y <= lower.minY
+      {
+        return true
+      }
+    }
+    return false
+  }
+}
