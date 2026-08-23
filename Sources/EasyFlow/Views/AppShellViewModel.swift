@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 @MainActor
@@ -17,6 +18,7 @@ final class AppShellViewModel: ObservableObject {
     }
   }
   @Published var errorMessage: String?
+  @Published private(set) var remindersStatus: RemindersSyncStatus
 
   var onInteraction: (() -> Void)?
   var onSecondaryRequested: ((SecondaryPanelContext) -> Void)?
@@ -24,13 +26,29 @@ final class AppShellViewModel: ObservableObject {
   var onSettingsPresentationChanged: ((Bool) -> Void)?
 
   private let repository: WorkspaceRepository
+  private let remindersSync: RemindersSyncCoordinator
+  private var remindersStatusCancellable: AnyCancellable?
   private var observationTask: Task<Void, Never>?
   private var draftSaveTask: Task<Void, Never>?
   private var draftRevision = UUID()
   private var loadedInitialDraft = false
 
-  init(repository: WorkspaceRepository) {
+  init(
+    repository: WorkspaceRepository,
+    remindersSync: RemindersSyncCoordinator? = nil
+  ) {
     self.repository = repository
+    let sync =
+      remindersSync
+      ?? RemindersSyncCoordinator(
+        repository: repository,
+        adapter: DisabledRemindersAdapter()
+      )
+    self.remindersSync = sync
+    remindersStatus = sync.status
+    remindersStatusCancellable = sync.$status.sink { [weak self] in
+      self?.remindersStatus = $0
+    }
   }
 
   func start() {
@@ -46,6 +64,7 @@ final class AppShellViewModel: ObservableObject {
         self?.errorMessage = error.localizedDescription
       }
     }
+    remindersSync.start()
   }
 
   func stop() {
@@ -54,6 +73,15 @@ final class AppShellViewModel: ObservableObject {
     observationTask = nil
     draftSaveTask?.cancel()
     draftSaveTask = nil
+    remindersSync.stop()
+  }
+
+  func requestRemindersAccess() {
+    remindersSync.requestAccess()
+  }
+
+  func retryRemindersSync() {
+    remindersSync.retry()
   }
 
   func requestQuickNoteFocus() {

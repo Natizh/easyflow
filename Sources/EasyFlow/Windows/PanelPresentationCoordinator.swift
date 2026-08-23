@@ -20,8 +20,11 @@ final class PanelPresentationCoordinator {
   private let secondaryHostingView: PointerTrackingHostingView<SecondaryPanelView>
   private var currentLayout: PanelLayout?
 
-  init(repository: WorkspaceRepository) {
-    viewModel = AppShellViewModel(repository: repository)
+  init(repository: WorkspaceRepository, remindersSync: RemindersSyncCoordinator) {
+    viewModel = AppShellViewModel(
+      repository: repository,
+      remindersSync: remindersSync
+    )
     mainHostingView = PointerTrackingHostingView(
       rootView: MainPanelView(model: viewModel)
     )

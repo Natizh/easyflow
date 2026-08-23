@@ -13,12 +13,16 @@ final class AppShellCoordinator {
 
   init(
     repository: WorkspaceRepository,
+    remindersSync: RemindersSyncCoordinator,
     timing: PanelTiming = PanelTiming(),
     sizing: PanelSizing = PanelSizing()
   ) {
     stateMachine = PanelStateMachine(timing: timing)
     screenConfigurationMonitor = ScreenConfigurationMonitor()
-    panelPresenter = PanelPresentationCoordinator(repository: repository)
+    panelPresenter = PanelPresentationCoordinator(
+      repository: repository,
+      remindersSync: remindersSync
+    )
     self.sizing = sizing
   }
 

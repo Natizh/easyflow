@@ -121,6 +121,60 @@ final class AppDatabase: @unchecked Sendable {
         columns: ["mainTaskID", "deletedAt", "sortIndex"]
       )
     }
+    migrator.registerMigration("v2-reminders-sync") { database in
+      try database.create(table: "mainTask_v2") { table in
+        table.column("id", .text).primaryKey()
+        table.column("reminderIdentifier", .text).unique()
+        table.column("title", .text).notNull()
+        table.column("effort", .integer)
+        table.column("sortIndex", .integer).notNull()
+        table.column("taskDescription", .text).notNull().defaults(to: "")
+        table.column("textColor", .text)
+        table.column("highlightColor", .text)
+        table.column("isUnderlined", .boolean).notNull().defaults(to: false)
+        table.column("createdAt", .datetime).notNull()
+        table.column("updatedAt", .datetime).notNull()
+        table.column("completedAt", .datetime)
+        table.column("deletedAt", .datetime)
+        table.check(sql: "effort IS NULL OR effort BETWEEN 1 AND 4")
+      }
+      try database.execute(
+        sql: """
+          INSERT INTO mainTask_v2
+          SELECT id, reminderIdentifier, title, effort, sortIndex, taskDescription,
+                 textColor, highlightColor, isUnderlined, createdAt, updatedAt,
+                 completedAt, deletedAt
+          FROM mainTask
+          """)
+      try database.drop(table: MainTask.databaseTableName)
+      try database.rename(table: "mainTask_v2", to: MainTask.databaseTableName)
+      try database.create(
+        index: "mainTask_active_order",
+        on: MainTask.databaseTableName,
+        columns: ["deletedAt", "completedAt", "sortIndex"]
+      )
+
+      try database.create(table: ReminderSyncRecord.databaseTableName) { table in
+        table.column("taskID", .text).primaryKey()
+          .references(MainTask.databaseTableName, onDelete: .cascade)
+        table.column("calendarItemIdentifier", .text).unique()
+        table.column("externalIdentifier", .text)
+        table.column("origin", .text).notNull()
+        table.column("baselineTitle", .text)
+        table.column("baselineCompleted", .boolean)
+        table.column("baselineExternalModifiedAt", .datetime)
+        table.column("localCoreUpdatedAt", .datetime).notNull()
+        table.column("lastSuccessfulSyncAt", .datetime)
+        table.column("pendingMutation", .text)
+        table.column("retryCount", .integer).notNull().defaults(to: 0)
+        table.column("lastErrorCode", .text)
+      }
+      try database.create(
+        index: "reminderSync_pending",
+        on: ReminderSyncRecord.databaseTableName,
+        columns: ["pendingMutation", "retryCount"]
+      )
+    }
     return migrator
   }
 }

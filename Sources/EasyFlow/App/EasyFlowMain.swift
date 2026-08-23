@@ -10,7 +10,14 @@ final class EasyFlowAppDelegate: NSObject, NSApplicationDelegate {
     do {
       let database = try AppDatabase.production()
       let repository = WorkspaceRepository(database: database)
-      let coordinator = AppShellCoordinator(repository: repository)
+      let reminders = RemindersSyncCoordinator(
+        repository: repository,
+        adapter: EventKitRemindersAdapter()
+      )
+      let coordinator = AppShellCoordinator(
+        repository: repository,
+        remindersSync: reminders
+      )
       appShellCoordinator = coordinator
       coordinator.start()
     } catch {
