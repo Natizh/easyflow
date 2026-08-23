@@ -6,6 +6,7 @@
 # Swift Package Manager
 .build/
 .swiftpm/
+dist/
 
 # Xcode build and user state
 DerivedData/

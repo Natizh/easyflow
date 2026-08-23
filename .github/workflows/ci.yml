@@ -17,7 +17,7 @@ jobs:
   build-and-test:
     name: Swift build and test
     runs-on: macos-15
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Check out repository
@@ -25,6 +25,9 @@ jobs:
 
       - name: Report toolchain
         run: swift --version
+
+      - name: Check shell scripts
+        run: zsh -n scripts/*.sh
 
       - name: Resolve dependencies
         run: swift package resolve
@@ -34,3 +37,6 @@ jobs:
 
       - name: Test
         run: swift test
+
+      - name: Verify release packaging
+        run: ./scripts/package-release.sh

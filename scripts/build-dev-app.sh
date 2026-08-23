@@ -17,12 +17,32 @@ for resource_bundle in "$binary_directory"/*.bundle(N); do
   cp -R "$resource_bundle" "$app_bundle/Contents/Resources/"
 done
 
-icon_files=("$repository_root/Support/AppIcon.iconset"/*.png(N))
-if (( ${#icon_files} > 0 )); then
-  iconutil -c icns "$repository_root/Support/AppIcon.iconset" \
-    -o "$app_bundle/Contents/Resources/EasyFlow.icns"
+icon_master="$repository_root/assets/brand/easyflow-app-icon.png"
+if [[ -f "$icon_master" ]]; then
+  iconset="$repository_root/.build/generated/EasyFlow.iconset"
+  rm -rf "$iconset"
+  mkdir -p "$iconset"
+
+  function render_icon() {
+    local filename="$1"
+    local size="$2"
+    sips -z "$size" "$size" "$icon_master" --out "$iconset/$filename" >/dev/null
+  }
+
+  render_icon icon_16x16.png 16
+  render_icon icon_16x16@2x.png 32
+  render_icon icon_32x32.png 32
+  render_icon icon_32x32@2x.png 64
+  render_icon icon_128x128.png 128
+  render_icon icon_128x128@2x.png 256
+  render_icon icon_256x256.png 256
+  render_icon icon_256x256@2x.png 512
+  render_icon icon_512x512.png 512
+  render_icon icon_512x512@2x.png 1024
+
+  iconutil -c icns "$iconset" -o "$app_bundle/Contents/Resources/EasyFlow.icns"
 else
-  print -r -- "Warning: no production app icon is available; the bundle will use the macOS default."
+  print -r -- "Warning: assets/brand/easyflow-app-icon.png is missing; using the macOS default icon."
 fi
 
 if [[ "${EASYFLOW_SKIP_CODESIGN:-0}" != "1" ]]; then
