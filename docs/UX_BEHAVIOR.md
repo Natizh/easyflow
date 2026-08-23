@@ -70,6 +70,8 @@ The persistence mechanics arrive with the local workspace chunk. Chunk A establi
 
 Quick Notes and every visible Main Task row are full contextual hover surfaces. The AppKit capture editor emits native hover entry. Secondary opens above Main at a nonzero visible start alpha, settles entirely inside the selected display directly left of Main, and content replacement never replays entrance.
 
+Main Task contextual hover is resolved from AppKit `mouseMoved` against the current rendered row frames; it does not depend on SwiftUI hover delivery. Repeated movement within one row is deduplicated, A→B emits one replacement, and leaving rows toward the bridge does not clear Secondary.
+
 Task hover uses no debounce (`0 ms`) and replaces Secondary content immediately. [OQ-010](OPEN_QUESTIONS.md#oq-010-main-task-hover-debounce) is resolved unless measured flicker later justifies a documented change.
 
 ## Closing behavior
@@ -114,6 +116,8 @@ Use a direct drag gesture when it materially improves responsiveness over macOS 
 Internal reorder uses direct local gestures and a thin insertion bar at an exact collection boundary. It never highlights a row as a container or uses copy-style `NSItemProvider` semantics. Only Quick Note attachment uses a cross-window payload and target-row highlight.
 
 For Main Tasks, the title/body region—not a tiny grip—is the direct reorder surface. A 4-point movement threshold separates click from drag. Checkbox and effort controls remain outside that gesture; right-click context menus, hover, scrolling, and note attachment remain available.
+
+The Main `NSHostingView` captures the left-button sequence only when mouse-down hits the registered title/body rectangle. It suppresses ScrollView drag arbitration for that sequence, derives insertion from actual row midpoints, commits once on mouse-up, and cancels without writes on Escape. Normal wheel/trackpad scrolling remains SwiftUI-owned outside a reorder sequence.
 
 ## Settings dismissal
 

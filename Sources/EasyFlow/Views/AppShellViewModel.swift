@@ -19,11 +19,14 @@ final class AppShellViewModel: ObservableObject {
   }
   @Published var errorMessage: String?
   @Published private(set) var remindersStatus: RemindersSyncStatus
+  @Published private(set) var routedTaskDragID: UUID?
+  @Published private(set) var routedTaskInsertionIndex: Int?
 
   var onInteraction: (() -> Void)?
   var onSecondaryRequested: ((SecondaryPanelContext) -> Void)?
   var onSecondaryCleared: (() -> Void)?
   var onSettingsPresentationChanged: ((Bool) -> Void)?
+  var onTaskRowsChanged: (([MainTaskRowGeometry]) -> Void)?
 
   private let repository: WorkspaceRepository
   private let remindersSync: RemindersSyncCoordinator
@@ -97,8 +100,38 @@ final class AppShellViewModel: ObservableObject {
   }
 
   func requestSecondary(_ context: SecondaryPanelContext) {
+    if case .task(let id) = context {
+      guard snapshot.activeTasks.contains(where: { $0.id == id }) else {
+        assertionFailure("Requested Secondary context for an unknown task ID")
+        return
+      }
+    }
     onInteraction?()
     onSecondaryRequested?(context)
+  }
+
+  func updateTaskRows(_ rows: [MainTaskRowGeometry]) {
+    onTaskRowsChanged?(rows)
+  }
+
+  func routedTaskHover(_ taskID: UUID) {
+    InputDiagnostics.record("hover task=\(taskID.uuidString)")
+    requestSecondary(.task(id: taskID))
+  }
+
+  func routedTaskDragChanged(taskID: UUID, insertionIndex: Int) {
+    routedTaskDragID = taskID
+    routedTaskInsertionIndex = insertionIndex
+  }
+
+  func routedTaskDragCommitted(taskID: UUID, insertionIndex: Int) {
+    reorderMainTask(draggedID: taskID, toInsertionIndex: insertionIndex)
+    routedTaskDragCancelled()
+  }
+
+  func routedTaskDragCancelled() {
+    routedTaskDragID = nil
+    routedTaskInsertionIndex = nil
   }
 
   func clearSecondary() {

@@ -2,8 +2,6 @@ import SwiftUI
 
 struct MainPanelView: View {
   @ObservedObject var model: AppShellViewModel
-  @State private var draggedTaskID: UUID?
-  @State private var taskInsertionIndex: Int?
   @State private var draggedNoteID: UUID?
   @State private var noteInsertionIndex: Int?
 
@@ -17,6 +15,7 @@ struct MainPanelView: View {
     }
     .padding(20)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    .coordinateSpace(name: MainPanelCoordinateSpace.name)
     .background(.ultraThinMaterial)
     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     .overlay {
@@ -24,6 +23,9 @@ struct MainPanelView: View {
         .strokeBorder(.white.opacity(0.10), lineWidth: 1)
     }
     .sheet(isPresented: $model.isSettingsPresented) { SettingsView(model: model) }
+    .onPreferenceChange(MainTaskGeometryPreferenceKey.self) { geometries in
+      model.updateTaskRows(Array(geometries.values))
+    }
     .alert(
       "EasyFlow",
       isPresented: Binding(
@@ -123,33 +125,11 @@ struct MainPanelView: View {
           LazyVStack(spacing: 3) {
             ForEach(Array(model.snapshot.activeTasks.enumerated()), id: \.element.id) {
               index, task in
-              if taskInsertionIndex == index { ReorderInsertionBar() }
-              MainTaskRow(
-                task: task,
-                model: model,
-                onReorderChanged: { translation in
-                  draggedTaskID = task.id
-                  taskInsertionIndex = ReorderLogic.insertionIndex(
-                    ids: model.snapshot.activeTasks.map(\.id),
-                    draggedID: task.id,
-                    translation: translation,
-                    rowExtent: 46
-                  )
-                },
-                onReorderEnded: {
-                  if let insertion = taskInsertionIndex {
-                    model.reorderMainTask(
-                      draggedID: task.id,
-                      toInsertionIndex: insertion
-                    )
-                  }
-                  draggedTaskID = nil
-                  taskInsertionIndex = nil
-                }
-              )
-              .opacity(draggedTaskID == task.id ? 0.55 : 1)
+              if model.routedTaskInsertionIndex == index { ReorderInsertionBar() }
+              MainTaskRow(task: task, model: model)
+                .opacity(model.routedTaskDragID == task.id ? 0.55 : 1)
             }
-            if taskInsertionIndex == model.snapshot.activeTasks.count {
+            if model.routedTaskInsertionIndex == model.snapshot.activeTasks.count {
               ReorderInsertionBar()
             }
           }
@@ -223,10 +203,7 @@ private struct NewTaskComposer: View {
 private struct MainTaskRow: View {
   let task: MainTask
   @ObservedObject var model: AppShellViewModel
-  let onReorderChanged: (CGFloat) -> Void
-  let onReorderEnded: () -> Void
   @State private var isDropTarget = false
-  @State private var isReordering = false
 
   var body: some View {
     HStack(spacing: 8) {
@@ -241,17 +218,20 @@ private struct MainTaskRow: View {
         Spacer(minLength: 6)
       }
       .contentShape(Rectangle())
-      .gesture(
-        DragGesture(minimumDistance: 4, coordinateSpace: .global)
-          .onChanged {
-            isReordering = true
-            onReorderChanged($0.translation.height)
-          }
-          .onEnded { _ in
-            if isReordering { onReorderEnded() }
-            isReordering = false
-          }
-      )
+      .background {
+        GeometryReader { proxy in
+          Color.clear.preference(
+            key: MainTaskGeometryPreferenceKey.self,
+            value: [
+              task.id: MainTaskRowGeometry(
+                taskID: task.id,
+                rowFrame: .null,
+                reorderFrame: proxy.frame(in: .named(MainPanelCoordinateSpace.name))
+              )
+            ]
+          )
+        }
+      }
       EffortIndicator(effort: task.effort)
     }
     .padding(.horizontal, 9)
@@ -261,8 +241,19 @@ private struct MainTaskRow: View {
       in: RoundedRectangle(cornerRadius: 9)
     )
     .contentShape(Rectangle())
-    .onContinuousHover { phase in
-      if case .active = phase { model.requestSecondary(.task(id: task.id)) }
+    .background {
+      GeometryReader { proxy in
+        Color.clear.preference(
+          key: MainTaskGeometryPreferenceKey.self,
+          value: [
+            task.id: MainTaskRowGeometry(
+              taskID: task.id,
+              rowFrame: proxy.frame(in: .named(MainPanelCoordinateSpace.name)),
+              reorderFrame: .null
+            )
+          ]
+        )
+      }
     }
     .workspaceDrop(isTargeted: $isDropTarget) {
       guard $0.hasPrefix("note:") else { return false }

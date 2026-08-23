@@ -71,6 +71,8 @@ Real-device fix round status: AppKit capture geometry, visible compact inbox, di
 
 Second real-device corrective round: `fix/manual-ux-round-2` hardens the end-to-end Secondary window intent/ordering/hover path, expands Main Task reorder to the title/body with a 4-point threshold, exposes imported effort assignment, and fixes Recently Completed to the newest three.
 
+After that SwiftUI hover/drag approach failed again on hardware, `fix/appkit-pointer-routing` moves only critical Main Task pointer routing to AppKit using rendered-frame registration, explicit mouse capture, and optional structural DEBUG diagnostics. Chunk E remains blocked on user revalidation.
+
 Implement:
 
 - immediate Quick Note capture and contextual browser;

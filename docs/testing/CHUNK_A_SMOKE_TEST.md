@@ -114,3 +114,24 @@ Required user revalidation:
 8. Complete at least four tasks; confirm only the newest three display and the fourth remains stored.
 
 These repaired user-visible behaviors require user revalidation and are not marked manually verified by automated tests.
+
+## AppKit pointer-routing revalidation
+
+The second SwiftUI-based attempt also failed on real hardware: Secondary remained invisible and title/body drag did not begin. The current build no longer depends on SwiftUI hover or vertical DragGesture for Main Tasks.
+
+Revalidate with the stable development app:
+
+1. Hover Quick Notes, then Task A and Task B; confirm Secondary appears left and swaps one window's content.
+2. Traverse Main↔gap↔Secondary without dismissal.
+3. Mouse down on a Main Task title/body, move more than 4 points, cross another rendered row midpoint, and release; confirm one insertion-bar reorder.
+4. Repeat with movement below 4 points; confirm no reorder.
+5. Confirm checkbox, effort, right-click menu, wheel/trackpad scrolling, and Quick Note attachment still work.
+6. Press Escape during a genuine reorder; confirm no database order change.
+
+If input still fails, launch from Terminal with structural diagnostics:
+
+```sh
+EASYFLOW_INPUT_DEBUG=1 .build/dev/EasyFlow.app/Contents/MacOS/EasyFlow
+```
+
+Diagnostics contain pointer coordinates, hit region/task UUID, insertion boundary, panel frame/alpha/level/window number, and structural state only. They never contain task, note, Description, Step, or Reminder text. This validation remains user-required; automated AppKit-router tests are not WindowServer proof.
