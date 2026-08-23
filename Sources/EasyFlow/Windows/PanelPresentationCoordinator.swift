@@ -31,6 +31,7 @@ final class PanelPresentationCoordinator {
     secondaryHostingView = PointerTrackingHostingView(
       rootView: SecondaryPanelView(model: viewModel)
     )
+    mainHostingView.isFlipped = true
 
     viewModel.onInteraction = { [weak self] in
       self?.onInteraction?()
@@ -44,6 +45,9 @@ final class PanelPresentationCoordinator {
     viewModel.onSettingsPresentationChanged = { [weak self] isPresented in
       self?.onSettingsPresentationChanged?(isPresented)
     }
+    viewModel.onTaskRowsChanged = { [weak mainHostingView] rows in
+      mainHostingView?.updateTaskRows(rows)
+    }
 
     activationTrackingView.onPointerMoved = { [weak self] point in
       self?.onPointerMoved?(point)
@@ -53,6 +57,18 @@ final class PanelPresentationCoordinator {
     }
     secondaryHostingView.onPointerMoved = { [weak self] point in
       self?.onPointerMoved?(point)
+    }
+    mainHostingView.onTaskHover = { [weak viewModel] taskID in
+      viewModel?.routedTaskHover(taskID)
+    }
+    mainHostingView.onTaskDragChanged = { [weak viewModel] taskID, insertion in
+      viewModel?.routedTaskDragChanged(taskID: taskID, insertionIndex: insertion)
+    }
+    mainHostingView.onTaskDragCommitted = { [weak viewModel] taskID, insertion in
+      viewModel?.routedTaskDragCommitted(taskID: taskID, insertionIndex: insertion)
+    }
+    mainHostingView.onTaskDragCancelled = { [weak viewModel] in
+      viewModel?.routedTaskDragCancelled()
     }
 
     activationPanel.contentView = activationTrackingView
@@ -114,6 +130,11 @@ final class PanelPresentationCoordinator {
   func showSecondary(context: SecondaryPanelContext, layout: PanelLayout) {
     viewModel.secondaryContext = context
     currentLayout = layout
+    let intent = SecondaryPresentationIntent(layout: layout)
+    assert(layout.display.frame.intersects(intent.targetFrame))
+    InputDiagnostics.record(
+      "showSecondary context=\(Self.contextLabel(context)) target=\(NSStringFromRect(intent.targetFrame)) level=\(secondaryPanel.level.rawValue)"
+    )
     if secondaryPanel.isVisible {
       secondaryPanel.alphaValue = 1
       secondaryPanel.setFrame(layout.secondaryFrame, display: true)
@@ -121,7 +142,6 @@ final class PanelPresentationCoordinator {
       secondaryPanel.order(.above, relativeTo: mainPanel.windowNumber)
       return
     }
-    let intent = SecondaryPresentationIntent(layout: layout)
     secondaryPanel.setFrame(intent.startFrame, display: false)
     secondaryPanel.alphaValue = intent.startAlpha
     mainPanel.orderFrontRegardless()
@@ -134,6 +154,13 @@ final class PanelPresentationCoordinator {
       self.secondaryPanel.setFrame(intent.targetFrame, display: true)
       self.secondaryPanel.alphaValue = intent.targetAlpha
       self.secondaryPanel.order(.above, relativeTo: self.mainPanel.windowNumber)
+      InputDiagnostics.record(
+        "secondary visible=\(self.secondaryPanel.isVisible) frame=\(NSStringFromRect(self.secondaryPanel.frame)) alpha=\(self.secondaryPanel.alphaValue) window=\(self.secondaryPanel.windowNumber)"
+      )
+      assert(self.secondaryPanel.isVisible)
+      assert(self.secondaryPanel.alphaValue == 1)
+      assert(self.secondaryPanel.windowNumber > 0)
+      assert(layout.display.frame.intersects(self.secondaryPanel.frame))
     }
   }
 
@@ -211,6 +238,13 @@ final class PanelPresentationCoordinator {
       changes()
     } completionHandler: {
       Task { @MainActor in completion?() }
+    }
+  }
+
+  private static func contextLabel(_ context: SecondaryPanelContext) -> String {
+    switch context {
+    case .quickNotes: "quickNotes"
+    case .task(let id): "task:\(id.uuidString)"
     }
   }
 }
