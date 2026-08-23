@@ -5,8 +5,22 @@ struct EasyFlowPanelSurface: ViewModifier {
   @Environment(\.colorSchemeContrast) private var contrast
   @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
+  @ViewBuilder
   func body(content: Content) -> some View {
-    if #available(macOS 26, *), mode == .liquidGlass, !reduceTransparency {
+    #if compiler(>=6.2)
+      if #available(macOS 26, *), mode == .liquidGlass, !reduceTransparency {
+        liquidGlass(content)
+      } else {
+        fallback(content)
+      }
+    #else
+      fallback(content)
+    #endif
+  }
+
+  #if compiler(>=6.2)
+    @available(macOS 26, *)
+    private func liquidGlass(_ content: Content) -> some View {
       content
         .glassEffect(
           .regular.tint(EasyFlowBrand.indigo.opacity(0.08)),
@@ -14,13 +28,15 @@ struct EasyFlowPanelSurface: ViewModifier {
         )
         .overlay(border)
         .shadow(color: .black.opacity(0.18), radius: 18, y: 6)
-    } else {
-      content
-        .background(backgroundStyle)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(border)
-        .shadow(color: .black.opacity(mode == .standard ? 0.16 : 0.12), radius: 16, y: 5)
     }
+  #endif
+
+  private func fallback(_ content: Content) -> some View {
+    content
+      .background(backgroundStyle)
+      .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+      .overlay(border)
+      .shadow(color: .black.opacity(mode == .standard ? 0.16 : 0.12), radius: 16, y: 5)
   }
 
   @ViewBuilder
