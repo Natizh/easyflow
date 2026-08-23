@@ -68,6 +68,8 @@ The persistence mechanics arrive with the local workspace chunk. Chunk A establi
 | Secondary → empty/non-contextual Main area | Collapse Secondary; keep Main open |
 | Main ↔ Secondary traversal | Do not dismiss during legitimate traversal |
 
+Quick Notes and every visible Main Task row are full contextual hover surfaces. The AppKit capture editor emits native hover entry. Secondary opens above Main at a nonzero visible start alpha, settles entirely inside the selected display directly left of Main, and content replacement never replays entrance.
+
 Task hover uses no debounce (`0 ms`) and replaces Secondary content immediately. [OQ-010](OPEN_QUESTIONS.md#oq-010-main-task-hover-debounce) is resolved unless measured flicker later justifies a documented change.
 
 ## Closing behavior
@@ -109,7 +111,9 @@ Main Tasks, Steps, and retained Quick Note ordering use stable row identity and 
 
 Use a direct drag gesture when it materially improves responsiveness over macOS system drag behavior.
 
-Internal reorder now uses direct local grip gestures and a thin insertion bar at an exact collection boundary. It never highlights a row as a container or uses copy-style `NSItemProvider` semantics. Only Quick Note attachment uses a cross-window payload and target-row highlight.
+Internal reorder uses direct local gestures and a thin insertion bar at an exact collection boundary. It never highlights a row as a container or uses copy-style `NSItemProvider` semantics. Only Quick Note attachment uses a cross-window payload and target-row highlight.
+
+For Main Tasks, the title/body region—not a tiny grip—is the direct reorder surface. A 4-point movement threshold separates click from drag. Checkbox and effort controls remain outside that gesture; right-click context menus, hover, scrolling, and note attachment remain available.
 
 ## Settings dismissal
 
@@ -126,6 +130,10 @@ Settings provides a visible `Done` control, Escape dismissal, and Command+W dism
 ## Reminders exceptional state
 
 Normal synchronization is quiet. Settings shows only Connected, Needs Access, Synchronizing, Access Denied, ambiguity, or error/retry state. Tasks imported from Reminders show a compact `?` with “Effort not set”; Task Detail offers `1...4`, and assignment remains local.
+
+For unrated imports, Task Detail displays `Set effort` and four immediate buttons. Assignment updates Main presentation and persistence only; it never marks synchronized title/completion pending.
+
+`Recently Completed` renders at most three tasks, ordered by completion time descending with stable UUID tie ordering. This presentation limit does not purge history and does not resolve restore behavior.
 
 ## Appearance and accessibility
 

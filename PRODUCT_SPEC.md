@@ -103,6 +103,8 @@ Effort is editable and may eventually use dots, a segmented indicator, a subtle 
 
 Main Task order is authoritative only inside EasyFlow and persists locally after restart. Drag-and-drop pickup should be immediate or near-immediate, fluid, low-latency, and show a clear destination. Prefer a direct custom gesture if standard system drag feels clumsy.
 
+Main Task reorder begins from the task title/body region after a small desktop-pointer movement threshold; it is not grip-only. Checkbox, effort, context menu, contextual hover, and Quick Note attachment retain separate interactions.
+
 Internal Main Task, Step, and Quick Note reorder is a positional move with a horizontal insertion bar between rows—not a copy or container drop. Quick Note attachment to a Main Task is the separate target-highlighted move interaction.
 
 Right-click/contextual actions may set text color, highlight, and underline. These styles are cosmetic only and do not affect priority, effort, synchronization, or completion. Do not add an elaborate styling inspector.
@@ -138,7 +140,7 @@ Completing a Main Task:
 2. removes it from active Main Tasks;
 3. places it in `Recently Completed`.
 
-The visible Recently Completed area may contain a small, bounded, rotating history, but it must not expose an arbitrary label such as `Last 5` and must not destroy older local history merely because it is no longer visible. The exact visible count is a UI tuning parameter. Restore/uncomplete behavior remains unresolved under [OQ-003](docs/OPEN_QUESTIONS.md#oq-003-restore-from-recently-completed).
+The visible `Recently Completed` area shows exactly the three most recently completed Main Tasks, newest first. It shows all available when fewer than three exist and never deletes older local history. Restore/uncomplete behavior remains unresolved under [OQ-003](docs/OPEN_QUESTIONS.md#oq-003-restore-from-recently-completed).
 
 Deleting a Main Task deletes its external Apple Reminder and soft-deletes its local record. Local Description, Steps, Attached Notes, styles, and metadata remain temporarily recoverable. The retention period is unresolved under [OQ-007](docs/OPEN_QUESTIONS.md#oq-007-deleted-item-retention).
 
@@ -159,6 +161,8 @@ EasyFlow creates, renames, completes, and deletes corresponding reminders. It al
 Local-only data includes EasyFlow order/priority, effort, styles, Description, Steps and their state/notes, Attached Notes, Quick Notes, trash metadata, and panel/UI state. Apple Reminders ordering does not need to match EasyFlow ordering.
 
 Imported unrated tasks remain fully usable and synchronizable. Effort is never encoded into Reminder priority, notes, URL, title, tags, or another EventKit field.
+
+An imported task's Task Detail shows an obvious `Set effort` control with `1...4`; assignment persists locally, updates the Main row from `?` to dots, and does not create a synchronized-core mutation.
 
 ## Settings, permissions, and appearance
 
