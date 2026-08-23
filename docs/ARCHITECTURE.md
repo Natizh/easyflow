@@ -73,6 +73,8 @@ The panel coordinator owns both overlay windows as one coordinated interaction s
 - SwiftUI renders content and emits semantic actions; it does not directly orchestrate global windows.
 - Secondary is ordered in front after Main during its entrance, and AppKit capture/saved-note hover surfaces emit explicit context requests. Main↔Secondary gap geometry remains one bridge region.
 
+Main Task pointer ownership is AppKit-backed. SwiftUI publishes actual visible row/title rectangles through one preference bridge; the flipped Main `NSHostingView` owns `mouseMoved`, left-button hit testing, thresholded `mouseDragged`, `mouseUp`, and Escape cancellation. This avoids SwiftUI hover/vertical-drag arbitration inside the task `ScrollView` while leaving rendering, wheel scrolling, checkbox, effort, context menus, and note-drop composition in SwiftUI.
+
 Exact `NSPanel` flags, activation policy, collection behavior, and focus restoration calls are feasibility work for Chunk A and must be recorded after manual validation rather than guessed here.
 
 ## Edge activation
