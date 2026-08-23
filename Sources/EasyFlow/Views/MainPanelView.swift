@@ -314,6 +314,9 @@ private struct SettingsView: View {
             if model.remindersStatus != .connected {
               Button("Retry") { model.retryRemindersSync() }
             }
+            if model.remindersStatus == .denied {
+              Button("Privacy Settings") { model.openRemindersPrivacySettings() }
+            }
           }
         }
         Text("Launch at login and advanced appearance are reserved for Production Polish.")

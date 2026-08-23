@@ -84,6 +84,10 @@ final class AppShellViewModel: ObservableObject {
     remindersSync.retry()
   }
 
+  func openRemindersPrivacySettings() {
+    EventKitRemindersAdapter.openPrivacySettings()
+  }
+
   func requestQuickNoteFocus() {
     focusRequestID &+= 1
   }
