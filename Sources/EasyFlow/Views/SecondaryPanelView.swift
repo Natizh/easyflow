@@ -157,16 +157,34 @@ private struct TaskDetailView: View {
           PersistedTextField(title: "Task title", value: task.title) {
             model.updateMainTask(id: task.id, title: $0)
           }
-          Menu {
-            ForEach(Effort.allCases, id: \.rawValue) { effort in
-              Button("Effort \(effort.rawValue)") {
-                model.updateMainTask(id: task.id, effort: effort)
+          if task.effort == nil {
+            VStack(alignment: .trailing, spacing: 3) {
+              Text("Set effort")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+              HStack(spacing: 3) {
+                ForEach(Effort.allCases, id: \.rawValue) { effort in
+                  Button("\(effort.rawValue)") {
+                    model.updateMainTask(id: task.id, effort: effort)
+                  }
+                  .buttonStyle(.bordered)
+                  .controlSize(.small)
+                }
               }
             }
-          } label: {
-            EffortIndicator(effort: task.effort)
+            .accessibilityLabel("Effort not set")
+          } else {
+            Menu {
+              ForEach(Effort.allCases, id: \.rawValue) { effort in
+                Button("Effort \(effort.rawValue)") {
+                  model.updateMainTask(id: task.id, effort: effort)
+                }
+              }
+            } label: {
+              EffortIndicator(effort: task.effort)
+            }
+            .menuStyle(.borderlessButton)
           }
-          .menuStyle(.borderlessButton)
         }
         section("Description") {
           PersistedTextEditor(value: task.taskDescription, minimumHeight: 86) {

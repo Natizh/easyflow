@@ -54,7 +54,7 @@ The following scenarios require real GUI validation after the local workspace im
 | Interrupted draft | Type, wait at least 400 ms, terminate/relaunch | The uncommitted draft is restored |
 | Restart persistence | Create/edit local objects, quit, and relaunch | Tasks, notes, Steps, styles, ordering, completion, and descriptions survive |
 | Main Task creation | Open `+ New Task`, enter title without effort, then choose effort | No hidden default; task finalizes only with valid title and explicit `1...4` effort |
-| Main Task ordering | Drag task rows and relaunch | Target highlights, final dense order persists, and rows do not flicker |
+| Main Task ordering | Drag task title/body and relaunch | A between-row insertion line appears, final dense order persists, and rows do not flicker |
 | Task context | Move directly from Task A to Task B | Shared Secondary updates immediately without re-entering animation |
 | Description | Edit Description and leave the editor | Text persists locally and remains independent from Steps |
 | Steps | Add, edit, annotate, complete, reorder, and delete Steps | Completed Steps stay dimmed in place; order and notes persist |
@@ -95,3 +95,22 @@ Build and launch the stable TCC identity with `./scripts/build-dev-app.sh` and `
 End-to-end user mutation scenarios and visual no-duplicate confirmation are not verified by the fake-adapter suite and remain manually incomplete.
 
 Development-bundle evidence (2026-08-23): the ad-hoc-signed `io.github.natizh.easyflow` app launched under a stable TCC identity, obtained access, persisted one Reminders list identifier, and reached two mappings with no pending mutation. The exact-list no-create path is automated; the user still needs to visually confirm that no duplicate list appeared. After synchronization settled, five one-second samples reported 0.0% CPU, about 22 MB resident memory, three threads, and unchanged accumulated CPU time; a three-second stack sample showed the main/event threads blocked idle.
+
+## Second real-device corrective round (2026-08-23)
+
+Confirmed before this fix: Main opens, Quick Notes and synchronized Main Tasks are usable, Reminders sync operates, and external imports show `?` effort.
+
+Confirmed defects before this fix: Secondary had never appeared; Main Task reorder required the tiny grip; imported effort assignment was unreachable because Task Detail was invisible. The product now also fixes `Recently Completed` to exactly the newest three.
+
+Required user revalidation:
+
+1. Launch the stable development app and open Main.
+2. Hover Quick Notes; confirm Secondary visibly appears left of Main.
+3. Hover Task A, then Task B; confirm one Secondary swaps detail without replaying entrance.
+4. Traverse Main↔Secondary repeatedly without closure.
+5. Import a Reminder, confirm `?`, hover it, choose `Set effort` `1...4`, and confirm dots plus restart persistence without Reminder metadata changes.
+6. Drag a Main Task from its title/body—not a grip—and confirm the insertion line and final order.
+7. Confirm checkbox click, right-click menu, and Quick Note attachment remain functional.
+8. Complete at least four tasks; confirm only the newest three display and the fourth remains stored.
+
+These repaired user-visible behaviors require user revalidation and are not marked manually verified by automated tests.

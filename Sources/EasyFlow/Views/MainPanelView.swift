@@ -47,11 +47,14 @@ struct MainPanelView: View {
         ),
         focusRequestID: model.focusRequestID,
         onCommit: model.commitQuickNoteIfNeeded,
-        onFocusLost: model.commitQuickNoteIfNeeded
+        onFocusLost: model.commitQuickNoteIfNeeded,
+        onHover: { model.requestSecondary(.quickNotes) }
       )
       .frame(minHeight: 76, maxHeight: 110)
       .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-      .onHover { if $0 { model.requestSecondary(.quickNotes) } }
+      .onContinuousHover { phase in
+        if case .active = phase { model.requestSecondary(.quickNotes) }
+      }
       if !model.snapshot.quickNotes.isEmpty {
         ScrollView {
           LazyVStack(spacing: 3) {
@@ -92,7 +95,9 @@ struct MainPanelView: View {
       }
     }
     .contentShape(Rectangle())
-    .onHover { if $0 { model.requestSecondary(.quickNotes) } }
+    .onContinuousHover { phase in
+      if case .active = phase { model.requestSecondary(.quickNotes) }
+    }
   }
 
   private var mainTasks: some View {
@@ -221,6 +226,7 @@ private struct MainTaskRow: View {
   let onReorderChanged: (CGFloat) -> Void
   let onReorderEnded: () -> Void
   @State private var isDropTarget = false
+  @State private var isReordering = false
 
   var body: some View {
     HStack(spacing: 8) {
@@ -230,12 +236,22 @@ private struct MainTaskRow: View {
         Image(systemName: "circle")
       }
       .buttonStyle(.plain)
-      DirectReorderHandle(
-        onChanged: onReorderChanged,
-        onEnded: onReorderEnded
+      HStack {
+        StyledLabel(task.title, style: task.style).lineLimit(2)
+        Spacer(minLength: 6)
+      }
+      .contentShape(Rectangle())
+      .gesture(
+        DragGesture(minimumDistance: 4, coordinateSpace: .global)
+          .onChanged {
+            isReordering = true
+            onReorderChanged($0.translation.height)
+          }
+          .onEnded { _ in
+            if isReordering { onReorderEnded() }
+            isReordering = false
+          }
       )
-      StyledLabel(task.title, style: task.style).lineLimit(2)
-      Spacer(minLength: 6)
       EffortIndicator(effort: task.effort)
     }
     .padding(.horizontal, 9)
@@ -245,7 +261,9 @@ private struct MainTaskRow: View {
       in: RoundedRectangle(cornerRadius: 9)
     )
     .contentShape(Rectangle())
-    .onHover { if $0 { model.requestSecondary(.task(id: task.id)) } }
+    .onContinuousHover { phase in
+      if case .active = phase { model.requestSecondary(.task(id: task.id)) }
+    }
     .workspaceDrop(isTargeted: $isDropTarget) {
       guard $0.hasPrefix("note:") else { return false }
       return model.handleDrop($0, on: task.id)

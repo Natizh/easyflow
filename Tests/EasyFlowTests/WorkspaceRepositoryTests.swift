@@ -199,6 +199,68 @@ struct WorkspaceRepositoryTests {
     #expect(snapshot.attachedNotesByTask[task.id]?.map(\.id) == [note.id])
   }
 
+  @Test("Recently Completed returns exactly the newest three without deleting history")
+  func recentlyCompletedLimit() async throws {
+    let database = try AppDatabase(inMemoryNamed: UUID().uuidString)
+    let repository = WorkspaceRepository(database: database)
+    #expect(try await repository.snapshot().recentlyCompleted.isEmpty)
+
+    var tasks: [MainTask] = []
+    for index in 0..<6 {
+      let task = try await repository.createMainTask(
+        title: "Completed \(index)",
+        effort: .one
+      )
+      tasks.append(task)
+      try await repository.completeMainTask(id: task.id)
+    }
+    let completedTasks = tasks
+    try await database.queue.write { db in
+      for (index, task) in completedTasks.enumerated() {
+        let completedAt =
+          index < 4
+          ? Date(timeIntervalSince1970: TimeInterval(index))
+          : Date(timeIntervalSince1970: 10)
+        try db.execute(
+          sql: "UPDATE mainTask SET completedAt = ? WHERE id = ?",
+          arguments: [completedAt, task.id]
+        )
+      }
+    }
+
+    let snapshot = try await repository.snapshot()
+    #expect(snapshot.recentlyCompleted.count == 3)
+    let tiedNewest = tasks.suffix(2).map(\.id).sorted { $0.uuidString < $1.uuidString }
+    #expect(Array(snapshot.recentlyCompleted.prefix(2).map(\.id)) == tiedNewest)
+    #expect(snapshot.recentlyCompleted[2].id == tasks[3].id)
+    let retainedCount = try await database.queue.read { db in
+      try MainTask.filter(Column("completedAt") != nil).fetchCount(db)
+    }
+    #expect(retainedCount == 6)
+  }
+
+  @Test(
+    "Recently Completed count is bounded only in presentation",
+    arguments: [1, 3, 4, 10]
+  )
+  func recentlyCompletedCounts(taskCount: Int) async throws {
+    let database = try AppDatabase(inMemoryNamed: UUID().uuidString)
+    let repository = WorkspaceRepository(database: database)
+    for index in 0..<taskCount {
+      let task = try await repository.createMainTask(
+        title: "Task \(index)",
+        effort: .two
+      )
+      try await repository.completeMainTask(id: task.id)
+    }
+    let snapshot = try await repository.snapshot()
+    #expect(snapshot.recentlyCompleted.count == min(taskCount, 3))
+    let retainedCount = try await database.queue.read { db in
+      try MainTask.filter(Column("completedAt") != nil).fetchCount(db)
+    }
+    #expect(retainedCount == taskCount)
+  }
+
   private func makeRepository() throws -> WorkspaceRepository {
     WorkspaceRepository(database: try AppDatabase(inMemoryNamed: UUID().uuidString))
   }

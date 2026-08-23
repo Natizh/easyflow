@@ -115,17 +115,25 @@ final class PanelPresentationCoordinator {
     viewModel.secondaryContext = context
     currentLayout = layout
     if secondaryPanel.isVisible {
+      secondaryPanel.alphaValue = 1
+      secondaryPanel.setFrame(layout.secondaryFrame, display: true)
       secondaryPanel.orderFrontRegardless()
-      mainPanel.orderFrontRegardless()
+      secondaryPanel.order(.above, relativeTo: mainPanel.windowNumber)
       return
     }
-    secondaryPanel.setFrame(secondaryHiddenFrame(for: layout), display: false)
-    secondaryPanel.alphaValue = 0
+    let intent = SecondaryPresentationIntent(layout: layout)
+    secondaryPanel.setFrame(intent.startFrame, display: false)
+    secondaryPanel.alphaValue = intent.startAlpha
     mainPanel.orderFrontRegardless()
     secondaryPanel.orderFrontRegardless()
+    secondaryPanel.order(.above, relativeTo: mainPanel.windowNumber)
     animate(duration: 0.18) {
-      self.secondaryPanel.animator().setFrame(layout.secondaryFrame, display: true)
-      self.secondaryPanel.animator().alphaValue = 1
+      self.secondaryPanel.animator().setFrame(intent.targetFrame, display: true)
+      self.secondaryPanel.animator().alphaValue = intent.targetAlpha
+    } completion: {
+      self.secondaryPanel.setFrame(intent.targetFrame, display: true)
+      self.secondaryPanel.alphaValue = intent.targetAlpha
+      self.secondaryPanel.order(.above, relativeTo: self.mainPanel.windowNumber)
     }
   }
 
