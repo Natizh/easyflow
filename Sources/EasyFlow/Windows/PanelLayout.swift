@@ -85,3 +85,17 @@ struct PanelLayout: Equatable, Sendable {
     return .outside
   }
 }
+
+struct SecondaryPresentationIntent: Equatable, Sendable {
+  let startFrame: CGRect
+  let targetFrame: CGRect
+  let startAlpha: CGFloat
+  let targetAlpha: CGFloat
+
+  init(layout: PanelLayout) {
+    targetFrame = layout.secondaryFrame
+    startFrame = layout.secondaryFrame.offsetBy(dx: 28, dy: 0)
+    startAlpha = 0.15
+    targetAlpha = 1
+  }
+}

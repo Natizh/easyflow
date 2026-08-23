@@ -615,7 +615,7 @@ actor WorkspaceRepository {
       try MainTask
       .filter(Column("deletedAt") == nil && Column("completedAt") != nil)
       .order(Column("completedAt").desc, Column("id"))
-      .limit(5)
+      .limit(3)
       .fetchAll(database)
     let steps =
       try TaskStep

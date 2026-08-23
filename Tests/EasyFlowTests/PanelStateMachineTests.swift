@@ -117,6 +117,18 @@ struct PanelStateMachineTests {
     #expect(machine.state == .secondaryVisible(context: .task(id: taskID)))
   }
 
+  @Test("Quick Notes request shows Secondary and leaving a row for Main does not dismiss it")
+  func quickNotesSecondaryPath() {
+    var machine = activatedMachine()
+    #expect(
+      machine.handle(.requestSecondary(.quickNotes)) == [
+        .showSecondary(.quickNotes)
+      ])
+    #expect(machine.state == .secondaryVisible(context: .quickNotes))
+    #expect(machine.handle(.pointerChanged(.main)).isEmpty)
+    #expect(machine.state == .secondaryVisible(context: .quickNotes))
+  }
+
   private func activatedMachine() -> PanelStateMachine {
     var machine = PanelStateMachine(timing: timing)
     _ = machine.handle(.pointerChanged(.activationEdge))

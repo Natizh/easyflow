@@ -49,6 +49,23 @@ struct PanelLayoutTests {
     #expect(layout.activationFrame.maxX == display.frame.maxX)
   }
 
+  @Test("Secondary presentation target is visible left of Main with full alpha")
+  func secondaryPresentationIntent() {
+    let display = DisplaySnapshot(
+      id: 1,
+      frame: CGRect(x: 0, y: 0, width: 1_470, height: 956)
+    )
+    let layout = PanelLayout(display: display)
+    let intent = SecondaryPresentationIntent(layout: layout)
+
+    #expect(intent.targetFrame == layout.secondaryFrame)
+    #expect(intent.targetFrame.maxX < layout.mainFrame.minX)
+    #expect(display.frame.contains(intent.targetFrame))
+    #expect(intent.startFrame.minX > intent.targetFrame.minX)
+    #expect(intent.startAlpha > 0)
+    #expect(intent.targetAlpha == 1)
+  }
+
   @Test("Pointer classification bridges panel gaps without widening hidden hit areas")
   func pointerRegions() {
     let display = DisplaySnapshot(

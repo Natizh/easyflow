@@ -260,6 +260,33 @@ struct RemindersSyncCoordinatorTests {
     #expect(tasks.contains { $0.sync?.origin == .local && $0.task.effort == .four })
   }
 
+  @Test("Assigning imported effort persists locally without pending synchronization")
+  func importedEffortAssignment() async throws {
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let path = directory.appendingPathComponent("effort.sqlite").path
+    let repository = WorkspaceRepository(database: try AppDatabase(path: path))
+    let imported = try await repository.importReminder(
+      title: "Unrated",
+      isCompleted: false,
+      calendarItemIdentifier: "unrated-id",
+      externalIdentifier: "external-unrated",
+      externalModifiedAt: Date()
+    )
+    #expect(imported.effort == nil)
+    try await repository.updateMainTask(id: imported.id, effort: .four)
+    let state = try #require(try await repository.syncTaskStates().first)
+    #expect(state.task.effort == .four)
+    #expect(state.sync?.pendingMutation == nil)
+
+    let reopened = WorkspaceRepository(database: try AppDatabase(path: path))
+    let reopenedState = try #require(try await reopened.syncTaskStates().first)
+    #expect(reopenedState.task.effort == .four)
+    #expect(reopenedState.sync?.calendarItemIdentifier == "unrated-id")
+  }
+
   @Test("External rename and completion preserve local-only metadata")
   func externalUpdatePreservesLocalData() async throws {
     let repository = try makeRepository()
