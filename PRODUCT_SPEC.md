@@ -64,7 +64,7 @@ The visual hierarchy is calm, productive, and native. `+ New Task` is not a gian
 
 The Secondary Panel is reused for the Quick Notes browser or the currently hovered Main Task. It updates context in place; EasyFlow does not create a separate third notes/details window.
 
-Finished panel motion is spatial and native: Main slides out from and retreats into the right screen edge; Secondary slides left from Main and retracts toward it. Replacing content inside an already-visible Secondary Panel does not replay its entrance animation. Exact curves, duration, and material interpolation remain Production Polish tuning.
+Panel motion is spatial and native: Main slides out from and retreats into the right screen edge; Secondary slides left from Main and retracts toward it. Replacing content inside an already-visible Secondary Panel does not replay its entrance animation. Reduce Motion removes the transition without changing behavior.
 
 ## Quick Notes
 
@@ -166,13 +166,13 @@ An imported task's Task Detail shows an obvious `Set effort` control with `1...4
 
 ## Settings, permissions, and appearance
 
-The Main Panel gear opens Settings. Potential categories are appearance, launch at login, activation behavior, panel sizing, and UX timings; only settings backed by real features belong in v1.
+The Main Panel gear opens Settings with real controls for Standard/Frosted/Liquid Glass appearance, native Launch at Login, and Reminders connection/recovery. Current activation and panel geometry are shown as factual information rather than fake toggles.
 
 EasyFlow starts automatically at login through a native mechanism such as `SMAppService`. First run handles Reminders authorization, finding or creating the EasyFlow list, and launch-at-login configuration. Authorization states include not determined, authorized, denied/restricted, and unavailable/error. Permission is not repeatedly requested once decided, and a graceful local experience remains available where technically reasonable.
 
 The baseline design uses system typography, SF Symbols, macOS materials, adaptive light/dark mode, native spacing, restrained translucency/shadows, continuous corners, subtle animation, and appropriate context menus. Avoid a web-dashboard look, Electron chrome, giant controls, gratuitous gradients, and excessive animation.
 
-Standard appearance must work on the minimum deployment target, macOS 14. macOS 26 is the primary development and experience target. Frosted appearance may be offered where appropriate. Liquid Glass is optional only where supported and never gates core functionality. See [OQ-004](docs/OPEN_QUESTIONS.md#oq-004-minimum-macos-deployment-target) and ADR-006.
+Standard and Frosted appearances work on the minimum deployment target, macOS 14. macOS 26 is the primary development target and adds optional Liquid Glass. Reduce Transparency falls back to an opaque native surface, and Liquid Glass never gates functionality. See [OQ-004](docs/OPEN_QUESTIONS.md#oq-004-minimum-macos-deployment-target) and ADR-006.
 
 ## Performance, privacy, and reliability
 

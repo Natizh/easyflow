@@ -52,7 +52,7 @@ The persistence mechanics arrive with the local workspace chunk. Chunk A establi
 - The panels must remain available over maximized/fullscreen applications and across Spaces.
 - Each panel uses 20% of display width clamped to 360–520 points, with an 8-point outer margin/gap. These width constants remain subject only to evidence-based prototype tuning under [OQ-008](OPEN_QUESTIONS.md#oq-008-panel-width-constraints).
 - Real-device feedback replaces the original 12-point vertical inset with 8% of display height clamped to 64–96 points. Main and Secondary share identical vertical alignment and height, leaving a clearly visible band above and below.
-- Main visually slides from and back into the right edge. Secondary slides left from Main and retracts toward it. Context replacement within a visible Secondary updates in place without replaying the entrance transition. Current development motion may remain restrained; final spring, duration, opacity/material interpolation, and reduced-motion tuning belong to Production Polish.
+- Main visually slides from and back into the right edge. Secondary slides left from Main and retracts toward it. Context replacement within a visible Secondary updates in place without replaying the entrance transition. Reduce Motion uses immediate frame changes.
 
 ## Context switching
 
@@ -127,6 +127,8 @@ The Main `NSHostingView` captures the left-button sequence only when mouse-down 
 
 Settings provides a visible `Done` control, Escape dismissal, and Command+W dismissal. While presented, Settings holds the EasyFlow interaction open; closing returns to Main and re-evaluates the pointer state rather than trapping or orphaning focus.
 
+Settings exposes the current SMAppService Launch at Login state, appearance selection, and Reminders recovery. Registration failures use user-facing copy and refresh from the system status rather than pretending the toggle succeeded.
+
 ## Completion and deletion interaction
 
 - Completing a Step checks and dims it without moving or hiding it.
@@ -147,7 +149,7 @@ Task Description uses a native measured text view: 42 points when empty/short, c
 
 ## Appearance and accessibility
 
-Use native typography, SF Symbols, adaptive contrast, macOS materials, restrained animation, context menus, continuous corners, and light/dark mode. Standard appearance is the baseline; newer Liquid Glass behavior is optional when available. Controls, focus indicators, VoiceOver labels, keyboard navigation where appropriate, reduced motion, and sufficient contrast are part of production polish.
+Use native typography, SF Symbols, adaptive contrast, macOS materials, restrained animation, context menus, continuous corners, and light/dark mode. Standard and Frosted appearances support the macOS 14 baseline; Liquid Glass is optional on macOS 26+. Controls include VoiceOver labels, keyboard behavior where practical, reduced-motion handling, focus indicators, and increased-contrast borders.
 
 ## Manual smoke scenarios
 

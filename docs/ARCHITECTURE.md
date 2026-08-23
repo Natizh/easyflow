@@ -59,6 +59,8 @@ The dependency container composes concrete platform services at launch. Domain a
 
 The app launches as a resident utility, initializes the local database and settings, installs edge observation, and normally exposes no UI. First-run permission and list setup are coordinated without making local operation wholly dependent on EventKit availability. Launch-at-login setup uses native APIs and remains configurable through Settings.
 
+Appearance preference is stored in UserDefaults and drives both hosted panel surfaces. Standard and Frosted are macOS 14-safe; Liquid Glass is compiled behind a macOS 26 availability check. SMAppService reports and changes main-app login registration from Settings. Reduce Motion bypasses AppKit frame animation, while Reduce Transparency and increased contrast alter panel surfaces without changing layout.
+
 Production should operate without a Dock icon or menu-bar item. If development builds temporarily expose a Dock presence, the behavior is compile/configuration gated and documented as development-only.
 
 ## Window and panel architecture
@@ -100,7 +102,7 @@ AppKit/EventKit/SwiftUI event
 
 Local UI and persistence should update responsively. External Reminder work is asynchronous and represented with explicit pending/error/reconciliation states rather than blocking the main thread.
 
-Current window motion uses centralized AppKit frame/opacity hooks: Main opens in 0.20 seconds from beyond the right edge; Secondary opens leftward in 0.18 seconds; current closing uses 0.16 seconds. Context replacement changes only the SwiftUI model. These are functional development constants, not final Production Polish motion.
+Window motion uses centralized AppKit frame/opacity hooks: Main opens in 0.22 seconds from beyond the right edge; Secondary opens leftward in 0.20 seconds; closing uses 0.18 seconds. Context replacement changes only the SwiftUI model. Reduce Motion bypasses animation.
 
 ## Persistence boundary
 
@@ -145,3 +147,7 @@ Automate pure logic for activation timers, panel transitions, sorting, reorder, 
 ## CI direction
 
 After the Swift package builds locally, use a minimal GitHub Actions workflow for pushes to `main` and pull requests. Select a GitHub-hosted macOS/Xcode image capable of building the macOS 14 baseline and run `swift build` plus `swift test`. Do not add signing, packaging, live EventKit tests, lint, or formatting until intentionally configured.
+
+## Packaging
+
+`scripts/build-dev-app.sh` creates an ad-hoc-signed stable TCC bundle. `scripts/build-release-app.sh` creates an unsigned release configuration for later Developer ID signing/notarization. Both use `io.github.natizh.easyflow`, the Reminders usage description, and UIElement lifecycle. The scripts generate `EasyFlow.icns` when the final PNG iconset is present.
