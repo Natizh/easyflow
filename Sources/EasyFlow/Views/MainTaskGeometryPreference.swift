@@ -29,3 +29,42 @@ struct QuickNotesGeometryPreferenceKey: PreferenceKey {
     if let next = nextValue() { value = next }
   }
 }
+
+struct QuickNoteRowGeometryPreferenceKey: PreferenceKey {
+  static let defaultValue: [UUID: MainTaskRowGeometry] = [:]
+
+  static func reduce(
+    value: inout [UUID: MainTaskRowGeometry],
+    nextValue: () -> [UUID: MainTaskRowGeometry]
+  ) {
+    value.merge(nextValue()) { _, next in next }
+  }
+}
+
+enum SecondaryPanelCoordinateSpace {
+  static let name = "EasyFlow.SecondaryPanel"
+}
+
+struct StepRowGeometryPreferenceKey: PreferenceKey {
+  static let defaultValue: [UUID: MainTaskRowGeometry] = [:]
+
+  static func reduce(
+    value: inout [UUID: MainTaskRowGeometry],
+    nextValue: () -> [UUID: MainTaskRowGeometry]
+  ) {
+    value.merge(nextValue()) { _, next in next }
+  }
+}
+
+struct StepExclusionGeometryPreferenceKey: PreferenceKey {
+  static let defaultValue: [UUID: [CGRect]] = [:]
+
+  static func reduce(
+    value: inout [UUID: [CGRect]],
+    nextValue: () -> [UUID: [CGRect]]
+  ) {
+    for (id, frames) in nextValue() {
+      value[id, default: []].append(contentsOf: frames)
+    }
+  }
+}

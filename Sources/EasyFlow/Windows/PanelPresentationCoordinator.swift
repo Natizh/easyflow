@@ -32,6 +32,7 @@ final class PanelPresentationCoordinator {
       rootView: SecondaryPanelView(model: viewModel)
     )
     mainHostingView.isFlipped = true
+    secondaryHostingView.isFlipped = true
 
     viewModel.onInteraction = { [weak self] in
       self?.onInteraction?()
@@ -50,6 +51,15 @@ final class PanelPresentationCoordinator {
     }
     viewModel.onQuickNotesFrameChanged = { [weak mainHostingView] frame in
       mainHostingView?.updateQuickNotesFrame(frame)
+    }
+    viewModel.onQuickNoteRowsChanged = { [weak mainHostingView] rows in
+      mainHostingView?.updateQuickNoteRows(rows)
+    }
+    viewModel.onStepRowsChanged = { [weak secondaryHostingView] rows in
+      secondaryHostingView?.updateStepRows(rows)
+    }
+    viewModel.onStepExclusionsChanged = { [weak secondaryHostingView] exclusions in
+      secondaryHostingView?.updateStepExclusions(exclusions)
     }
 
     activationTrackingView.onPointerMoved = { [weak self] point in
@@ -78,6 +88,32 @@ final class PanelPresentationCoordinator {
     }
     mainHostingView.onTaskDragCancelled = { [weak viewModel] in
       viewModel?.routedTaskDragCancelled()
+    }
+    mainHostingView.onNoteDragChanged = { [weak viewModel] noteID, insertion, target in
+      viewModel?.routedNoteDragChanged(
+        noteID: noteID,
+        insertionIndex: insertion,
+        taskTargetID: target
+      )
+    }
+    mainHostingView.onNoteDragCommitted = { [weak viewModel] noteID, insertion, target in
+      viewModel?.routedNoteDragCommitted(
+        noteID: noteID,
+        insertionIndex: insertion,
+        taskTargetID: target
+      )
+    }
+    mainHostingView.onNoteDragCancelled = { [weak viewModel] in
+      viewModel?.routedNoteDragCancelled()
+    }
+    secondaryHostingView.onStepDragChanged = { [weak viewModel] stepID, insertion in
+      viewModel?.routedStepDragChanged(stepID: stepID, insertionIndex: insertion)
+    }
+    secondaryHostingView.onStepDragCommitted = { [weak viewModel] stepID, insertion in
+      viewModel?.routedStepDragCommitted(stepID: stepID, insertionIndex: insertion)
+    }
+    secondaryHostingView.onStepDragCancelled = { [weak viewModel] in
+      viewModel?.routedStepDragCancelled()
     }
 
     activationPanel.contentView = activationTrackingView
@@ -123,7 +159,7 @@ final class PanelPresentationCoordinator {
     }
     mainPanel.orderFrontRegardless()
     mainPanel.makeKey()
-    animate(duration: 0.20) {
+    animate(duration: 0.22) {
       self.mainPanel.animator().setFrame(layout.mainFrame, display: true)
       self.mainPanel.animator().alphaValue = 1
     }
@@ -156,7 +192,7 @@ final class PanelPresentationCoordinator {
     mainPanel.orderFrontRegardless()
     secondaryPanel.orderFrontRegardless()
     secondaryPanel.order(.above, relativeTo: mainPanel.windowNumber)
-    animate(duration: 0.18) {
+    animate(duration: 0.20) {
       self.secondaryPanel.animator().setFrame(intent.targetFrame, display: true)
       self.secondaryPanel.animator().alphaValue = intent.targetAlpha
     } completion: {
@@ -178,7 +214,7 @@ final class PanelPresentationCoordinator {
       viewModel.secondaryContext = nil
       return
     }
-    animate(duration: 0.16) {
+    animate(duration: 0.18) {
       self.secondaryPanel.animator().setFrame(
         self.secondaryHiddenFrame(for: currentLayout),
         display: true
@@ -198,7 +234,7 @@ final class PanelPresentationCoordinator {
       if restoreFocus { restorePreviousApplication() } else { previousApplication = nil }
       return
     }
-    animate(duration: 0.16) {
+    animate(duration: 0.18) {
       self.mainPanel.animator().setFrame(self.mainHiddenFrame(for: currentLayout), display: true)
       self.mainPanel.animator().alphaValue = 0
     } completion: {
@@ -241,9 +277,14 @@ final class PanelPresentationCoordinator {
     changes: () -> Void,
     completion: (@MainActor @Sendable () -> Void)? = nil
   ) {
+    if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+      changes()
+      completion?()
+      return
+    }
     NSAnimationContext.runAnimationGroup { context in
       context.duration = duration
-      context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+      context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
       changes()
     } completionHandler: {
       Task { @MainActor in completion?() }

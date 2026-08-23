@@ -1,160 +1,41 @@
 # Development Plan
 
-EasyFlow is implemented in large, bounded, end-to-end chunks. Each chunk defines scope, acceptance criteria, automated/manual verification, documentation updates, clear commits, and known gaps. `main` remains the integration branch and should remain buildable once code exists.
+EasyFlow's v1 implementation is present on `main`: the native edge shell, local GRDB workspace, complete local UI, Apple Reminders synchronization, Settings, appearance modes, launch-at-login integration, accessibility work, and repeatable app packaging.
 
-## Bootstrap: Repository truth
+## Working discipline
 
-Status: complete when the initial documentation commit is created.
+- Keep `main` buildable and use one bounded branch for each coherent change.
+- Read the product, UX, architecture, data, sync, and relevant ADR documents before editing.
+- Update documentation when behavior or architecture changes.
+- Finish file-changing rounds with formatting, build, tests, manual instructions where needed, and clear commits.
+- Do not rewrite useful history or overwrite unrelated work.
 
-- Initialize Git and the canonical documentation hierarchy.
-- Preserve all settled requirements and unresolved decisions.
-- Add AGENTS.md, accepted ADRs, references/licensing notes, backlog, and ignore rules.
-- Do not add product implementation, a license, a GitHub remote, `Package.swift`, or CI while their gates remain unresolved. Those initial gates were resolved after bootstrap: macOS 14 minimum, macOS 26 primary, private GitHub visibility, and MIT licensing.
+## Verification baseline
 
-Acceptance: a future agent can understand EasyFlow and begin Chunk A without the original bootstrap conversation or source file.
+Automated checks cover:
 
-## Pre-Chunk-A gates
+- edge activation and panel state transitions;
+- display and panel geometry;
+- AppKit task/note/Step pointer routing and reorder cancellation;
+- Quick Note draft/commit idempotency;
+- migrations, reopen persistence, CRUD, ordering, completion, and soft deletion;
+- EventKit authorization mapping, list selection, retries, external imports, and three-way reconciliation;
+- appearance and platform-service state that can be separated from live macOS behavior.
 
-1. Use the settled macOS 14 minimum and macOS 26 primary target ([OQ-004](OPEN_QUESTIONS.md#oq-004-minimum-macos-deployment-target)).
-2. Create a minimal SwiftPM executable target `EasyFlow` and `EasyFlowTests` with a real native app-shell boundary.
-3. Run `swift package describe`, `swift build`, and `swift test`.
-4. Commit as `chore: scaffold native macOS project`.
-5. Add minimal GitHub Actions build/test CI only after local success and remote publication prerequisites are satisfied.
+Real-device checks remain necessary for physical pointer feel, focus restoration, fullscreen/Spaces, multi-display changes, live iCloud delay, launch at login, accessibility, materials, animation, and release-bundle behavior. The consolidated checklist is in `docs/testing/CHUNK_A_SMOKE_TEST.md`.
 
-## Chunk A: Native macOS shell
+## Release work outside the repository
 
-Suggested branch: `feat/app-shell`
+Before public distribution:
 
-Status: implemented on the feature branch; automated checks complete and real-device GUI smoke evidence recorded separately before integration.
+1. Supply the final two-panel EasyFlow icon exports under `Support/AppIcon.iconset`.
+2. Build the release app with `scripts/build-release-app.sh`.
+3. Sign with the intended Apple Developer identity and required entitlements.
+4. Notarize and staple the distributed build.
+5. Run the manual regression checklist on the macOS 14 baseline and macOS 26 primary target.
 
-Implement:
+Developer ID credentials, notarization, and final artwork are not stored in this repository.
 
-- resident/invisible app lifecycle and AppKit/SwiftUI bridge;
-- rightmost-display selection and far-right hot zone;
-- event monitoring with approximately 300 ms intentional dwell;
-- immediate accidental dismissal and focus-restoration foundation;
-- coordinated Main and Secondary `NSPanel` infrastructure;
-- responsive panel geometry without prematurely freezing OQ-008;
-- overlay window level and fullscreen/Spaces behavior;
-- pure activation/panel state machine with placeholder content;
-- relevant state/timer tests and manual GUI smoke procedure.
+## Scope control
 
-Acceptance: EasyFlow launches, stays normally invisible, reveals Main through the preferred edge trigger, dismisses cleanly when abandoned, supports Secondary infrastructure, and remains available above fullscreen applications.
-
-Do not add Reminders or the complete task UI merely to fill this chunk.
-
-## Chunk B: Local workspace and persistence
-
-Suggested branch: `feat/local-workspace`
-
-Status: implemented and green on the feature branch; migration, reopen persistence, CRUD, ordering, completion, note movement/rollback, stable identity, relationships, and soft deletion are automated.
-
-Implement:
-
-- GRDB dependency, SQLite database, and versioned migrator;
-- explicit repositories/services and observation;
-- Main Task local metadata, effort, Description, lifecycle, and styles;
-- one-level Steps with notes, completion, styles, and ordering;
-- unified movable Notes model for inbox and attached ownership unless implementation evidence supports an equally safe documented schema;
-- ordering/sort indexes, transactional reorder, soft deletion, and completion metadata;
-- temporary database and pure domain tests.
-
-Acceptance: EasyFlow-specific data can be created, updated, reordered, moved, completed, soft-deleted, and recovered after database restart without Apple Reminders.
-
-## Chunk C: Complete local interaction UI
-
-Continue on the bounded local-workspace branch or a dedicated child branch if review size requires it; do not create bureaucracy by default.
-
-Status: implemented on `feat/local-workspace`; the Main and shared Secondary panels now expose the complete observed local workspace without EventKit.
-
-Real-device fix round status: AppKit capture geometry, visible compact inbox, direct insertion reorder, adaptive 64–96-point vertical margins, dismissible Settings, and reliable contextual Secondary activation are implemented on `fix/manual-ux-round-1` before Chunk D.
-
-Second real-device corrective round: `fix/manual-ux-round-2` hardens the end-to-end Secondary window intent/ordering/hover path, expands Main Task reorder to the title/body with a 4-point threshold, exposes imported effort assignment, and fixes Recently Completed to the newest three.
-
-After that SwiftUI hover/drag approach failed again on hardware, `fix/appkit-pointer-routing` moves only critical Main Task pointer routing to AppKit using rendered-frame registration, explicit mouse capture, and optional structural DEBUG diagnostics. Chunk E remains blocked on user revalidation.
-
-Implement:
-
-- immediate Quick Note capture and contextual browser;
-- generated display titles, editing, deletion, and local reorder;
-- inline Main Task creation, effort display/edit, list, styles, and drag priority;
-- task hover and immediate Task A → Task B context replacement;
-- Description editor;
-- Step CRUD, completion, reorder, notes, and styles;
-- transactional Quick Note → Attached Note move and display below Steps;
-- Recently Completed local UI;
-- Settings gear and only the settings infrastructure backed by existing features;
-- empty, loading, and local error states;
-- UI/state tests and repeatable drag/focus/manual checks.
-
-OQ-001, OQ-002, and OQ-010 are settled in `docs/UX_BEHAVIOR.md`. OQ-003 remains open; no Recently Completed restore control is implemented. OQ-008 and OQ-009 retain the current measured Chunk A constants.
-
-Acceptance: EasyFlow is useful as a complete local current-work workspace before EventKit is enabled.
-
-## Chunk D: Apple Reminders integration
-
-Suggested branch: `feat/reminders-sync`
-
-Status: implemented on the bounded branch with v2 migration, stable development bundle/TCC identity, EventKit adapter, exact-list selection, durable mapping/retry state, serialized three-way reconciliation, external imports, and exceptional Settings state. Live user authorization remains manual verification.
-
-Implement:
-
-- EventKit authorization states and first-run flow;
-- discover/create the dedicated `EasyFlow` list;
-- app-owned UUID ↔ external identifier mapping;
-- initial import and conservative reconciliation;
-- create, rename, complete, and delete mutations;
-- external rename, completion, deletion, and new Reminder handling;
-- coalesced EventKit change observation;
-- disconnected, denied, ambiguous-list, identifier-loss, and error states;
-- protocol-backed adapter, fakes, reconciliation tests, and a live manual plan.
-
-Acceptance: Main Task title, completion, creation, and deletion stay coherent between EasyFlow and the dedicated list while every EasyFlow-specific field remains local.
-
-## Chunk E: Production polish
-
-Suggested branch: `feat/polish`
-
-Implement/refine:
-
-- minimal Settings and native launch at login;
-- Standard appearance, Frosted where appropriate, and optional Liquid Glass only on supported versions;
-- animation, focus, hover, pointer traversal, and panel sizing tuning;
-- accessibility and reduced-motion behavior;
-- onboarding, permission recovery, and error presentation;
-- idle/resource profiling and performance fixes;
-- application bundle, packaging, release build, and app lifecycle behavior;
-- final regression suite, manual smoke checklist, and documentation refresh.
-
-Acceptance: EasyFlow behaves like a polished native utility that can remain active through a Mac session without becoming intrusive or heavy.
-
-## Test strategy across chunks
-
-High-value automated coverage:
-
-- task/Step/note order and drag-result logic;
-- Step completion stability;
-- Quick Note movement and rollback;
-- soft deletion and retention-independent trash queries;
-- all database migrations and reopen persistence;
-- Reminder reconciliation through abstractions;
-- activation and panel state machines using injected clocks;
-- stale/cancelled async result handling.
-
-Repeatable manual coverage:
-
-- normal, maximized, fullscreen, and Spaces overlays;
-- multiple-display geometry and arrangement changes;
-- cursor traversal, animation, dismissal, and focus restoration;
-- drag feel and visual indicators;
-- real EventKit permission/list/iCloud behavior;
-- launch at login and release-bundle behavior;
-- CPU, wakeups, memory, and hidden-state activity.
-
-Every completed chunk updates relevant canonical docs and ADRs, records known gaps, runs the strongest checks available, and ends in clear commits.
-
-## GitHub and CI direction
-
-The canonical GitHub repository is private at `https://github.com/Natizh/easyflow`, with `main` as the default/integration branch. Publication included tracked-file checks for secrets, private data, local databases, and machine paths before the initial push.
-
-After the package builds, CI runs `swift build` and `swift test` on pull requests and pushes to `main` using a compatible GitHub-hosted macOS/Xcode environment. Lint, formatting, signing, packaging, and live EventKit tests are not bootstrap CI.
+Do not add backlog features to v1 without an explicit product decision. In particular, restore/uncomplete from Recently Completed and permanent trash retention remain unresolved in `docs/OPEN_QUESTIONS.md`.

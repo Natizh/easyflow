@@ -41,6 +41,10 @@ struct MainTaskPointerRouter: Equatable, Sendable {
     rows.first(where: { $0.reorderFrame.contains(point) })?.taskID
   }
 
+  func rowID(at point: CGPoint) -> UUID? {
+    rows.first(where: { $0.rowFrame.contains(point) })?.taskID
+  }
+
   mutating func mouseDown(at point: CGPoint) -> Bool {
     guard let taskID = taskForReorder(at: point) else { return false }
     pressedTaskID = taskID

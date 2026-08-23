@@ -52,7 +52,7 @@ The persistence mechanics arrive with the local workspace chunk. Chunk A establi
 - The panels must remain available over maximized/fullscreen applications and across Spaces.
 - Each panel uses 20% of display width clamped to 360–520 points, with an 8-point outer margin/gap. These width constants remain subject only to evidence-based prototype tuning under [OQ-008](OPEN_QUESTIONS.md#oq-008-panel-width-constraints).
 - Real-device feedback replaces the original 12-point vertical inset with 8% of display height clamped to 64–96 points. Main and Secondary share identical vertical alignment and height, leaving a clearly visible band above and below.
-- Main visually slides from and back into the right edge. Secondary slides left from Main and retracts toward it. Context replacement within a visible Secondary updates in place without replaying the entrance transition. Current development motion may remain restrained; final spring, duration, opacity/material interpolation, and reduced-motion tuning belong to Production Polish.
+- Main visually slides from and back into the right edge. Secondary slides left from Main and retracts toward it. Context replacement within a visible Secondary updates in place without replaying the entrance transition. Reduce Motion uses immediate frame changes.
 
 ## Context switching
 
@@ -117,6 +117,8 @@ Use a direct drag gesture when it materially improves responsiveness over macOS 
 
 Internal reorder uses direct local gestures and a thin insertion bar at an exact collection boundary. It never highlights a row as a container or uses copy-style `NSItemProvider` semantics. Only Quick Note attachment uses a cross-window payload and target-row highlight.
 
+Compact Quick Note rows have no grip or arrow-only target. AppKit captures the row drag: movement within the inbox resolves an insertion boundary, while movement over a Main Task switches to attachment targeting. Steps likewise remove the grip; AppKit captures row background outside the registered checkbox/title/notes editing rectangles.
+
 For Main Tasks, the title/body region—not a tiny grip—is the direct reorder surface. A 4-point movement threshold separates click from drag. Checkbox and effort controls remain outside that gesture; right-click context menus, hover, scrolling, and note attachment remain available.
 
 The Main `NSHostingView` captures the left-button sequence only when mouse-down hits the registered title/body rectangle. It suppresses ScrollView drag arbitration for that sequence, derives insertion from actual row midpoints, commits once on mouse-up, and cancels without writes on Escape. Normal wheel/trackpad scrolling remains SwiftUI-owned outside a reorder sequence.
@@ -124,6 +126,8 @@ The Main `NSHostingView` captures the left-button sequence only when mouse-down 
 ## Settings dismissal
 
 Settings provides a visible `Done` control, Escape dismissal, and Command+W dismissal. While presented, Settings holds the EasyFlow interaction open; closing returns to Main and re-evaluates the pointer state rather than trapping or orphaning focus.
+
+Settings exposes the current SMAppService Launch at Login state, appearance selection, and Reminders recovery. Registration failures use user-facing copy and refresh from the system status rather than pretending the toggle succeeded.
 
 ## Completion and deletion interaction
 
@@ -139,11 +143,13 @@ Normal synchronization is quiet. Settings shows only Connected, Needs Access, Sy
 
 For unrated imports, Task Detail displays `Set effort` and four immediate buttons. Assignment updates Main presentation and persistence only; it never marks synchronized title/completion pending.
 
-`Recently Completed` renders at most three tasks, ordered by completion time descending with stable UUID tie ordering. This presentation limit does not purge history and does not resolve restore behavior.
+`Recently Completed` renders at most five tasks, ordered by completion time descending with stable UUID tie ordering. This presentation limit does not purge history and does not resolve restore behavior.
+
+Task Description uses a native measured text view: 42 points when empty/short, content-driven growth and shrinkage, and a 156-point cap with internal scrolling beyond it.
 
 ## Appearance and accessibility
 
-Use native typography, SF Symbols, adaptive contrast, macOS materials, restrained animation, context menus, continuous corners, and light/dark mode. Standard appearance is the baseline; newer Liquid Glass behavior is optional when available. Controls, focus indicators, VoiceOver labels, keyboard navigation where appropriate, reduced motion, and sufficient contrast are part of production polish.
+Use native typography, SF Symbols, adaptive contrast, macOS materials, restrained animation, context menus, continuous corners, and light/dark mode. Standard and Frosted appearances support the macOS 14 baseline; Liquid Glass is optional on macOS 26+. Controls include VoiceOver labels, keyboard behavior where practical, reduced-motion handling, focus indicators, and increased-contrast borders.
 
 ## Manual smoke scenarios
 

@@ -5,6 +5,13 @@ enum SecondaryPanelContext: Equatable, Sendable {
   case task(id: UUID)
 }
 
+extension SecondaryPanelContext {
+  var taskID: UUID? {
+    if case .task(let id) = self { return id }
+    return nil
+  }
+}
+
 enum PointerRegion: Equatable, Sendable {
   case activationEdge
   case main

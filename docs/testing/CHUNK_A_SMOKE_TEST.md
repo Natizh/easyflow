@@ -100,7 +100,7 @@ Development-bundle evidence (2026-08-23): the ad-hoc-signed `io.github.natizh.ea
 
 Confirmed before this fix: Main opens, Quick Notes and synchronized Main Tasks are usable, Reminders sync operates, and external imports show `?` effort.
 
-Confirmed defects before this fix: Secondary had never appeared; Main Task reorder required the tiny grip; imported effort assignment was unreachable because Task Detail was invisible. The product now also fixes `Recently Completed` to exactly the newest three.
+Confirmed defects before this fix: Secondary had never appeared; Main Task reorder required the tiny grip; imported effort assignment was unreachable because Task Detail was invisible. The temporary recent-three limit was later superseded by newest five.
 
 Required user revalidation:
 
@@ -111,7 +111,7 @@ Required user revalidation:
 5. Import a Reminder, confirm `?`, hover it, choose `Set effort` `1...4`, and confirm dots plus restart persistence without Reminder metadata changes.
 6. Drag a Main Task from its title/body—not a grip—and confirm the insertion line and final order.
 7. Confirm checkbox click, right-click menu, and Quick Note attachment remain functional.
-8. Complete at least four tasks; confirm only the newest three display and the fourth remains stored.
+8. Complete at least six tasks; confirm only the newest five display and the sixth remains stored.
 
 These repaired user-visible behaviors require user revalidation and are not marked manually verified by automated tests.
 
@@ -137,3 +137,16 @@ EASYFLOW_INPUT_DEBUG=1 .build/dev/EasyFlow.app/Contents/MacOS/EasyFlow
 ```
 
 Diagnostics contain pointer coordinates, hit region/task UUID, insertion boundary, panel frame/alpha/level/window number, and structural state only. They never contain task, note, Description, Step, or Reminder text. This validation remains user-required; automated AppKit-router tests are not WindowServer proof.
+
+## Production-polish checklist
+
+1. Exercise Standard and Frosted on macOS 14+, and Liquid Glass on macOS 26; verify Reduce Transparency and Increase Contrast fallbacks.
+2. Enable/disable Launch at Login from the packaged app, log out/in or relaunch the login item, and confirm Settings reflects system status.
+3. Turn on Reduce Motion and verify Main/Secondary use immediate frame changes without breaking context or dismissal.
+4. Verify Quick Note row drag reorders or attaches depending on target, with no grip/arrow required.
+5. Reorder Steps from row background while checkbox/title/notes editing remain functional.
+6. Add/remove Description lines; confirm 42–156-point growth/shrink and internal scrolling beyond the cap.
+7. Complete six tasks; confirm the newest five display and older history remains stored.
+8. Repeat fullscreen, Spaces, rightmost-display, display rearrangement, VoiceOver, keyboard focus, and Reminders recovery checks.
+
+Final hidden-state sample on the signed development app: five one-second observations reported 0.0% CPU, about 19 MB resident memory, four threads, and unchanged accumulated CPU time. User-visible polish still requires real-device approval.

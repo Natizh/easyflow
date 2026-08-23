@@ -19,14 +19,17 @@ struct SecondaryPanelView: View {
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    .coordinateSpace(name: SecondaryPanelCoordinateSpace.name)
     .padding(20)
-    .background(.ultraThinMaterial)
-    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-    .overlay {
-      RoundedRectangle(cornerRadius: 22, style: .continuous)
-        .strokeBorder(.white.opacity(0.10), lineWidth: 1)
-    }
+    .easyFlowPanelSurface(model.appearanceMode)
+    .tint(EasyFlowBrand.indigo)
     .onTapGesture { model.registerInteraction() }
+    .onPreferenceChange(StepRowGeometryPreferenceKey.self) { geometries in
+      model.updateStepRows(Array(geometries.values))
+    }
+    .onPreferenceChange(StepExclusionGeometryPreferenceKey.self) {
+      model.updateStepExclusions($0)
+    }
   }
 }
 
@@ -142,8 +145,6 @@ private struct TaskDetailView: View {
   let task: MainTask
   @ObservedObject var model: AppShellViewModel
   @State private var newStepTitle = ""
-  @State private var draggedStepID: UUID?
-  @State private var stepInsertionIndex: Int?
 
   private var steps: [TaskStep] { model.snapshot.stepsByTask[task.id] ?? [] }
   private var attachedNotes: [WorkspaceNote] {
@@ -187,42 +188,18 @@ private struct TaskDetailView: View {
           }
         }
         section("Description") {
-          PersistedTextEditor(value: task.taskDescription, minimumHeight: 86) {
+          AdaptiveDescriptionEditor(value: task.taskDescription) {
             model.updateMainTask(id: task.id, description: $0)
           }
         }
         section("Steps") {
           VStack(spacing: 7) {
             ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
-              if stepInsertionIndex == index { ReorderInsertionBar() }
-              StepRow(
-                step: step,
-                taskID: task.id,
-                model: model,
-                onReorderChanged: { translation in
-                  draggedStepID = step.id
-                  stepInsertionIndex = ReorderLogic.insertionIndex(
-                    ids: steps.map(\.id),
-                    draggedID: step.id,
-                    translation: translation,
-                    rowExtent: 72
-                  )
-                },
-                onReorderEnded: {
-                  if let stepInsertionIndex {
-                    model.reorderStep(
-                      mainTaskID: task.id,
-                      draggedID: step.id,
-                      toInsertionIndex: stepInsertionIndex
-                    )
-                  }
-                  draggedStepID = nil
-                  stepInsertionIndex = nil
-                }
-              )
-              .opacity(draggedStepID == step.id ? 0.55 : 1)
+              if model.routedStepInsertionIndex == index { ReorderInsertionBar() }
+              StepRow(step: step, taskID: task.id, model: model)
+                .opacity(model.routedStepDragID == step.id ? 0.55 : 1)
             }
-            if stepInsertionIndex == steps.count {
+            if model.routedStepInsertionIndex == steps.count {
               ReorderInsertionBar()
             }
             HStack {
@@ -282,25 +259,21 @@ private struct StepRow: View {
   let step: TaskStep
   let taskID: UUID
   @ObservedObject var model: AppShellViewModel
-  let onReorderChanged: (CGFloat) -> Void
-  let onReorderEnded: () -> Void
 
   var body: some View {
     VStack(alignment: .leading, spacing: 5) {
       HStack {
-        DirectReorderHandle(
-          onChanged: onReorderChanged,
-          onEnded: onReorderEnded
-        )
         Button {
           model.updateStep(id: step.id, isCompleted: !step.isCompleted)
         } label: {
           Image(systemName: step.isCompleted ? "checkmark.circle.fill" : "circle")
         }
         .buttonStyle(.plain)
+        .background { StepExclusionReporter(stepID: step.id) }
         PersistedTextField(title: "Step", value: step.title) {
           model.updateStep(id: step.id, title: $0)
         }
+        .background { StepExclusionReporter(stepID: step.id) }
         .textFieldStyle(.plain)
         .foregroundStyle(step.style.textColor?.color ?? .primary)
         .padding(.horizontal, step.style.highlightColor == nil ? 0 : 3)
@@ -317,14 +290,47 @@ private struct StepRow: View {
         model.updateStep(id: step.id, notes: $0)
       }
       .font(.caption)
+      .background { StepExclusionReporter(stepID: step.id) }
     }
     .opacity(step.isCompleted ? 0.52 : 1)
     .padding(8)
     .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel("Step: \(step.title)")
+    .background {
+      GeometryReader { proxy in
+        let frame = proxy.frame(in: .named(SecondaryPanelCoordinateSpace.name))
+        Color.clear.preference(
+          key: StepRowGeometryPreferenceKey.self,
+          value: [
+            step.id: MainTaskRowGeometry(
+              taskID: step.id,
+              rowFrame: frame,
+              reorderFrame: frame
+            )
+          ]
+        )
+      }
+    }
     .contextMenu {
       AppearanceMenu(style: step.style) { model.updateStep(id: step.id, style: $0) }
       Divider()
       Button("Delete", role: .destructive) { model.deleteStep(step.id) }
+    }
+  }
+}
+
+private struct StepExclusionReporter: View {
+  let stepID: UUID
+
+  var body: some View {
+    GeometryReader { proxy in
+      Color.clear.preference(
+        key: StepExclusionGeometryPreferenceKey.self,
+        value: [
+          stepID: [proxy.frame(in: .named(SecondaryPanelCoordinateSpace.name))]
+        ]
+      )
     }
   }
 }

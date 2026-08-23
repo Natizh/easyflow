@@ -21,6 +21,17 @@ final class AppShellViewModel: ObservableObject {
   @Published private(set) var remindersStatus: RemindersSyncStatus
   @Published private(set) var routedTaskDragID: UUID?
   @Published private(set) var routedTaskInsertionIndex: Int?
+  @Published private(set) var routedNoteDragID: UUID?
+  @Published private(set) var routedNoteInsertionIndex: Int?
+  @Published private(set) var routedNoteAttachmentTargetID: UUID?
+  @Published private(set) var routedStepDragID: UUID?
+  @Published private(set) var routedStepInsertionIndex: Int?
+  @Published var appearanceMode: AppearanceMode {
+    didSet {
+      UserDefaults.standard.set(appearanceMode.rawValue, forKey: "appearanceMode")
+    }
+  }
+  @Published private(set) var launchAtLoginStatus: LaunchAtLoginStatus
 
   var onInteraction: (() -> Void)?
   var onSecondaryRequested: ((SecondaryPanelContext) -> Void)?
@@ -28,9 +39,13 @@ final class AppShellViewModel: ObservableObject {
   var onSettingsPresentationChanged: ((Bool) -> Void)?
   var onTaskRowsChanged: (([MainTaskRowGeometry]) -> Void)?
   var onQuickNotesFrameChanged: ((CGRect?) -> Void)?
+  var onQuickNoteRowsChanged: (([MainTaskRowGeometry]) -> Void)?
+  var onStepRowsChanged: (([MainTaskRowGeometry]) -> Void)?
+  var onStepExclusionsChanged: (([UUID: [CGRect]]) -> Void)?
 
   private let repository: WorkspaceRepository
   private let remindersSync: RemindersSyncCoordinator
+  private let launchAtLoginService: LaunchAtLoginService
   private var remindersStatusCancellable: AnyCancellable?
   private var observationTask: Task<Void, Never>?
   private var draftSaveTask: Task<Void, Never>?
@@ -49,6 +64,12 @@ final class AppShellViewModel: ObservableObject {
         adapter: DisabledRemindersAdapter()
       )
     self.remindersSync = sync
+    launchAtLoginService = LaunchAtLoginService()
+    launchAtLoginStatus = launchAtLoginService.status
+    appearanceMode =
+      AppearanceMode(
+        rawValue: UserDefaults.standard.string(forKey: "appearanceMode") ?? "standard"
+      ) ?? .standard
     remindersStatus = sync.status
     remindersStatusCancellable = sync.$status.sink { [weak self] in
       self?.remindersStatus = $0
@@ -92,6 +113,20 @@ final class AppShellViewModel: ObservableObject {
     EventKitRemindersAdapter.openPrivacySettings()
   }
 
+  func refreshLaunchAtLoginStatus() {
+    launchAtLoginStatus = launchAtLoginService.status
+  }
+
+  func setLaunchAtLogin(_ isEnabled: Bool) {
+    do {
+      try launchAtLoginService.setEnabled(isEnabled)
+      refreshLaunchAtLoginStatus()
+    } catch {
+      errorMessage = "EasyFlow couldn't update Launch at Login."
+      refreshLaunchAtLoginStatus()
+    }
+  }
+
   func requestQuickNoteFocus() {
     focusRequestID &+= 1
   }
@@ -117,6 +152,18 @@ final class AppShellViewModel: ObservableObject {
 
   func updateQuickNotesFrame(_ frame: CGRect?) {
     onQuickNotesFrameChanged?(frame)
+  }
+
+  func updateQuickNoteRows(_ rows: [MainTaskRowGeometry]) {
+    onQuickNoteRowsChanged?(rows)
+  }
+
+  func updateStepRows(_ rows: [MainTaskRowGeometry]) {
+    onStepRowsChanged?(rows)
+  }
+
+  func updateStepExclusions(_ exclusions: [UUID: [CGRect]]) {
+    onStepExclusionsChanged?(exclusions)
   }
 
   func routedTaskHover(_ taskID: UUID) {
@@ -147,6 +194,50 @@ final class AppShellViewModel: ObservableObject {
   func routedTaskDragCancelled() {
     routedTaskDragID = nil
     routedTaskInsertionIndex = nil
+  }
+
+  func routedNoteDragChanged(noteID: UUID, insertionIndex: Int?, taskTargetID: UUID?) {
+    routedNoteDragID = noteID
+    routedNoteInsertionIndex = insertionIndex
+    routedNoteAttachmentTargetID = taskTargetID
+  }
+
+  func routedNoteDragCommitted(noteID: UUID, insertionIndex: Int?, taskTargetID: UUID?) {
+    if let taskTargetID {
+      moveQuickNote(noteID, to: taskTargetID)
+    } else if let insertionIndex {
+      reorderQuickNote(draggedID: noteID, toInsertionIndex: insertionIndex)
+    }
+    routedNoteDragCancelled()
+  }
+
+  func routedNoteDragCancelled() {
+    routedNoteDragID = nil
+    routedNoteInsertionIndex = nil
+    routedNoteAttachmentTargetID = nil
+  }
+
+  func routedStepDragChanged(stepID: UUID, insertionIndex: Int) {
+    routedStepDragID = stepID
+    routedStepInsertionIndex = insertionIndex
+  }
+
+  func routedStepDragCommitted(stepID: UUID, insertionIndex: Int) {
+    guard let taskID = secondaryContext?.taskID else {
+      routedStepDragCancelled()
+      return
+    }
+    reorderStep(
+      mainTaskID: taskID,
+      draggedID: stepID,
+      toInsertionIndex: insertionIndex
+    )
+    routedStepDragCancelled()
+  }
+
+  func routedStepDragCancelled() {
+    routedStepDragID = nil
+    routedStepInsertionIndex = nil
   }
 
   func clearSecondary() {

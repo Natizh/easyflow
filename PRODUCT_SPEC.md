@@ -64,7 +64,7 @@ The visual hierarchy is calm, productive, and native. `+ New Task` is not a gian
 
 The Secondary Panel is reused for the Quick Notes browser or the currently hovered Main Task. It updates context in place; EasyFlow does not create a separate third notes/details window.
 
-Finished panel motion is spatial and native: Main slides out from and retreats into the right screen edge; Secondary slides left from Main and retracts toward it. Replacing content inside an already-visible Secondary Panel does not replay its entrance animation. Exact curves, duration, and material interpolation remain Production Polish tuning.
+Panel motion is spatial and native: Main slides out from and retreats into the right screen edge; Secondary slides left from Main and retracts toward it. Replacing content inside an already-visible Secondary Panel does not replay its entrance animation. Reduce Motion removes the transition without changing behavior.
 
 ## Quick Notes
 
@@ -105,7 +105,7 @@ Main Task order is authoritative only inside EasyFlow and persists locally after
 
 Main Task reorder begins from the task title/body region after a small desktop-pointer movement threshold; it is not grip-only. Checkbox, effort, context menu, contextual hover, and Quick Note attachment retain separate interactions.
 
-Internal Main Task, Step, and Quick Note reorder is a positional move with a horizontal insertion bar between rows—not a copy or container drop. Quick Note attachment to a Main Task is the separate target-highlighted move interaction.
+Internal Main Task, Step, and Quick Note reorder is a positional move with a horizontal insertion bar between rows—not a copy or container drop. Quick Note rows/cards are directly draggable; the same drag either reorders within the inbox or becomes the target-highlighted transactional move into a Main Task.
 
 Right-click/contextual actions may set text color, highlight, and underline. These styles are cosmetic only and do not affect priority, effort, synchronization, or completion. Do not add an elaborate styling inspector.
 
@@ -140,7 +140,7 @@ Completing a Main Task:
 2. removes it from active Main Tasks;
 3. places it in `Recently Completed`.
 
-The visible `Recently Completed` area shows exactly the three most recently completed Main Tasks, newest first. It shows all available when fewer than three exist and never deletes older local history. Restore/uncomplete behavior remains unresolved under [OQ-003](docs/OPEN_QUESTIONS.md#oq-003-restore-from-recently-completed).
+The visible `Recently Completed` area shows the five most recently completed Main Tasks, newest first. It shows all available when fewer than five exist and never deletes older local history. Restore/uncomplete behavior remains unresolved under [OQ-003](docs/OPEN_QUESTIONS.md#oq-003-restore-from-recently-completed).
 
 Deleting a Main Task deletes its external Apple Reminder and soft-deletes its local record. Local Description, Steps, Attached Notes, styles, and metadata remain temporarily recoverable. The retention period is unresolved under [OQ-007](docs/OPEN_QUESTIONS.md#oq-007-deleted-item-retention).
 
@@ -166,13 +166,13 @@ An imported task's Task Detail shows an obvious `Set effort` control with `1...4
 
 ## Settings, permissions, and appearance
 
-The Main Panel gear opens Settings. Potential categories are appearance, launch at login, activation behavior, panel sizing, and UX timings; only settings backed by real features belong in v1.
+The Main Panel gear opens Settings with real controls for Standard/Frosted/Liquid Glass appearance, native Launch at Login, and Reminders connection/recovery. Current activation and panel geometry are shown as factual information rather than fake toggles.
 
 EasyFlow starts automatically at login through a native mechanism such as `SMAppService`. First run handles Reminders authorization, finding or creating the EasyFlow list, and launch-at-login configuration. Authorization states include not determined, authorized, denied/restricted, and unavailable/error. Permission is not repeatedly requested once decided, and a graceful local experience remains available where technically reasonable.
 
 The baseline design uses system typography, SF Symbols, macOS materials, adaptive light/dark mode, native spacing, restrained translucency/shadows, continuous corners, subtle animation, and appropriate context menus. Avoid a web-dashboard look, Electron chrome, giant controls, gratuitous gradients, and excessive animation.
 
-Standard appearance must work on the minimum deployment target, macOS 14. macOS 26 is the primary development and experience target. Frosted appearance may be offered where appropriate. Liquid Glass is optional only where supported and never gates core functionality. See [OQ-004](docs/OPEN_QUESTIONS.md#oq-004-minimum-macos-deployment-target) and ADR-006.
+Standard and Frosted appearances work on the minimum deployment target, macOS 14. macOS 26 is the primary development target and adds optional Liquid Glass. Reduce Transparency falls back to an opaque native surface, and Liquid Glass never gates functionality. See [OQ-004](docs/OPEN_QUESTIONS.md#oq-004-minimum-macos-deployment-target) and ADR-006.
 
 ## Performance, privacy, and reliability
 
