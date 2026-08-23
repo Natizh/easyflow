@@ -66,7 +66,7 @@ Deleted Main Tasks enter a local trash-like soft-deleted state. The permanent-de
 **Domain:** UX<br>
 **Status:** Resolved for Chunk A; retain as a prototype-tuning decision if real-device evidence requires adjustment
 
-Main and Secondary each use 20% of the selected display width, clamped independently to 360–520 points. Panels use an 8-point outer margin and gap plus a 12-point vertical inset. These constants preserve the one-fifth target on ordinary/wide displays while keeping small displays usable. Change them only with recorded prototype evidence.
+Main and Secondary each use 20% of the selected display width, clamped independently to 360–520 points. Real-device evidence changed the vertical inset to 8% of display height clamped to 64–96 points; both panels share that geometry. Change these tuning values only with further recorded evidence.
 
 ## OQ-009: Closing grace interval
 

@@ -53,7 +53,7 @@ The Main Panel occupies about 20% of the current display width, clamped to 360â€
 
 The Main Panel contains, in order:
 
-1. Quick Notes capture area;
+1. Quick Notes capture area followed by a compact, bounded inbox of saved notes;
 2. `Main Tasks` heading;
 3. a small `+ New Task` control;
 4. active Main Tasks in local priority order;
@@ -75,6 +75,8 @@ After intentional activation, the user can type into Quick Note capture without 
 Each Quick Note contains an app-owned ID, optional explicit title, body, creation and update timestamps, local order, and optional deletion metadata. When no explicit title exists, the UI derives a label from the first meaningful words without modifying or truncating the stored body. Browsing shows the explicit/generated title, creation time/date, and enough preview text for recognition.
 
 When Quick Notes is active, the Secondary Panel supports opening, reading, editing, deleting, reordering, and dragging notes to Main Tasks.
+
+Committed Quick Notes also appear immediately in compact rows directly below the Main Panel composer. This bounded inbox shows generated/explicit title and a short preview while the Secondary remains the richer editor/browser.
 
 Dragging a Quick Note onto a Main Task is a move:
 
@@ -100,6 +102,8 @@ Effort is editable and may eventually use dots, a segmented indicator, a subtle 
 ### Ordering and appearance
 
 Main Task order is authoritative only inside EasyFlow and persists locally after restart. Drag-and-drop pickup should be immediate or near-immediate, fluid, low-latency, and show a clear destination. Prefer a direct custom gesture if standard system drag feels clumsy.
+
+Internal Main Task, Step, and Quick Note reorder is a positional move with a horizontal insertion bar between rowsâ€”not a copy or container drop. Quick Note attachment to a Main Task is the separate target-highlighted move interaction.
 
 Right-click/contextual actions may set text color, highlight, and underline. These styles are cosmetic only and do not affect priority, effort, synchronization, or completion. Do not add an elaborate styling inspector.
 

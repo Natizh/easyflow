@@ -69,3 +69,11 @@ The following scenarios require real GUI validation after the local workspace im
 Current status: these Chunk B/C GUI scenarios are **not yet manually verified**. Persistence, migration, reorder, completion, style storage, idempotent draft commit, transactional note movement/rollback, observation-driven view-model updates, and prior panel-state regressions are automated.
 
 Closed-state process evidence after Chunks B/C (2026-08-22): the production Application Support database opened successfully; five one-second samples reported 0.0% CPU, about 16 MB resident memory, four-to-six threads, and unchanged accumulated CPU time. No workspace database exists inside or is tracked by the repository.
+
+## Real-device workspace findings (2026-08-23)
+
+User-confirmed working before the fix round: physical far-right activation, visible Main Panel, Quick Note typing, Command+Return commit/clear, and opening Settings.
+
+User-confirmed defects before the fix round: misaligned Quick Note caret, no visible saved-note rows in Main, copy-style internal reorder semantics, insufficient vertical margins, no obvious Settings dismissal, and no observed Secondary Panel.
+
+The fixes are automated but require a new user pass: AppKit caret/text geometry, compact observed Main inbox, direct insertion-bar reorder, 8%-clamped vertical margins, Done/Escape/Command+W Settings dismissal, explicit contextual hover surfaces, Secondary z-order, and bridge traversal. Fullscreen, Spaces, multi-display, focus restoration, and the repaired user-visible flows remain unverified until manually exercised.
