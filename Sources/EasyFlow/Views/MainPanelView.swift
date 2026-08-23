@@ -2,7 +2,10 @@ import SwiftUI
 
 struct MainPanelView: View {
   @ObservedObject var model: AppShellViewModel
-  @FocusState private var quickNoteIsFocused: Bool
+  @State private var draggedTaskID: UUID?
+  @State private var taskInsertionIndex: Int?
+  @State private var draggedNoteID: UUID?
+  @State private var noteInsertionIndex: Int?
 
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {
@@ -20,7 +23,6 @@ struct MainPanelView: View {
       RoundedRectangle(cornerRadius: 22, style: .continuous)
         .strokeBorder(.white.opacity(0.10), lineWidth: 1)
     }
-    .onChange(of: model.focusRequestID) { _, _ in quickNoteIsFocused = true }
     .sheet(isPresented: $model.isSettingsPresented) { SettingsView() }
     .alert(
       "EasyFlow",
@@ -38,39 +40,55 @@ struct MainPanelView: View {
   private var quickNotes: some View {
     VStack(alignment: .leading, spacing: 8) {
       Label("Quick Notes", systemImage: "square.and.pencil").font(.headline)
-      TextEditor(
+      QuickNoteCaptureEditor(
         text: Binding(
           get: { model.quickNoteDraft },
           set: { model.setQuickNoteDraft($0) }
-        )
+        ),
+        focusRequestID: model.focusRequestID,
+        onCommit: model.commitQuickNoteIfNeeded,
+        onFocusLost: model.commitQuickNoteIfNeeded
       )
-      .font(.body)
-      .scrollContentBackground(.hidden)
-      .padding(7)
       .frame(minHeight: 76, maxHeight: 110)
       .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-      .overlay(alignment: .topLeading) {
-        if model.quickNoteDraft.isEmpty {
-          Text("Start typing…")
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 14)
-            .allowsHitTesting(false)
-        }
-      }
-      .focused($quickNoteIsFocused)
-      .onKeyPress(keys: [.return]) { press in
-        guard press.modifiers.contains(.command) else { return .ignored }
-        model.commitQuickNoteIfNeeded()
-        return .handled
-      }
-      .onChange(of: quickNoteIsFocused) { wasFocused, isFocused in
-        if wasFocused && !isFocused { model.commitQuickNoteIfNeeded() }
-      }
+      .onHover { if $0 { model.requestSecondary(.quickNotes) } }
       if !model.snapshot.quickNotes.isEmpty {
-        Text("\(model.snapshot.quickNotes.count) in inbox")
-          .font(.caption)
-          .foregroundStyle(.secondary)
+        ScrollView {
+          LazyVStack(spacing: 3) {
+            ForEach(Array(model.snapshot.quickNotes.enumerated()), id: \.element.id) {
+              index, note in
+              if noteInsertionIndex == index { ReorderInsertionBar() }
+              CompactQuickNoteRow(
+                note: note,
+                model: model,
+                onReorderChanged: { translation in
+                  draggedNoteID = note.id
+                  noteInsertionIndex = ReorderLogic.insertionIndex(
+                    ids: model.snapshot.quickNotes.map(\.id),
+                    draggedID: note.id,
+                    translation: translation,
+                    rowExtent: 42
+                  )
+                },
+                onReorderEnded: {
+                  if let insertion = noteInsertionIndex {
+                    model.reorderQuickNote(
+                      draggedID: note.id,
+                      toInsertionIndex: insertion
+                    )
+                  }
+                  draggedNoteID = nil
+                  noteInsertionIndex = nil
+                }
+              )
+              .opacity(draggedNoteID == note.id ? 0.55 : 1)
+            }
+            if noteInsertionIndex == model.snapshot.quickNotes.count {
+              ReorderInsertionBar()
+            }
+          }
+        }
+        .frame(maxHeight: 112)
       }
     }
     .contentShape(Rectangle())
@@ -97,9 +115,37 @@ struct MainPanelView: View {
           .padding(.vertical, 8)
       } else {
         ScrollView {
-          LazyVStack(spacing: 5) {
-            ForEach(model.snapshot.activeTasks) { task in
-              MainTaskRow(task: task, model: model)
+          LazyVStack(spacing: 3) {
+            ForEach(Array(model.snapshot.activeTasks.enumerated()), id: \.element.id) {
+              index, task in
+              if taskInsertionIndex == index { ReorderInsertionBar() }
+              MainTaskRow(
+                task: task,
+                model: model,
+                onReorderChanged: { translation in
+                  draggedTaskID = task.id
+                  taskInsertionIndex = ReorderLogic.insertionIndex(
+                    ids: model.snapshot.activeTasks.map(\.id),
+                    draggedID: task.id,
+                    translation: translation,
+                    rowExtent: 46
+                  )
+                },
+                onReorderEnded: {
+                  if let insertion = taskInsertionIndex {
+                    model.reorderMainTask(
+                      draggedID: task.id,
+                      toInsertionIndex: insertion
+                    )
+                  }
+                  draggedTaskID = nil
+                  taskInsertionIndex = nil
+                }
+              )
+              .opacity(draggedTaskID == task.id ? 0.55 : 1)
+            }
+            if taskInsertionIndex == model.snapshot.activeTasks.count {
+              ReorderInsertionBar()
             }
           }
         }
@@ -172,6 +218,8 @@ private struct NewTaskComposer: View {
 private struct MainTaskRow: View {
   let task: MainTask
   @ObservedObject var model: AppShellViewModel
+  let onReorderChanged: (CGFloat) -> Void
+  let onReorderEnded: () -> Void
   @State private var isDropTarget = false
 
   var body: some View {
@@ -182,6 +230,10 @@ private struct MainTaskRow: View {
         Image(systemName: "circle")
       }
       .buttonStyle(.plain)
+      DirectReorderHandle(
+        onChanged: onReorderChanged,
+        onEnded: onReorderEnded
+      )
       StyledLabel(task.title, style: task.style).lineLimit(2)
       Spacer(minLength: 6)
       EffortIndicator(effort: task.effort)
@@ -194,9 +246,9 @@ private struct MainTaskRow: View {
     )
     .contentShape(Rectangle())
     .onHover { if $0 { model.requestSecondary(.task(id: task.id)) } }
-    .workspaceDrag("task:\(task.id.uuidString)")
     .workspaceDrop(isTargeted: $isDropTarget) {
-      model.handleDrop($0, on: task.id)
+      guard $0.hasPrefix("note:") else { return false }
+      return model.handleDrop($0, on: task.id)
     }
     .contextMenu {
       AppearanceMenu(style: task.style) { model.updateMainTask(id: task.id, style: $0) }
@@ -222,20 +274,72 @@ struct EffortIndicator: View {
 }
 
 private struct SettingsView: View {
+  @Environment(\.dismiss) private var dismiss
+
   var body: some View {
-    Form {
-      Section("EasyFlow") {
-        LabeledContent("Storage", value: "Local SQLite with GRDB")
-        LabeledContent("Activation", value: "Far-right edge · 300 ms")
-        LabeledContent("Panels", value: "20% · 360–520 pt")
-        LabeledContent("Appearance", value: "Standard")
+    VStack(spacing: 0) {
+      HStack {
+        Text("Settings").font(.title2.weight(.semibold))
+        Spacer()
+        Button("Done") { dismiss() }
+          .keyboardShortcut(.defaultAction)
+          .accessibilityLabel("Close Settings")
       }
-      Text("Launch at login and advanced appearance are reserved for Production Polish.")
+      .padding()
+      Divider()
+      Form {
+        Section("EasyFlow") {
+          LabeledContent("Storage", value: "Local SQLite with GRDB")
+          LabeledContent("Activation", value: "Far-right edge · 300 ms")
+          LabeledContent("Panels", value: "20% · 360–520 pt")
+          LabeledContent("Appearance", value: "Standard")
+        }
+        Text("Launch at login and advanced appearance are reserved for Production Polish.")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      }
+      .formStyle(.grouped)
+    }
+    .frame(width: 430, height: 290)
+    .onExitCommand { dismiss() }
+    .background {
+      Button("") { dismiss() }
+        .keyboardShortcut("w", modifiers: .command)
+        .hidden()
+    }
+  }
+}
+
+private struct CompactQuickNoteRow: View {
+  let note: WorkspaceNote
+  @ObservedObject var model: AppShellViewModel
+  let onReorderChanged: (CGFloat) -> Void
+  let onReorderEnded: () -> Void
+
+  var body: some View {
+    HStack(spacing: 7) {
+      DirectReorderHandle(
+        onChanged: onReorderChanged,
+        onEnded: onReorderEnded
+      )
+      VStack(alignment: .leading, spacing: 1) {
+        Text(note.displayTitle).font(.callout.weight(.medium)).lineLimit(1)
+        Text(note.preview).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+      }
+      Spacer(minLength: 4)
+      Image(systemName: "arrowshape.turn.up.right")
         .font(.caption)
         .foregroundStyle(.secondary)
+        .workspaceDrag("note:\(note.id.uuidString)")
+        .help("Attach to Main Task")
     }
-    .formStyle(.grouped)
-    .padding()
-    .frame(width: 430, height: 290)
+    .padding(.horizontal, 7)
+    .padding(.vertical, 5)
+    .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 8))
+    .contentShape(Rectangle())
+    .onHover { if $0 { model.requestSecondary(.quickNotes) } }
+    .contextMenu {
+      Button("Delete", role: .destructive) { model.deleteNote(note.id) }
+    }
   }
 }

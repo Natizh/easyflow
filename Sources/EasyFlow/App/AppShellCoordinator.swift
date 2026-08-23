@@ -9,6 +9,7 @@ final class AppShellCoordinator {
   private var timerTasks: [PanelTimer: Task<Void, Never>] = [:]
   private var layout: PanelLayout?
   private var lastPointerRegion: PointerRegion?
+  private var settingsIsPresented = false
 
   init(
     repository: WorkspaceRepository,
@@ -32,6 +33,16 @@ final class AppShellCoordinator {
     }
     panelPresenter.onSecondaryCleared = { [weak self] in
       self?.process(.clearSecondary)
+    }
+    panelPresenter.onSettingsPresentationChanged = { [weak self] isPresented in
+      guard let self else { return }
+      self.settingsIsPresented = isPresented
+      if isPresented {
+        self.process(.userInteracted)
+      } else {
+        self.lastPointerRegion = nil
+        self.pointerMoved(to: NSEvent.mouseLocation)
+      }
     }
 
     panelPresenter.onPointerMoved = { [weak self] point in
@@ -81,6 +92,9 @@ final class AppShellCoordinator {
       at: point,
       secondaryIsVisible: stateMachine.state.isSecondaryPresented
     )
+    if settingsIsPresented, region == .outside {
+      return
+    }
     guard region != lastPointerRegion else { return }
 
     lastPointerRegion = region

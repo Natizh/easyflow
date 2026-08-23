@@ -7,6 +7,7 @@ final class PanelPresentationCoordinator {
   var onInteraction: (() -> Void)?
   var onSecondaryRequested: ((SecondaryPanelContext) -> Void)?
   var onSecondaryCleared: (() -> Void)?
+  var onSettingsPresentationChanged: ((Bool) -> Void)?
 
   private let activationPanel = ActivationEdgePanel()
   private let mainPanel = OverlayPanel()
@@ -36,6 +37,9 @@ final class PanelPresentationCoordinator {
     }
     viewModel.onSecondaryCleared = { [weak self] in
       self?.onSecondaryCleared?()
+    }
+    viewModel.onSettingsPresentationChanged = { [weak self] isPresented in
+      self?.onSettingsPresentationChanged?(isPresented)
     }
 
     activationTrackingView.onPointerMoved = { [weak self] point in
@@ -114,8 +118,8 @@ final class PanelPresentationCoordinator {
     }
     secondaryPanel.setFrame(secondaryHiddenFrame(for: layout), display: false)
     secondaryPanel.alphaValue = 0
-    secondaryPanel.orderFrontRegardless()
     mainPanel.orderFrontRegardless()
+    secondaryPanel.orderFrontRegardless()
     animate(duration: 0.18) {
       self.secondaryPanel.animator().setFrame(layout.secondaryFrame, display: true)
       self.secondaryPanel.animator().alphaValue = 1

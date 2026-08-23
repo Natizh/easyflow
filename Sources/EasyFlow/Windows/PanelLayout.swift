@@ -7,10 +7,19 @@ struct PanelSizing: Equatable, Sendable {
   var hotZoneWidth: CGFloat = 3
   var outerMargin: CGFloat = 8
   var panelGap: CGFloat = 8
-  var verticalInset: CGFloat = 12
+  var verticalInsetFraction: CGFloat = 0.08
+  var minimumVerticalInset: CGFloat = 64
+  var maximumVerticalInset: CGFloat = 96
 
   func width(for displayWidth: CGFloat) -> CGFloat {
     min(max(displayWidth * widthFraction, minimumWidth), maximumWidth)
+  }
+
+  func verticalInset(for displayHeight: CGFloat) -> CGFloat {
+    min(
+      max(displayHeight * verticalInsetFraction, minimumVerticalInset),
+      maximumVerticalInset
+    )
   }
 }
 
@@ -27,8 +36,9 @@ struct PanelLayout: Equatable, Sendable {
 
     let screenFrame = display.frame
     let width = sizing.width(for: screenFrame.width)
-    let height = max(1, screenFrame.height - (sizing.verticalInset * 2))
-    let panelY = screenFrame.minY + sizing.verticalInset
+    let verticalInset = sizing.verticalInset(for: screenFrame.height)
+    let height = max(1, screenFrame.height - (verticalInset * 2))
+    let panelY = screenFrame.minY + verticalInset
     let mainX = screenFrame.maxX - sizing.outerMargin - width
     let secondaryX = mainX - sizing.panelGap - width
 
