@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import EasyFlow
@@ -17,5 +18,16 @@ struct AppearanceModeTests {
     } else {
       #expect(!AppearanceMode.available.contains(.liquidGlass))
     }
+  }
+
+  @Test("Main Task density exposes compact and comfortable layout values")
+  func mainTaskDensityValues() {
+    #expect(MainTaskDensity.compact.label == "Compact")
+    #expect(MainTaskDensity.comfortable.label == "Comfortable")
+    #expect(MainTaskDensity.comfortable.taskRowSpacing > MainTaskDensity.compact.taskRowSpacing)
+    #expect(
+      MainTaskDensity.comfortable.taskRowVerticalPadding
+        > MainTaskDensity.compact.taskRowVerticalPadding
+    )
   }
 }

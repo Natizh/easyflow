@@ -104,11 +104,11 @@ struct MainPanelView: View {
           .padding(.vertical, 8)
       } else {
         ScrollView {
-          LazyVStack(spacing: 3) {
+          LazyVStack(spacing: model.mainTaskDensity.taskRowSpacing) {
             ForEach(Array(model.snapshot.activeTasks.enumerated()), id: \.element.id) {
               index, task in
               if model.routedTaskInsertionIndex == index { ReorderInsertionBar() }
-              MainTaskRow(task: task, model: model)
+              MainTaskRow(task: task, model: model, density: model.mainTaskDensity)
                 .opacity(model.routedTaskDragID == task.id ? 0.55 : 1)
             }
             if model.routedTaskInsertionIndex == model.snapshot.activeTasks.count {
@@ -191,34 +191,17 @@ private struct NewTaskComposer: View {
         .focused($focusedField, equals: .title)
         .onSubmit { model.advanceNewTaskTitleEntry() }
       HStack {
-        Text("Effort").font(.caption).foregroundStyle(.secondary)
-        ForEach(Effort.allCases, id: \.rawValue) { effort in
-          Button("\(effort.rawValue)") { model.newTaskEffort = effort }
-            .buttonStyle(.bordered)
-            .tint(model.newTaskEffort == effort ? .accentColor : .secondary)
-        }
+        Text(NewTaskEffortSelectionPresentation.label)
+          .font(.caption)
+          .foregroundStyle(.secondary)
+        NewTaskEffortStrip(model: model)
+          .focused($focusedField, equals: .effort)
         Spacer()
         Button("Add") { model.createMainTask() }
           .disabled(
             model.newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
               || model.newTaskEffort == nil
           )
-      }
-      .padding(4)
-      .focusable(model.isSelectingNewTaskEffort)
-      .focused($focusedField, equals: .effort)
-      .overlay {
-        RoundedRectangle(cornerRadius: 7)
-          .stroke(
-            model.isSelectingNewTaskEffort ? Color.accentColor.opacity(0.55) : .clear,
-            lineWidth: 1
-          )
-      }
-      .onKeyPress { press in
-        guard let rawValue = Int(press.characters),
-          model.selectNewTaskEffortFromKeyboard(rawValue)
-        else { return .ignored }
-        return .handled
       }
     }
     .padding(10)
@@ -234,9 +217,39 @@ private struct NewTaskComposer: View {
   }
 }
 
+private struct NewTaskEffortStrip: View {
+  @ObservedObject var model: AppShellViewModel
+
+  var body: some View {
+    HStack(spacing: 4) {
+      ForEach(Effort.allCases, id: \.rawValue) { effort in
+        Button(effort.pickerLabel) { model.newTaskEffort = effort }
+          .buttonStyle(.bordered)
+          .tint(model.newTaskEffort == effort ? .accentColor : .secondary)
+      }
+    }
+    .padding(4)
+    .focusable(model.isSelectingNewTaskEffort)
+    .overlay {
+      RoundedRectangle(cornerRadius: 7)
+        .stroke(
+          model.isSelectingNewTaskEffort ? Color.accentColor.opacity(0.55) : .clear,
+          lineWidth: 1
+        )
+    }
+    .onKeyPress { press in
+      guard let rawValue = Int(press.characters),
+        model.selectNewTaskEffortFromKeyboard(rawValue)
+      else { return .ignored }
+      return .handled
+    }
+  }
+}
+
 private struct MainTaskRow: View {
   let task: MainTask
   @ObservedObject var model: AppShellViewModel
+  let density: MainTaskDensity
   @State private var isDropTarget = false
 
   var body: some View {
@@ -271,7 +284,7 @@ private struct MainTaskRow: View {
       EffortIndicator(effort: task.effort)
     }
     .padding(.horizontal, 9)
-    .padding(.vertical, 8)
+    .padding(.vertical, density.taskRowVerticalPadding)
     .background(
       isDropTarget || model.routedNoteAttachmentTargetID == task.id
         ? Color.accentColor.opacity(0.18) : Color.clear,
@@ -357,6 +370,12 @@ private struct SettingsView: View {
               Text(mode.label).tag(mode)
             }
           }
+          Picker("Main Task Rows", selection: $model.mainTaskDensity) {
+            ForEach(MainTaskDensity.allCases) { density in
+              Text(density.label).tag(density)
+            }
+          }
+          .pickerStyle(.segmented)
           Toggle(
             "Launch at Login",
             isOn: Binding(

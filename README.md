@@ -40,7 +40,7 @@ The installer builds the release app, copies it to `/Applications` when possible
 
 1. Launch EasyFlow. It runs without a Dock icon or menu-bar item.
 2. Move the pointer to the far-right edge of the rightmost display and hold it there briefly.
-3. Type into Quick Notes. **Return** adds a line; **Command+Return** saves the note.
+3. Type into Quick Notes. **Return** saves the note and readies the composer for the next one.
 4. Select **New Task**, enter a title, and choose an effort from 1 to 4.
 5. Hover a task to open its detail panel with Description, Steps, and Attached Notes.
 6. Drag Quick Notes onto tasks to move them into Attached Notes.

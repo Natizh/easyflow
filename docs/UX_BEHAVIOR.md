@@ -33,13 +33,13 @@ The window coordinator records the previously active application before activati
 ## Quick Note keyboard and data-safety semantics
 
 - Intentional activation places keyboard focus in the Quick Note composer without a click.
-- `Return` inserts a newline, matching a native multiline notes editor.
-- `Command+Return` explicitly commits the non-empty note to the inbox and resets the composer for another capture.
+- Post-v1 polish: `Return` explicitly commits the non-empty note to the inbox, resets the composer, and leaves it ready for another capture. `Command+Return` may remain an equivalent submit path.
+- The Quick Note composer is quick-capture text, not paragraph composition; `Return` does not insert a newline into the saved note.
 - While typing, the non-empty composer is persisted as one debounced draft rather than creating duplicate inbox notes.
 - When EasyFlow closes or the composer loses focus, a non-whitespace draft is committed automatically; an empty/whitespace-only draft is discarded.
 - Relaunch restores an interrupted persisted draft until it has been committed.
 
-These semantics keep ordinary `Return` behavior native, provide an explicit fast commit, and protect capture from accidental dismissal, focus changes, or process interruption.
+These semantics keep ordinary capture fast and protect typed drafts from accidental dismissal, focus changes, or process interruption.
 
 ## Main and Secondary Panels
 
@@ -99,7 +99,7 @@ After meaningful Secondary interaction, Secondary receives 250 ms of re-entry gr
 - `+ New Task` starts a compact inline title flow.
 - Do not introduce a modal creation form.
 - The inline composer requires a non-empty title plus an explicit compact `1...4` effort choice. There is no hidden default.
-- Post-v1 polish: opening the New Task composer focuses the title field immediately. Pressing Return with a non-empty title moves keyboard focus to effort selection without creating the task. While that effort-selection state is active, number keys `1` through `4` select effort and create the task; other numbers are ignored and the shortcuts are not active in any other text input.
+- Post-v1 polish: opening the New Task composer focuses the title field immediately. Pressing Return with a non-empty title moves keyboard focus to effort selection without creating the task. While that effort-selection state is active, number keys `1` through `4` select effort and create the task; other numbers are ignored and the shortcuts are not active in any other text input. The visual focus indication wraps only the four selectable effort choices, not the static `Effort` label or `Add` button.
 - Hover reveals Description, Steps, then Attached Notes in Secondary.
 - Title, Description, effort, style, Step content, and Attached Note title/body content remain editable through low-friction native controls.
 
@@ -129,6 +129,8 @@ The Main `NSHostingView` captures the left-button sequence only when mouse-down 
 Settings provides a visible `Done` control, Escape dismissal, and Command+W dismissal. While presented, Settings holds the EasyFlow interaction open; closing returns to Main and re-evaluates the pointer state rather than trapping or orphaning focus.
 
 Settings exposes the current SMAppService Launch at Login state, appearance selection, and Reminders recovery. Registration failures use user-facing copy and refresh from the system status rather than pretending the toggle succeeded.
+
+Post-v1 polish adds a Compact/Comfortable Main Task row density setting. The setting affects Main Task row spacing and row thickness in the Main Panel only.
 
 ## Completion and deletion interaction
 
