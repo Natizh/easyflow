@@ -435,9 +435,17 @@ final class AppShellViewModel: ObservableObject {
     }
   }
 
-  func updateNote(id: UUID, title: String?, body: String) {
+  func updateNoteTitle(id: UUID, title: String?) {
     Task { [weak self, repository] in
-      do { try await repository.updateNote(id: id, title: title, body: body) } catch {
+      do { try await repository.updateNoteTitle(id: id, title: title) } catch {
+        self?.errorMessage = error.localizedDescription
+      }
+    }
+  }
+
+  func updateNoteBody(id: UUID, body: String) {
+    Task { [weak self, repository] in
+      do { try await repository.updateNoteBody(id: id, body: body) } catch {
         self?.errorMessage = error.localizedDescription
       }
     }

@@ -105,9 +105,7 @@ private struct NoteCard: View {
             onEnded: onReorderEnded
           )
         }
-        Text(note.displayTitle)
-          .font(.headline)
-          .lineLimit(1)
+        NoteTitleField(note: note, model: model)
         Spacer()
         if isInbox {
           Image(systemName: "arrowshape.turn.up.right")
@@ -116,11 +114,8 @@ private struct NoteCard: View {
             .help("Attach to Main Task")
         }
       }
-      PersistedTextField(title: "Optional title", value: note.title ?? "") {
-        model.updateNote(id: note.id, title: $0, body: note.body)
-      }
       PersistedTextEditor(value: note.body, minimumHeight: 58) {
-        model.updateNote(id: note.id, title: note.title, body: $0)
+        model.updateNoteBody(id: note.id, body: $0)
       }
       HStack {
         Text(note.createdAt, style: .relative)
@@ -138,6 +133,39 @@ private struct NoteCard: View {
     .padding(10)
     .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
     .help(note.displayTitle + "\n" + note.preview)
+  }
+}
+
+private struct NoteTitleField: View {
+  let note: WorkspaceNote
+  @ObservedObject var model: AppShellViewModel
+
+  var body: some View {
+    PersistedTextField(title: "Note title", value: note.displayTitle) { editedTitle in
+      save(editedTitle)
+    }
+    .font(.headline)
+    .textFieldStyle(.plain)
+    .lineLimit(1)
+    .accessibilityLabel("Note title")
+  }
+
+  private func save(_ editedTitle: String) {
+    let cleanTitle = editedTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+    let explicitTitle = note.title?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    if cleanTitle.isEmpty {
+      if explicitTitle != nil {
+        model.updateNoteTitle(id: note.id, title: nil)
+      }
+      return
+    }
+
+    guard cleanTitle != explicitTitle else { return }
+    if explicitTitle == nil && cleanTitle == note.displayTitle {
+      return
+    }
+    model.updateNoteTitle(id: note.id, title: cleanTitle)
   }
 }
 

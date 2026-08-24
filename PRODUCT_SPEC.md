@@ -70,7 +70,7 @@ Quick Notes form a low-friction capture inbox for temporary ideas, technical tho
 
 After intentional activation, the user can type into Quick Note capture without another click. The capture field behaves as a native multiline note editor: `Return` inserts a newline, `Command+Return` commits the note and clears the composer, and a non-empty draft is preserved automatically and committed when capture ends. See `docs/UX_BEHAVIOR.md` for the data-safety semantics.
 
-Each Quick Note contains an app-owned ID, optional explicit title, body, creation and update timestamps, local order, and optional deletion metadata. When no explicit title exists, the UI derives a label from the first meaningful words without modifying or truncating the stored body. Browsing shows the explicit/generated title, creation time/date, and enough preview text for recognition.
+Each Quick Note contains an app-owned ID, optional explicit title, body, creation and update timestamps, local order, and optional deletion metadata. When no explicit title exists, the UI derives a label from the first three meaningful words without modifying or truncating the stored body. Browsing shows the explicit/generated title, creation time/date, and enough preview text for recognition.
 
 When Quick Notes is active, the Secondary Panel supports opening, reading, editing, deleting, reordering, and dragging notes to Main Tasks.
 
@@ -128,7 +128,7 @@ Text color, highlight, and underline are available through the same lightweight 
 
 ## Attached Notes
 
-Attached Notes are Quick Notes organized into a Main Task. They remain distinct note objects, appear below Steps, and preserve their content and history where sensible. Multiple Attached Notes can belong to one Main Task.
+Attached Notes are Quick Notes organized into a Main Task. They remain distinct note objects, appear below Steps, and preserve their content and history where sensible. Multiple Attached Notes can belong to one Main Task. In the task detail panel, each Attached Note shows a single directly editable title and an editable multiline body.
 
 ## Completion, deletion, and history
 

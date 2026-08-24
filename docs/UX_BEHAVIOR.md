@@ -88,6 +88,7 @@ After meaningful Secondary interaction, Secondary receives 250 ms of re-entry gr
 - Committed notes appear immediately below the composer in a bounded compact inbox and remain available in the Secondary browser.
 - The browser shows generated/explicit title, creation date/time, and identifying preview.
 - Opening supports reading and editing without changing the underlying body merely to generate a label.
+- Quick Note and Attached Note cards use one visible editable title. If no explicit title exists, that title is derived from the first three meaningful body words and updates as the body changes.
 - Notes can be deleted and reordered locally.
 - A drag from the inbox to a Main Task moves the existing note into Attached Notes only after a successful drop.
 - A failed or cancelled drop leaves the note unchanged in the inbox.
@@ -99,7 +100,7 @@ After meaningful Secondary interaction, Secondary receives 250 ms of re-entry gr
 - Do not introduce a modal creation form.
 - The inline composer requires a non-empty title plus an explicit compact `1...4` effort choice. There is no hidden default.
 - Hover reveals Description, Steps, then Attached Notes in Secondary.
-- Title, Description, effort, style, Step content, and Attached Notes remain editable through low-friction native controls.
+- Title, Description, effort, style, Step content, and Attached Note title/body content remain editable through low-friction native controls.
 
 ## Reordering quality bar
 

@@ -336,13 +336,23 @@ actor WorkspaceRepository {
     }
   }
 
-  func updateNote(id: UUID, title: String?, body: String) throws {
+  func updateNoteTitle(id: UUID, title: String?) throws {
     try database.queue.write { database in
       guard var note = try WorkspaceNote.fetchOne(database, key: id) else {
         throw WorkspaceError.noteNotFound
       }
       note.title = title?.trimmingCharacters(in: .whitespacesAndNewlines)
       if note.title?.isEmpty == true { note.title = nil }
+      note.updatedAt = now()
+      try note.update(database)
+    }
+  }
+
+  func updateNoteBody(id: UUID, body: String) throws {
+    try database.queue.write { database in
+      guard var note = try WorkspaceNote.fetchOne(database, key: id) else {
+        throw WorkspaceError.noteNotFound
+      }
       note.body = body
       note.updatedAt = now()
       try note.update(database)

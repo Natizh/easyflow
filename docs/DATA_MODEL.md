@@ -93,7 +93,7 @@ Required concepts:
 
 An explicit location/state column may be added if it makes invariants clearer. If `mainTaskID` plus `deletedAt` fully and safely represents the states, avoid redundant data. This is an engineering schema refinement, not permission to change move semantics.
 
-The generated display title is derived at presentation/domain level from the first meaningful words when `title` is absent. It is not stored by overwriting `body`.
+The generated display title is derived at presentation/domain level from the first three meaningful words when `title` is absent. It is not stored by overwriting `body`.
 
 ## Settings
 

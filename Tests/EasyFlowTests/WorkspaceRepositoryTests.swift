@@ -131,6 +131,48 @@ struct WorkspaceRepositoryTests {
     #expect(snapshot.stepsByTask[task.id]?.map(\.id) == [first.id])
   }
 
+  @Test("Derived note titles use the first three meaningful words without changing body")
+  func derivedNoteTitles() {
+    let cases = [
+      ("alpha", "alpha"),
+      ("alpha beta", "alpha beta"),
+      ("alpha beta gamma", "alpha beta gamma"),
+      ("alpha beta gamma delta", "alpha beta gamma"),
+      (" \n alpha \n\t beta   gamma \n delta  ", "alpha beta gamma"),
+    ]
+
+    for (body, title) in cases {
+      let note = makeNote(body: body)
+      #expect(note.displayTitle == title)
+      #expect(note.body == body)
+    }
+  }
+
+  @Test("Note title edits preserve explicit versus derived semantics")
+  func noteTitleSemantics() async throws {
+    let repository = try makeRepository()
+    let note = try #require(
+      try await repository.commitDraft(body: "alpha beta gamma delta", revision: UUID())
+    )
+    #expect(note.displayTitle == "alpha beta gamma")
+
+    try await repository.updateNoteBody(id: note.id, body: "new body words here")
+    var snapshot = try await repository.snapshot()
+    #expect(snapshot.quickNotes[0].title == nil)
+    #expect(snapshot.quickNotes[0].displayTitle == "new body words")
+
+    try await repository.updateNoteTitle(id: note.id, title: "Pinned title")
+    try await repository.updateNoteBody(id: note.id, body: "body should not win")
+    snapshot = try await repository.snapshot()
+    #expect(snapshot.quickNotes[0].title == "Pinned title")
+    #expect(snapshot.quickNotes[0].displayTitle == "Pinned title")
+
+    try await repository.updateNoteTitle(id: note.id, title: "  ")
+    snapshot = try await repository.snapshot()
+    #expect(snapshot.quickNotes[0].title == nil)
+    #expect(snapshot.quickNotes[0].displayTitle == "body should not")
+  }
+
   @Test("Draft commit is data-safe, idempotent, and generates presentation title")
   func draftCommit() async throws {
     let repository = try makeRepository()
@@ -153,7 +195,7 @@ struct WorkspaceRepositoryTests {
     #expect(first.id == duplicate.id)
     #expect(snapshot.quickNotes.count == 1)
     #expect(snapshot.quickNotes[0].body == "  meaningful note body survives  ")
-    #expect(snapshot.quickNotes[0].displayTitle == "meaningful note body survives")
+    #expect(snapshot.quickNotes[0].displayTitle == "meaningful note body")
     #expect(snapshot.draft == nil)
   }
 
@@ -176,6 +218,38 @@ struct WorkspaceRepositoryTests {
     #expect(attached.id == first.id)
     #expect(attached.body == first.body)
     #expect(abs(attached.createdAt.timeIntervalSince(first.createdAt)) < 0.001)
+  }
+
+  @Test("Attached Note body edits persist after reload without changing note identity")
+  func attachedNoteBodyEditPersistsAfterReload() async throws {
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(
+      at: directory,
+      withIntermediateDirectories: true
+    )
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let path = directory.appendingPathComponent("workspace.sqlite").path
+
+    let taskID: UUID
+    let noteID: UUID
+    do {
+      let repository = WorkspaceRepository(database: try AppDatabase(path: path))
+      let task = try await repository.createMainTask(title: "Target", effort: .two)
+      let note = try #require(
+        try await repository.commitDraft(body: "Original body", revision: UUID())
+      )
+      try await repository.moveQuickNote(id: note.id, to: task.id)
+      try await repository.updateNoteBody(id: note.id, body: "Edited attached body")
+      taskID = task.id
+      noteID = note.id
+    }
+
+    let reopened = WorkspaceRepository(database: try AppDatabase(path: path))
+    let snapshot = try await reopened.snapshot()
+    let attached = try #require(snapshot.attachedNotesByTask[taskID]?.first)
+    #expect(attached.id == noteID)
+    #expect(attached.body == "Edited attached body")
   }
 
   @Test("Failed note move rolls back and soft-deleted parents preserve local children")
@@ -357,6 +431,20 @@ struct WorkspaceRepositoryTests {
 
   private func makeRepository() throws -> WorkspaceRepository {
     WorkspaceRepository(database: try AppDatabase(inMemoryNamed: UUID().uuidString))
+  }
+
+  private func makeNote(body: String, title: String? = nil) -> WorkspaceNote {
+    WorkspaceNote(
+      id: UUID(),
+      title: title,
+      body: body,
+      mainTaskID: nil,
+      sourceDraftRevision: nil,
+      sortIndex: 0,
+      createdAt: Date(timeIntervalSince1970: 0),
+      updatedAt: Date(timeIntervalSince1970: 0),
+      deletedAt: nil
+    )
   }
 }
 

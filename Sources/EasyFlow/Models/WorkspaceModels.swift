@@ -105,17 +105,23 @@ struct WorkspaceNote: Codable, Equatable, Identifiable, Sendable,
       return explicitTitle
     }
 
-    let words = body.split(whereSeparator: { $0.isWhitespace })
-    let generated = words.prefix(6).joined(separator: " ")
+    let generated = Self.derivedTitle(from: body)
     if generated.isEmpty {
       return "Untitled Note"
     }
-    return String(generated.prefix(56))
+    return generated
   }
 
   var preview: String {
     body
       .split(whereSeparator: { $0.isWhitespace })
+      .joined(separator: " ")
+  }
+
+  static func derivedTitle(from body: String) -> String {
+    body
+      .split(whereSeparator: { $0.isWhitespace })
+      .prefix(3)
       .joined(separator: " ")
   }
 }
