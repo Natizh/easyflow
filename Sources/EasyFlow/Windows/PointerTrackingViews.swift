@@ -77,8 +77,6 @@ final class PointerTrackingHostingView<Content: View>: NSHostingView<Content>,
 
   override var acceptsFirstResponder: Bool { true }
 
-  override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
   func updateTaskRows(_ rows: [MainTaskRowGeometry]) {
     taskRouter.updateRows(rows)
     contextRouter.updateRows(rows)
@@ -117,38 +115,14 @@ final class PointerTrackingHostingView<Content: View>: NSHostingView<Content>,
   }
 
   override func hitTest(_ point: NSPoint) -> NSView? {
-    let hitView = super.hitTest(point)
-    let isReorderCandidate = taskRouter.taskForReorder(at: point) != nil
-      || noteRouter.taskForReorder(at: point) != nil
-      || stepForReorder(at: point) != nil
-    let isInteractiveControl = Self.isInteractiveControl(hitView, within: self)
-    let capturesReorder = PointerInputRouting.shouldCaptureReorder(
-      isLeftMouseDown: NSApplication.shared.currentEvent?.type == .leftMouseDown,
-      isReorderCandidate: isReorderCandidate,
-      hitsInteractiveControl: isInteractiveControl
-    )
-
-    if capturesReorder {
-      InputDiagnostics.record("mouseDown captureDecision=reorder")
+    if NSApplication.shared.currentEvent?.type == .leftMouseDown,
+      taskRouter.taskForReorder(at: point) != nil
+        || noteRouter.taskForReorder(at: point) != nil
+        || stepForReorder(at: point) != nil
+    {
       return self
     }
-    if NSApplication.shared.currentEvent?.type == .leftMouseDown {
-      InputDiagnostics.record(
-        "mouseDown captureDecision=forward reorderCandidate=\(isReorderCandidate) interactiveControl=\(isInteractiveControl)"
-      )
-    }
-    return hitView
-  }
-
-  private static func isInteractiveControl(_ view: NSView?, within hostingView: NSView) -> Bool {
-    var candidate = view
-    while let current = candidate, current !== hostingView {
-      if current is NSControl || current is NSText {
-        return true
-      }
-      candidate = current.superview
-    }
-    return false
+    return super.hitTest(point)
   }
 
   override func updateTrackingAreas() {
@@ -218,8 +192,14 @@ final class PointerTrackingHostingView<Content: View>: NSHostingView<Content>,
       capturedDrag = .note
     } else if stepForReorder(at: point) != nil, stepRouter.mouseDown(at: point) {
       capturedDrag = .step
-    } else {
+    } else if PointerInputRouting.shouldForward(
+      .mouseDown,
+      hasCapturedDrag: false
+    ) {
       super.mouseDown(with: event)
+      return
+    } else {
+      assertionFailure("A non-drag mouseDown should be forwarded to SwiftUI")
       return
     }
     window?.makeFirstResponder(self)
@@ -256,6 +236,11 @@ final class PointerTrackingHostingView<Content: View>: NSHostingView<Content>,
   }
 
   override func mouseUp(with event: NSEvent) {
+    if PointerInputRouting.shouldForward(.mouseUp, hasCapturedDrag: capturedDrag != nil) {
+      super.mouseUp(with: event)
+      return
+    }
+
     defer {
       capturedDrag = nil
       noteAttachmentTargetID = nil
@@ -284,7 +269,7 @@ final class PointerTrackingHostingView<Content: View>: NSHostingView<Content>,
         onStepDragCancelled?()
       }
     case nil:
-      break
+      assertionFailure("A non-drag mouseUp should have been forwarded before drag routing")
     }
   }
 

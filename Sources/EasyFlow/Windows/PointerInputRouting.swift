@@ -1,11 +1,16 @@
-import AppKit
+enum PointerInputEvent {
+  case mouseDown
+  case mouseUp
+}
 
 enum PointerInputRouting {
-  static func shouldCaptureReorder(
-    isLeftMouseDown: Bool,
-    isReorderCandidate: Bool,
-    hitsInteractiveControl: Bool
+  static func shouldForward(
+    _ event: PointerInputEvent,
+    hasCapturedDrag: Bool
   ) -> Bool {
-    isLeftMouseDown && isReorderCandidate && !hitsInteractiveControl
+    switch event {
+    case .mouseDown, .mouseUp:
+      !hasCapturedDrag
+    }
   }
 }
