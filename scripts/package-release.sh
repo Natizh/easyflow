@@ -27,7 +27,11 @@ codesign --verify --deep --strict "$app_bundle"
 
 ditto -c -k --sequesterRsrc --keepParent "$app_bundle" "$archive"
 
-if ! unzip -Z1 "$archive" | grep -q '^EasyFlow.app/Contents/MacOS/EasyFlow$'; then
+archive_listing="$(mktemp)"
+trap 'rm -f "$archive_listing"' EXIT
+unzip -Z1 "$archive" > "$archive_listing"
+
+if ! grep -q '^EasyFlow.app/Contents/MacOS/EasyFlow$' "$archive_listing"; then
   print -u2 -r -- "Release archive verification failed."
   exit 1
 fi
