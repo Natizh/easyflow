@@ -99,6 +99,7 @@ After meaningful Secondary interaction, Secondary receives 250 ms of re-entry gr
 - `+ New Task` starts a compact inline title flow.
 - Do not introduce a modal creation form.
 - The inline composer requires a non-empty title plus an explicit compact `1...4` effort choice. There is no hidden default.
+- Post-v1 polish: opening the New Task composer focuses the title field immediately. Pressing Return with a non-empty title moves keyboard focus to effort selection without creating the task. While that effort-selection state is active, number keys `1` through `4` select effort and create the task; other numbers are ignored and the shortcuts are not active in any other text input.
 - Hover reveals Description, Steps, then Attached Notes in Secondary.
 - Title, Description, effort, style, Step content, and Attached Note title/body content remain editable through low-friction native controls.
 

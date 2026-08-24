@@ -88,6 +88,7 @@ struct WorkspaceViewModelTests {
       database: try AppDatabase(inMemoryNamed: UUID().uuidString)
     )
     let model = AppShellViewModel(repository: repository)
+    model.beginNewTaskCreation()
     model.newTaskTitle = "Explicit effort"
     #expect(model.newTaskEffort == nil)
     model.createMainTask()
@@ -99,6 +100,121 @@ struct WorkspaceViewModelTests {
     try await eventually {
       try await repository.snapshot().activeTasks.count == 1
     }
+  }
+
+  @Test("New Task opens with title focus ready for immediate typing")
+  func newTaskOpensWithTitleFocus() throws {
+    let model = AppShellViewModel(
+      repository: WorkspaceRepository(
+        database: try AppDatabase(inMemoryNamed: UUID().uuidString)
+      )
+    )
+
+    #expect(!model.isCreatingTask)
+    #expect(model.newTaskTitleFocusRequestID == 0)
+    model.beginNewTaskCreation()
+    #expect(model.isCreatingTask)
+    #expect(!model.isSelectingNewTaskEffort)
+    #expect(model.newTaskTitleFocusRequestID == 1)
+  }
+
+  @Test("New Task Enter advances only after a valid title")
+  func newTaskEnterAdvancesToEffortSelection() throws {
+    let model = AppShellViewModel(
+      repository: WorkspaceRepository(
+        database: try AppDatabase(inMemoryNamed: UUID().uuidString)
+      )
+    )
+
+    model.beginNewTaskCreation()
+    model.advanceNewTaskTitleEntry()
+    #expect(!model.isSelectingNewTaskEffort)
+
+    model.newTaskTitle = "Prepare presentation"
+    model.advanceNewTaskTitleEntry()
+    #expect(model.isSelectingNewTaskEffort)
+    #expect(model.newTaskTitle == "Prepare presentation")
+  }
+
+  @Test("New Task keyboard effort creates once and resets composer")
+  func newTaskKeyboardEffortCreatesOnce() async throws {
+    let repository = WorkspaceRepository(
+      database: try AppDatabase(inMemoryNamed: UUID().uuidString)
+    )
+    let model = AppShellViewModel(repository: repository)
+    model.start()
+    model.beginNewTaskCreation()
+    model.newTaskTitle = "Prepare presentation"
+    model.advanceNewTaskTitleEntry()
+
+    #expect(model.selectNewTaskEffortFromKeyboard(2))
+    #expect(!model.selectNewTaskEffortFromKeyboard(2))
+    try await eventually {
+      model.snapshot.activeTasks.count == 1 && !model.isCreatingTask
+    }
+    #expect(model.snapshot.activeTasks[0].title == "Prepare presentation")
+    #expect(model.snapshot.activeTasks[0].effort == .two)
+    #expect(model.newTaskTitle.isEmpty)
+    #expect(model.newTaskEffort == nil)
+    #expect(!model.isSelectingNewTaskEffort)
+    model.stop()
+  }
+
+  @Test("New Task keyboard effort accepts only 1 through 4 in selection state")
+  func newTaskKeyboardEffortScope() async throws {
+    let repository = WorkspaceRepository(
+      database: try AppDatabase(inMemoryNamed: UUID().uuidString)
+    )
+    let model = AppShellViewModel(repository: repository)
+
+    #expect(!model.selectNewTaskEffortFromKeyboard(1))
+
+    model.beginNewTaskCreation()
+    model.newTaskTitle = "Scoped shortcuts"
+    #expect(!model.selectNewTaskEffortFromKeyboard(1))
+    #expect(!model.selectNewTaskEffortFromKeyboard(0))
+    #expect(!model.selectNewTaskEffortFromKeyboard(5))
+    #expect(try await repository.snapshot().activeTasks.isEmpty)
+
+    model.advanceNewTaskTitleEntry()
+    for value in 1...4 {
+      let isolatedRepository = WorkspaceRepository(
+        database: try AppDatabase(inMemoryNamed: UUID().uuidString)
+      )
+      let isolatedModel = AppShellViewModel(repository: isolatedRepository)
+      isolatedModel.start()
+      isolatedModel.beginNewTaskCreation()
+      isolatedModel.newTaskTitle = "Effort \(value)"
+      isolatedModel.advanceNewTaskTitleEntry()
+      #expect(isolatedModel.selectNewTaskEffortFromKeyboard(value))
+      try await eventually {
+        try await isolatedRepository.snapshot().activeTasks.first?.effort?.rawValue
+          == value
+      }
+      isolatedModel.stop()
+    }
+  }
+
+  @Test("New Task mouse creation flow still works and resets")
+  func newTaskMouseCreationStillWorks() async throws {
+    let repository = WorkspaceRepository(
+      database: try AppDatabase(inMemoryNamed: UUID().uuidString)
+    )
+    let model = AppShellViewModel(repository: repository)
+    model.start()
+    model.beginNewTaskCreation()
+    model.newTaskTitle = "Mouse task"
+    model.newTaskEffort = .four
+    model.createMainTask()
+
+    try await eventually {
+      model.snapshot.activeTasks.count == 1 && !model.isCreatingTask
+    }
+    #expect(model.snapshot.activeTasks[0].title == "Mouse task")
+    #expect(model.snapshot.activeTasks[0].effort == .four)
+    #expect(model.newTaskTitle.isEmpty)
+    #expect(model.newTaskEffort == nil)
+    model.stop()
   }
 
   private func eventually(

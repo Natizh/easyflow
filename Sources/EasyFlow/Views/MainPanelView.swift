@@ -90,7 +90,7 @@ struct MainPanelView: View {
         Text("Main Tasks").font(.headline)
         Spacer()
         Button {
-          model.isCreatingTask.toggle()
+          model.toggleNewTaskCreation()
         } label: {
           Label("New Task", systemImage: "plus").font(.caption)
         }
@@ -177,12 +177,19 @@ struct MainPanelView: View {
 
 private struct NewTaskComposer: View {
   @ObservedObject var model: AppShellViewModel
+  @FocusState private var focusedField: NewTaskFocusField?
+
+  private enum NewTaskFocusField: Hashable {
+    case title
+    case effort
+  }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
       TextField("Task title", text: $model.newTaskTitle)
         .textFieldStyle(.roundedBorder)
-        .onSubmit { model.createMainTask() }
+        .focused($focusedField, equals: .title)
+        .onSubmit { model.advanceNewTaskTitleEntry() }
       HStack {
         Text("Effort").font(.caption).foregroundStyle(.secondary)
         ForEach(Effort.allCases, id: \.rawValue) { effort in
@@ -197,9 +204,33 @@ private struct NewTaskComposer: View {
               || model.newTaskEffort == nil
           )
       }
+      .padding(4)
+      .focusable(model.isSelectingNewTaskEffort)
+      .focused($focusedField, equals: .effort)
+      .overlay {
+        RoundedRectangle(cornerRadius: 7)
+          .stroke(
+            model.isSelectingNewTaskEffort ? Color.accentColor.opacity(0.55) : .clear,
+            lineWidth: 1
+          )
+      }
+      .onKeyPress { press in
+        guard let rawValue = Int(press.characters),
+          model.selectNewTaskEffortFromKeyboard(rawValue)
+        else { return .ignored }
+        return .handled
+      }
     }
     .padding(10)
     .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
+    .onAppear { focusedField = .title }
+    .onChange(of: model.newTaskTitleFocusRequestID) { _, _ in
+      focusedField = .title
+    }
+    .onChange(of: model.isSelectingNewTaskEffort) { _, isSelecting in
+      if isSelecting { focusedField = .effort }
+    }
+    .onExitCommand { model.cancelNewTaskCreation() }
   }
 }
 

@@ -5,9 +5,11 @@ import SwiftUI
 final class AppShellViewModel: ObservableObject {
   @Published private(set) var snapshot = WorkspaceSnapshot.empty
   @Published private(set) var focusRequestID = 0
+  @Published private(set) var newTaskTitleFocusRequestID = 0
   @Published var secondaryContext: SecondaryPanelContext?
   @Published var quickNoteDraft = ""
-  @Published var isCreatingTask = false
+  @Published private(set) var isCreatingTask = false
+  @Published private(set) var isSelectingNewTaskEffort = false
   @Published var newTaskTitle = ""
   @Published var newTaskEffort: Effort?
   @Published var isSettingsPresented = false {
@@ -52,6 +54,7 @@ final class AppShellViewModel: ObservableObject {
   private var draftSaveTask: Task<Void, Never>?
   private var draftRevision = UUID()
   private var loadedInitialDraft = false
+  private var isSubmittingNewTask = false
 
   init(
     repository: WorkspaceRepository,
@@ -130,6 +133,49 @@ final class AppShellViewModel: ObservableObject {
 
   func requestQuickNoteFocus() {
     focusRequestID &+= 1
+  }
+
+  func toggleNewTaskCreation() {
+    if isCreatingTask {
+      cancelNewTaskCreation()
+    } else {
+      beginNewTaskCreation()
+    }
+  }
+
+  func beginNewTaskCreation() {
+    isCreatingTask = true
+    isSelectingNewTaskEffort = false
+    newTaskTitleFocusRequestID &+= 1
+    registerInteraction()
+  }
+
+  func cancelNewTaskCreation() {
+    isCreatingTask = false
+    isSelectingNewTaskEffort = false
+    newTaskTitle = ""
+    newTaskEffort = nil
+    isSubmittingNewTask = false
+    registerInteraction()
+  }
+
+  func advanceNewTaskTitleEntry() {
+    guard isCreatingTask else { return }
+    guard !newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+      return
+    }
+    isSelectingNewTaskEffort = true
+    registerInteraction()
+  }
+
+  @discardableResult
+  func selectNewTaskEffortFromKeyboard(_ rawValue: Int) -> Bool {
+    guard isCreatingTask, isSelectingNewTaskEffort, !isSubmittingNewTask,
+      let effort = Effort(rawValue: rawValue)
+    else { return false }
+    newTaskEffort = effort
+    createMainTask()
+    return true
   }
 
   func registerInteraction() {
@@ -285,15 +331,21 @@ final class AppShellViewModel: ObservableObject {
   }
 
   func createMainTask() {
+    guard isCreatingTask, !isSubmittingNewTask else { return }
     guard let effort = newTaskEffort else { return }
     let title = newTaskTitle
+    guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+    isSubmittingNewTask = true
     Task { [weak self, repository] in
       do {
         _ = try await repository.createMainTask(title: title, effort: effort)
         self?.newTaskTitle = ""
         self?.newTaskEffort = nil
         self?.isCreatingTask = false
+        self?.isSelectingNewTaskEffort = false
+        self?.isSubmittingNewTask = false
       } catch {
+        self?.isSubmittingNewTask = false
         self?.errorMessage = error.localizedDescription
       }
     }
