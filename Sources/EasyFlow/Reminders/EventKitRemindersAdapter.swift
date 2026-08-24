@@ -70,7 +70,9 @@ final class EventKitRemindersAdapter: RemindersAdapter {
     let predicate = eventStore.predicateForReminders(in: [list])
     let snapshots: [ReminderItemSnapshot] = await withCheckedContinuation { continuation in
       eventStore.fetchReminders(matching: predicate) { reminders in
-        continuation.resume(returning: (reminders ?? []).map(Self.snapshot))
+        DispatchQueue.main.async {
+          continuation.resume(returning: (reminders ?? []).map(Self.snapshot))
+        }
       }
     }
     return snapshots
