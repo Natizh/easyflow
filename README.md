@@ -1,10 +1,17 @@
-<p align="center">
-  <img src="assets/brand/easyflow-mark.png" width="132" alt="EasyFlow two-panel mark">
-</p>
-
-<h1 align="center">EasyFlow</h1>
-
-<p align="center"><strong>Your current work, one movement away.</strong></p>
+<h1 align="center">
+  <picture>
+    <source
+      media="(prefers-color-scheme: dark)"
+      srcset="assets/brand/easyflow-hero-dark.webp">
+    <source
+      media="(prefers-color-scheme: light)"
+      srcset="assets/brand/easyflow-hero-light.webp">
+    <img
+      src="assets/brand/easyflow-hero-light.webp"
+      alt="EasyFlow - Your current work, one movement away."
+      width="100%">
+  </picture>
+</h1>
 
 EasyFlow is a native macOS edge workspace for keeping quick notes and the tasks you are actively working on close at hand. Move the pointer to the far-right edge of the rightmost display and the workspace slides over the current app; move away and it gets out of the way.
 
