@@ -1,3 +1,4 @@
+import Dispatch
 @preconcurrency import EventKit
 
 enum RemindersAuthorizationStatus: Equatable, Sendable {
@@ -28,13 +29,7 @@ final class EventKitRemindersAuthorization: RemindersAuthorizing {
 
   func requestFullAccess() async throws -> Bool {
     try await withCheckedThrowingContinuation { continuation in
-      eventStore.requestFullAccessToReminders { isGranted, error in
-        if let error {
-          continuation.resume(throwing: error)
-        } else {
-          continuation.resume(returning: isGranted)
-        }
-      }
+      Self.requestFullAccess(eventStore: eventStore, continuation: continuation)
     }
   }
 
@@ -52,6 +47,21 @@ final class EventKitRemindersAuthorization: RemindersAuthorizing {
       .unavailable
     @unknown default:
       .unavailable
+    }
+  }
+
+  nonisolated private static func requestFullAccess(
+    eventStore: EKEventStore,
+    continuation: CheckedContinuation<Bool, any Error>
+  ) {
+    eventStore.requestFullAccessToReminders { isGranted, error in
+      DispatchQueue.main.async {
+        if let error {
+          continuation.resume(throwing: error)
+        } else {
+          continuation.resume(returning: isGranted)
+        }
+      }
     }
   }
 }

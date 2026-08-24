@@ -27,15 +27,7 @@ final class EventKitRemindersAdapter: RemindersAdapter {
 
   func requestFullAccess() async throws -> Bool {
     try await withCheckedThrowingContinuation { continuation in
-      eventStore.requestFullAccessToReminders { granted, error in
-        DispatchQueue.main.async {
-          if let error {
-            continuation.resume(throwing: error)
-          } else {
-            continuation.resume(returning: granted)
-          }
-        }
-      }
+      Self.requestFullAccess(eventStore: eventStore, continuation: continuation)
     }
   }
 
@@ -71,11 +63,11 @@ final class EventKitRemindersAdapter: RemindersAdapter {
     guard let list = eventStore.calendar(withIdentifier: identifier) else { return [] }
     let predicate = eventStore.predicateForReminders(in: [list])
     let snapshots: [ReminderItemSnapshot] = await withCheckedContinuation { continuation in
-      eventStore.fetchReminders(matching: predicate) { reminders in
-        DispatchQueue.main.async {
-          continuation.resume(returning: (reminders ?? []).map(Self.snapshot))
-        }
-      }
+      Self.fetchReminderSnapshots(
+        eventStore: eventStore,
+        predicate: predicate,
+        continuation: continuation
+      )
     }
     return snapshots
   }
@@ -151,5 +143,33 @@ final class EventKitRemindersAdapter: RemindersAdapter {
       isCompleted: reminder.isCompleted,
       lastModifiedAt: reminder.lastModifiedDate
     )
+  }
+
+  nonisolated private static func requestFullAccess(
+    eventStore: EKEventStore,
+    continuation: CheckedContinuation<Bool, any Error>
+  ) {
+    eventStore.requestFullAccessToReminders { granted, error in
+      DispatchQueue.main.async {
+        if let error {
+          continuation.resume(throwing: error)
+        } else {
+          continuation.resume(returning: granted)
+        }
+      }
+    }
+  }
+
+  nonisolated private static func fetchReminderSnapshots(
+    eventStore: EKEventStore,
+    predicate: NSPredicate,
+    continuation: CheckedContinuation<[ReminderItemSnapshot], Never>
+  ) {
+    eventStore.fetchReminders(matching: predicate) { reminders in
+      let snapshots = (reminders ?? []).map(Self.snapshot)
+      DispatchQueue.main.async {
+        continuation.resume(returning: snapshots)
+      }
+    }
   }
 }
