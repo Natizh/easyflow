@@ -73,7 +73,7 @@ The panel coordinator owns both overlay windows as one coordinated interaction s
 
 Main Task pointer ownership is AppKit-backed. SwiftUI publishes actual visible row/title rectangles through one preference bridge; the flipped Main `NSHostingView` owns `mouseMoved`, left-button hit testing, thresholded `mouseDragged`, `mouseUp`, and Escape cancellation. This avoids SwiftUI hover/vertical-drag arbitration inside the task `ScrollView` while leaving rendering, wheel scrolling, checkbox, effort, context menus, and note-drop composition in SwiftUI.
 
-Main and Secondary are borderless `NSPanel` instances that become key for controls, editing, and SwiftUI presentation but never become main windows. They join all Spaces, remain available beside fullscreen apps, ignore window cycling, and use status-bar window level. EasyFlow activates its accessory app explicitly while showing Main, keeping the AppKit click sequence and SwiftUI presentation lifecycle reliable. The app records the previously active application and restores it after an immediately abandoned activation where macOS permits.
+Main and Secondary are borderless nonactivating `NSPanel` instances that can become key for editing but never become main windows. They join all Spaces, remain available beside fullscreen apps, ignore window cycling, and use status-bar window level. The app records the previously active application and restores it after an immediately abandoned activation where macOS permits.
 
 ## Edge activation
 
