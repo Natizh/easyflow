@@ -24,6 +24,34 @@ struct WorkspaceViewModelTests {
     model.stop()
   }
 
+  @Test("Quick Note Enter submit semantics create one note and keep capture ready")
+  func quickNoteEnterSubmitSemantics() async throws {
+    let repository = WorkspaceRepository(
+      database: try AppDatabase(inMemoryNamed: UUID().uuidString)
+    )
+    let model = AppShellViewModel(repository: repository)
+    model.start()
+    model.setQuickNoteDraft("First capture")
+    model.commitQuickNoteIfNeeded()
+    model.commitQuickNoteIfNeeded()
+
+    try await eventually {
+      model.snapshot.quickNotes.count == 1 && model.quickNoteDraft.isEmpty
+    }
+    #expect(model.snapshot.quickNotes[0].body == "First capture")
+    #expect(!model.snapshot.quickNotes[0].body.contains("\n"))
+    #expect(model.focusRequestID == 1)
+
+    model.setQuickNoteDraft("Second capture")
+    model.commitQuickNoteIfNeeded()
+    try await eventually {
+      model.snapshot.quickNotes.map(\.body) == ["First capture", "Second capture"]
+    }
+    #expect(model.quickNoteDraft.isEmpty)
+    #expect(model.focusRequestID == 2)
+    model.stop()
+  }
+
   @Test("Settings presentation emits dismiss-state changes")
   func settingsDismissState() async throws {
     let repository = WorkspaceRepository(
@@ -195,6 +223,13 @@ struct WorkspaceViewModelTests {
     }
   }
 
+  @Test("New Task effort presentation treats only numbers as selectable")
+  func newTaskEffortPresentationScope() {
+    #expect(NewTaskEffortSelectionPresentation.label == "Effort")
+    #expect(NewTaskEffortSelectionPresentation.selectableLabels == ["1", "2", "3", "4"])
+    #expect(!NewTaskEffortSelectionPresentation.selectableLabels.contains("Effort"))
+  }
+
   @Test("New Task mouse creation flow still works and resets")
   func newTaskMouseCreationStillWorks() async throws {
     let repository = WorkspaceRepository(
@@ -215,6 +250,48 @@ struct WorkspaceViewModelTests {
     #expect(model.newTaskTitle.isEmpty)
     #expect(model.newTaskEffort == nil)
     model.stop()
+  }
+
+  @Test("Task Detail effort picker uses numeric labels and updates effort")
+  func taskDetailEffortPickerLabelsAndUpdate() async throws {
+    let repository = WorkspaceRepository(
+      database: try AppDatabase(inMemoryNamed: UUID().uuidString)
+    )
+    let task = try await repository.createMainTask(title: "Effort task", effort: .one)
+    let model = AppShellViewModel(repository: repository)
+    model.start()
+
+    #expect(Effort.pickerLabels == ["1", "2", "3", "4"])
+    #expect(!Effort.pickerLabels.contains { $0.contains("Effort") })
+    model.updateMainTask(id: task.id, effort: .four)
+    try await eventually {
+      model.snapshot.activeTasks.first?.effort == .four
+    }
+    model.stop()
+  }
+
+  @Test("Main Task density setting persists")
+  func mainTaskDensityPersists() throws {
+    let suiteName = "EasyFlowTests.\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+
+    let model = AppShellViewModel(
+      repository: WorkspaceRepository(
+        database: try AppDatabase(inMemoryNamed: UUID().uuidString)
+      ),
+      userDefaults: defaults
+    )
+    #expect(model.mainTaskDensity == .compact)
+    model.mainTaskDensity = .comfortable
+
+    let reloaded = AppShellViewModel(
+      repository: WorkspaceRepository(
+        database: try AppDatabase(inMemoryNamed: UUID().uuidString)
+      ),
+      userDefaults: defaults
+    )
+    #expect(reloaded.mainTaskDensity == .comfortable)
   }
 
   private func eventually(

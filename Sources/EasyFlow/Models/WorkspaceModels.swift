@@ -6,6 +6,17 @@ enum Effort: Int, Codable, CaseIterable, DatabaseValueConvertible, Sendable {
   case two = 2
   case three = 3
   case four = 4
+
+  var pickerLabel: String { "\(rawValue)" }
+
+  static var pickerLabels: [String] {
+    allCases.map(\.pickerLabel)
+  }
+}
+
+enum NewTaskEffortSelectionPresentation {
+  static let label = "Effort"
+  static let selectableLabels = Effort.pickerLabels
 }
 
 enum StyleColor: String, Codable, CaseIterable, DatabaseValueConvertible, Sendable {

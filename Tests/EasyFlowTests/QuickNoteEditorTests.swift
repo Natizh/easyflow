@@ -20,4 +20,18 @@ struct QuickNoteEditorTests {
     #expect(textView.isVerticallyResizable)
     #expect(!textView.isHorizontallyResizable)
   }
+
+  @Test("Return submits instead of inserting a newline")
+  func returnSubmits() {
+    #expect(
+      QuickNoteCaptureEditor.Coordinator.shouldCommit(
+        commandSelector: #selector(NSResponder.insertNewline(_:))
+      )
+    )
+    #expect(
+      !QuickNoteCaptureEditor.Coordinator.shouldCommit(
+        commandSelector: #selector(NSResponder.insertTab(_:))
+      )
+    )
+  }
 }

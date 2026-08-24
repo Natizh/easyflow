@@ -205,7 +205,7 @@ private struct TaskDetailView: View {
           } else {
             Menu {
               ForEach(Effort.allCases, id: \.rawValue) { effort in
-                Button("Effort \(effort.rawValue)") {
+                Button(effort.pickerLabel) {
                   model.updateMainTask(id: task.id, effort: effort)
                 }
               }

@@ -30,7 +30,12 @@ final class AppShellViewModel: ObservableObject {
   @Published private(set) var routedStepInsertionIndex: Int?
   @Published var appearanceMode: AppearanceMode {
     didSet {
-      UserDefaults.standard.set(appearanceMode.rawValue, forKey: "appearanceMode")
+      userDefaults.set(appearanceMode.rawValue, forKey: Self.appearanceModeKey)
+    }
+  }
+  @Published var mainTaskDensity: MainTaskDensity {
+    didSet {
+      userDefaults.set(mainTaskDensity.rawValue, forKey: Self.mainTaskDensityKey)
     }
   }
   @Published private(set) var launchAtLoginStatus: LaunchAtLoginStatus
@@ -49,6 +54,7 @@ final class AppShellViewModel: ObservableObject {
   private let repository: WorkspaceRepository
   private let remindersSync: RemindersSyncCoordinator
   private let launchAtLoginService: LaunchAtLoginService
+  private let userDefaults: UserDefaults
   private var remindersStatusCancellable: AnyCancellable?
   private var observationTask: Task<Void, Never>?
   private var draftSaveTask: Task<Void, Never>?
@@ -56,11 +62,16 @@ final class AppShellViewModel: ObservableObject {
   private var loadedInitialDraft = false
   private var isSubmittingNewTask = false
 
+  static let appearanceModeKey = "appearanceMode"
+  static let mainTaskDensityKey = "mainTaskDensity"
+
   init(
     repository: WorkspaceRepository,
-    remindersSync: RemindersSyncCoordinator? = nil
+    remindersSync: RemindersSyncCoordinator? = nil,
+    userDefaults: UserDefaults = .standard
   ) {
     self.repository = repository
+    self.userDefaults = userDefaults
     let sync =
       remindersSync
       ?? RemindersSyncCoordinator(
@@ -72,8 +83,12 @@ final class AppShellViewModel: ObservableObject {
     launchAtLoginStatus = launchAtLoginService.status
     appearanceMode =
       AppearanceMode(
-        rawValue: UserDefaults.standard.string(forKey: "appearanceMode") ?? "standard"
+        rawValue: userDefaults.string(forKey: Self.appearanceModeKey) ?? "standard"
       ) ?? .standard
+    mainTaskDensity =
+      MainTaskDensity(
+        rawValue: userDefaults.string(forKey: Self.mainTaskDensityKey) ?? "compact"
+      ) ?? .compact
     remindersStatus = sync.status
     remindersStatusCancellable = sync.$status.sink { [weak self] in
       self?.remindersStatus = $0

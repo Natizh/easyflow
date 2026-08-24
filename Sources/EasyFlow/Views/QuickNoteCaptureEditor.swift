@@ -67,13 +67,13 @@ struct QuickNoteCaptureEditor: NSViewRepresentable {
       _ textView: NSTextView,
       doCommandBy commandSelector: Selector
     ) -> Bool {
-      guard commandSelector == #selector(NSResponder.insertNewline(_:)),
-        NSApplication.shared.currentEvent?.modifierFlags.contains(.command) == true
-      else {
-        return false
-      }
+      guard Self.shouldCommit(commandSelector: commandSelector) else { return false }
       parent.onCommit()
       return true
+    }
+
+    static func shouldCommit(commandSelector: Selector) -> Bool {
+      commandSelector == #selector(NSResponder.insertNewline(_:))
     }
   }
 }

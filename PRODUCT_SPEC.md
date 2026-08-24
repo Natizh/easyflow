@@ -68,7 +68,7 @@ Panel motion is spatial and native: Main slides out from and retreats into the r
 
 Quick Notes form a low-friction capture inbox for temporary ideas, technical thoughts, fragments, scratch information, or context that may later belong to a Main Task. They are not the primary task-management system and should be easy to organize rather than becoming permanent clutter.
 
-After intentional activation, the user can type into Quick Note capture without another click. The capture field behaves as a native multiline note editor: `Return` inserts a newline, `Command+Return` commits the note and clears the composer, and a non-empty draft is preserved automatically and committed when capture ends. See `docs/UX_BEHAVIOR.md` for the data-safety semantics.
+After intentional activation, the user can type into Quick Note capture without another click. Post-v1 polish makes `Return` commit the current note and clear the composer for rapid capture, while a non-empty draft is still preserved automatically and committed when capture ends. See `docs/UX_BEHAVIOR.md` for the data-safety semantics.
 
 Each Quick Note contains an app-owned ID, optional explicit title, body, creation and update timestamps, local order, and optional deletion metadata. When no explicit title exists, the UI derives a label from the first three meaningful words without modifying or truncating the stored body. Browsing shows the explicit/generated title, creation time/date, and enough preview text for recognition.
 
@@ -164,7 +164,7 @@ An imported task's Task Detail shows an obvious `Set effort` control with `1...4
 
 ## Settings, permissions, and appearance
 
-The Main Panel gear opens Settings with real controls for Standard/Frosted/Liquid Glass appearance, native Launch at Login, and Reminders connection/recovery. Current activation and panel geometry are shown as factual information rather than fake toggles.
+The Main Panel gear opens Settings with real controls for Standard/Frosted/Liquid Glass appearance, Compact/Comfortable Main Task row density, native Launch at Login, and Reminders connection/recovery. Current activation and panel geometry are shown as factual information rather than fake toggles.
 
 EasyFlow can register as a login item through `SMAppService`, and Settings reflects whether macOS enabled it or requires approval. First run handles Reminders authorization and finding or creating the EasyFlow list. Authorization states include not determined, authorized, denied/restricted, and unavailable/error. Permission is not repeatedly requested once decided, and the local workspace remains available when Reminders access is denied.
 
