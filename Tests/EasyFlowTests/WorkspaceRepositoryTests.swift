@@ -131,6 +131,40 @@ struct WorkspaceRepositoryTests {
     #expect(snapshot.stepsByTask[task.id]?.map(\.id) == [first.id])
   }
 
+  @Test("Step note field has no placeholder and notes persist after reload")
+  func stepNotePlaceholderAndReloadPersistence() async throws {
+    #expect(StepNoteFieldPresentation.placeholder.isEmpty)
+
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(
+      at: directory,
+      withIntermediateDirectories: true
+    )
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let path = directory.appendingPathComponent("workspace.sqlite").path
+
+    let taskID: UUID
+    let emptyStepID: UUID
+    let notedStepID: UUID
+    do {
+      let repository = WorkspaceRepository(database: try AppDatabase(path: path))
+      let task = try await repository.createMainTask(title: "Task", effort: .two)
+      let emptyStep = try await repository.createStep(mainTaskID: task.id, title: "Empty")
+      let notedStep = try await repository.createStep(mainTaskID: task.id, title: "Noted")
+      try await repository.updateStep(id: notedStep.id, notes: "Existing note")
+      taskID = task.id
+      emptyStepID = emptyStep.id
+      notedStepID = notedStep.id
+    }
+
+    let reopened = WorkspaceRepository(database: try AppDatabase(path: path))
+    let steps = try #require(try await reopened.snapshot().stepsByTask[taskID])
+    let stepsByID = Dictionary(uniqueKeysWithValues: steps.map { ($0.id, $0) })
+    #expect(stepsByID[emptyStepID]?.notes == "")
+    #expect(stepsByID[notedStepID]?.notes == "Existing note")
+  }
+
   @Test("Derived note titles use the first three meaningful words without changing body")
   func derivedNoteTitles() {
     let cases = [
