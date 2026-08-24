@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="assets/brand/easyflow-mark.png" width="132" alt="EasyFlow two-panel mark">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/easyflow-hero-dark.webp">
+    <source media="(prefers-color-scheme: light)" srcset="assets/brand/easyflow-hero-light.webp">
+    <img src="assets/brand/easyflow-hero-light.webp" alt="EasyFlow — Your current work, one movement away.">
+  </picture>
 </p>
-
-<h1 align="center">EasyFlow</h1>
-
-<p align="center"><strong>Your current work, one movement away.</strong></p>
 
 EasyFlow is a native macOS edge workspace for keeping quick notes and the tasks you are actively working on close at hand. Move the pointer to the far-right edge of the rightmost display and the workspace slides over the current app; move away and it gets out of the way.
 
@@ -45,8 +45,8 @@ The installer builds the release app, copies it to `/Applications` when possible
 5. Hover a task to open its detail panel with Description, Steps, and Attached Notes.
 6. Drag Quick Notes onto tasks to move them into Attached Notes.
 7. Drag tasks, Quick Notes, and Steps directly to reorder them.
-8. Complete a task to move it into Recently Completed. EasyFlow shows the five most recent completed tasks; v1 has no restore action.
-9. Use the gear in the Main Panel for appearance, Reminders status, and Launch at Login.
+8. Complete a task to move it into Recently Completed. EasyFlow shows the five most recent completed tasks; there is currently no restore action.
+9. Use the gear in the Main Panel for appearance, Main Task row density, Reminders status, and Launch at Login.
 
 ## Features
 
@@ -56,6 +56,7 @@ The installer builds the release app, copies it to `/Applications` when possible
 - Quick Note → task movement without copying or merging note content.
 - A contextual Secondary panel for task details and Quick Notes.
 - Five-item Recently Completed view.
+- Compact or Comfortable Main Task row density.
 - Apple Reminders synchronization for Main Task existence, title, and completion.
 - Standard and Frosted appearances on macOS 14+, with Liquid Glass available on macOS 26+.
 - Launch at Login through native macOS APIs.
