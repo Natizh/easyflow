@@ -28,10 +28,12 @@ final class EventKitRemindersAdapter: RemindersAdapter {
   func requestFullAccess() async throws -> Bool {
     try await withCheckedThrowingContinuation { continuation in
       eventStore.requestFullAccessToReminders { granted, error in
-        if let error {
-          continuation.resume(throwing: error)
-        } else {
-          continuation.resume(returning: granted)
+        DispatchQueue.main.async {
+          if let error {
+            continuation.resume(throwing: error)
+          } else {
+            continuation.resume(returning: granted)
+          }
         }
       }
     }
