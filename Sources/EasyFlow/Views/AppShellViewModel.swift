@@ -15,6 +15,7 @@ final class AppShellViewModel: ObservableObject {
   @Published var isSettingsPresented = false {
     didSet {
       if oldValue != isSettingsPresented {
+        InputDiagnostics.record("settings presented=\(isSettingsPresented)")
         onSettingsPresentationChanged?(isSettingsPresented)
       }
     }
@@ -151,6 +152,7 @@ final class AppShellViewModel: ObservableObject {
   }
 
   func toggleNewTaskCreation() {
+    InputDiagnostics.record("newTask action=toggle creatingBefore=\(isCreatingTask)")
     if isCreatingTask {
       cancelNewTaskCreation()
     } else {
@@ -162,6 +164,7 @@ final class AppShellViewModel: ObservableObject {
     isCreatingTask = true
     isSelectingNewTaskEffort = false
     newTaskTitleFocusRequestID &+= 1
+    InputDiagnostics.record("newTask creating=true focusRequest=\(newTaskTitleFocusRequestID)")
     registerInteraction()
   }
 

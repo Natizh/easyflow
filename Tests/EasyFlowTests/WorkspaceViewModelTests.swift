@@ -66,6 +66,37 @@ struct WorkspaceViewModelTests {
     #expect(states == [true, false])
   }
 
+  @Test("New Task toggle remains presented until explicitly cancelled")
+  func newTaskTogglePresentation() throws {
+    let model = AppShellViewModel(
+      repository: WorkspaceRepository(
+        database: try AppDatabase(inMemoryNamed: UUID().uuidString)
+      )
+    )
+
+    #expect(!model.isCreatingTask)
+    model.toggleNewTaskCreation()
+    #expect(model.isCreatingTask)
+    #expect(model.newTaskTitleFocusRequestID == 1)
+    model.cancelNewTaskCreation()
+    #expect(!model.isCreatingTask)
+  }
+
+  @Test("Settings remains presented until explicitly dismissed")
+  func settingsPresentationPersists() throws {
+    let model = AppShellViewModel(
+      repository: WorkspaceRepository(
+        database: try AppDatabase(inMemoryNamed: UUID().uuidString)
+      )
+    )
+
+    #expect(!model.isSettingsPresented)
+    model.isSettingsPresented = true
+    #expect(model.isSettingsPresented)
+    model.isSettingsPresented = false
+    #expect(!model.isSettingsPresented)
+  }
+
   @Test("Routed Quick Note drag attaches the same note transactionally")
   func routedNoteAttachment() async throws {
     let repository = WorkspaceRepository(
