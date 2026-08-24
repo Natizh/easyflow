@@ -1,17 +1,10 @@
-<h1 align="center">
+<p align="center">
   <picture>
-    <source
-      media="(prefers-color-scheme: dark)"
-      srcset="assets/brand/easyflow-hero-dark.webp">
-    <source
-      media="(prefers-color-scheme: light)"
-      srcset="assets/brand/easyflow-hero-light.webp">
-    <img
-      src="assets/brand/easyflow-hero-light.webp"
-      alt="EasyFlow - Your current work, one movement away."
-      width="100%">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/easyflow-hero-dark.webp">
+    <source media="(prefers-color-scheme: light)" srcset="assets/brand/easyflow-hero-light.webp">
+    <img src="assets/brand/easyflow-hero-light.webp" alt="EasyFlow — Your current work, one movement away.">
   </picture>
-</h1>
+</p>
 
 EasyFlow is a native macOS edge workspace for keeping quick notes and the tasks you are actively working on close at hand. Move the pointer to the far-right edge of the rightmost display and the workspace slides over the current app; move away and it gets out of the way.
 
@@ -24,7 +17,7 @@ EasyFlow releases are distributed through [GitHub Releases](https://github.com/N
 1. Open the Releases page and download `EasyFlow.zip` from the latest release.
 2. Double-click the ZIP to extract `EasyFlow.app`.
 3. Drag `EasyFlow.app` into your Applications folder.
-4. Open EasyFlow and allow Reminders access when macOS asks.
+4. Open EasyFlow and allow Reminders access when macOS asks. EasyFlow automatically creates a dedicated `EasyFlow` list if one does not already exist, or reuses the existing one when it can do so unambiguously.
 5. If you want EasyFlow available after every login, enable **Launch at Login** in Settings.
 
 The current community release is ad-hoc signed, not signed with an Apple Developer ID and not notarized. macOS may therefore block the first launch. If that happens, Control-click `EasyFlow.app`, choose **Open**, then confirm. If macOS still blocks it, open **System Settings → Privacy & Security** and choose **Open Anyway** for EasyFlow. This override is only needed for the first launch of that build.
@@ -52,17 +45,18 @@ The installer builds the release app, copies it to `/Applications` when possible
 5. Hover a task to open its detail panel with Description, Steps, and Attached Notes.
 6. Drag Quick Notes onto tasks to move them into Attached Notes.
 7. Drag tasks, Quick Notes, and Steps directly to reorder them.
-8. Complete a task to move it into Recently Completed. EasyFlow shows the five most recent completed tasks; v1 has no restore action.
-9. Use the gear in the Main Panel for appearance, Reminders status, and Launch at Login.
+8. Complete a task to move it into Recently Completed. EasyFlow shows the five most recent completed tasks; there is currently no restore action.
+9. Use the gear in the Main Panel for appearance, Main Task row density, Reminders status, and Launch at Login.
 
 ## Features
 
 - Edge activation from the far-right side of the rightmost display.
-- Multiline Quick Notes with direct drag/reorder.
+- Rapid Quick Notes capture: Return saves the current note and immediately readies the next one, with direct drag/reorder.
 - Main Tasks with local effort, order, descriptions, Steps, styling, and Attached Notes.
 - Quick Note → task movement without copying or merging note content.
 - A contextual Secondary panel for task details and Quick Notes.
 - Five-item Recently Completed view.
+- Compact or Comfortable Main Task row density.
 - Apple Reminders synchronization for Main Task existence, title, and completion.
 - Standard and Frosted appearances on macOS 14+, with Liquid Glass available on macOS 26+.
 - Launch at Login through native macOS APIs.
@@ -70,7 +64,7 @@ The installer builds the release app, copies it to `/Applications` when possible
 
 ## Apple Reminders
 
-EasyFlow uses a dedicated `EasyFlow` list in Apple Reminders.
+EasyFlow uses a dedicated `EasyFlow` list in Apple Reminders. On first authorized launch, EasyFlow automatically creates that list if needed; if exactly one suitable writable list with that name already exists, it reuses it instead of creating a duplicate.
 
 | Synced with Reminders | Kept local to EasyFlow |
 | --- | --- |
@@ -96,7 +90,7 @@ Building from source additionally requires Swift 6 through Xcode or the Xcode Co
 
 Current behavior and implementation boundaries live in [PRODUCT_SPEC.md](PRODUCT_SPEC.md), [ARCHITECTURE.md](docs/ARCHITECTURE.md), [DATA_MODEL.md](docs/DATA_MODEL.md), [UX_BEHAVIOR.md](docs/UX_BEHAVIOR.md), [REMINDERS_SYNC.md](docs/REMINDERS_SYNC.md), and [AGENTS.md](AGENTS.md).
 
-Run `swift build` and `swift test` before submitting changes. `./scripts/package-release.sh` creates a validated `dist/EasyFlow.zip` plus its SHA-256 checksum. Pushing a version tag that matches `CFBundleShortVersionString` (for example `v1.0.0`) runs the release workflow and publishes those files to GitHub Releases.
+Run `swift build` and `swift test` before submitting changes. `./scripts/package-release.sh` creates a validated `dist/EasyFlow.zip` plus its SHA-256 checksum. Pushing a version tag that exactly matches `CFBundleShortVersionString` (for example, app version `1.1.0` uses tag `v1.1.0`) runs the release workflow and publishes those files to GitHub Releases.
 
 ## License
 
