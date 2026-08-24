@@ -40,14 +40,3 @@ Secrets.swift
 .idea/
 .vscode/
 .agent-context/
-
-# HyperFrames motion projects
-node_modules/
-marketing/hero-motion/renders/
-marketing/hero-motion/snapshots/
-marketing/hero-motion/.hyperframes/
-marketing/hero-motion/.hf-tmp/
-marketing/hero-motion/*.mp4
-marketing/hero-motion/*.mov
-marketing/hero-motion/*.webm
-marketing/hero-motion/*.gif
