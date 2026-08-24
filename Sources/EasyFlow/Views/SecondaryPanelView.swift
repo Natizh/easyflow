@@ -314,10 +314,11 @@ private struct StepRow: View {
           }
         }
       }
-      PersistedTextField(title: "Notes", value: step.notes) {
+      PersistedTextField(title: StepNoteFieldPresentation.placeholder, value: step.notes) {
         model.updateStep(id: step.id, notes: $0)
       }
       .font(.caption)
+      .frame(maxWidth: .infinity, minHeight: 18, alignment: .leading)
       .background { StepExclusionReporter(stepID: step.id) }
     }
     .opacity(step.isCompleted ? 0.52 : 1)

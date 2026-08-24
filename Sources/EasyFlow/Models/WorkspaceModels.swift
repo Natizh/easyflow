@@ -40,6 +40,10 @@ struct ItemStyle: Equatable, Sendable {
   )
 }
 
+enum StepNoteFieldPresentation {
+  static let placeholder = ""
+}
+
 struct MainTask: Codable, Equatable, Identifiable, Sendable,
   FetchableRecord, MutablePersistableRecord
 {
