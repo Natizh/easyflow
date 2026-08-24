@@ -90,6 +90,7 @@ struct MainPanelView: View {
         Text("Main Tasks").font(.headline)
         Spacer()
         Button {
+          InputDiagnostics.record("newTask button action reached")
           model.toggleNewTaskCreation()
         } label: {
           Label("New Task", systemImage: "plus").font(.caption)
@@ -165,6 +166,7 @@ struct MainPanelView: View {
       EasyFlowMark()
       Spacer()
       Button {
+        InputDiagnostics.record("settings button action reached")
         model.isSettingsPresented = true
       } label: {
         Image(systemName: "gearshape")

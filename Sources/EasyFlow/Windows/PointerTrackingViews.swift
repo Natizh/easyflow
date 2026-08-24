@@ -77,6 +77,8 @@ final class PointerTrackingHostingView<Content: View>: NSHostingView<Content>,
 
   override var acceptsFirstResponder: Bool { true }
 
+  override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
   func updateTaskRows(_ rows: [MainTaskRowGeometry]) {
     taskRouter.updateRows(rows)
     contextRouter.updateRows(rows)
@@ -115,14 +117,38 @@ final class PointerTrackingHostingView<Content: View>: NSHostingView<Content>,
   }
 
   override func hitTest(_ point: NSPoint) -> NSView? {
-    if NSApplication.shared.currentEvent?.type == .leftMouseDown,
-      taskRouter.taskForReorder(at: point) != nil
-        || noteRouter.taskForReorder(at: point) != nil
-        || stepForReorder(at: point) != nil
-    {
+    let hitView = super.hitTest(point)
+    let isReorderCandidate = taskRouter.taskForReorder(at: point) != nil
+      || noteRouter.taskForReorder(at: point) != nil
+      || stepForReorder(at: point) != nil
+    let isInteractiveControl = Self.isInteractiveControl(hitView, within: self)
+    let capturesReorder = PointerInputRouting.shouldCaptureReorder(
+      isLeftMouseDown: NSApplication.shared.currentEvent?.type == .leftMouseDown,
+      isReorderCandidate: isReorderCandidate,
+      hitsInteractiveControl: isInteractiveControl
+    )
+
+    if capturesReorder {
+      InputDiagnostics.record("mouseDown captureDecision=reorder")
       return self
     }
-    return super.hitTest(point)
+    if NSApplication.shared.currentEvent?.type == .leftMouseDown {
+      InputDiagnostics.record(
+        "mouseDown captureDecision=forward reorderCandidate=\(isReorderCandidate) interactiveControl=\(isInteractiveControl)"
+      )
+    }
+    return hitView
+  }
+
+  private static func isInteractiveControl(_ view: NSView?, within hostingView: NSView) -> Bool {
+    var candidate = view
+    while let current = candidate, current !== hostingView {
+      if current is NSControl || current is NSText {
+        return true
+      }
+      candidate = current.superview
+    }
+    return false
   }
 
   override func updateTrackingAreas() {

@@ -7,7 +7,7 @@ final class OverlayPanel: NSPanel {
   init() {
     super.init(
       contentRect: .zero,
-      styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
+      styleMask: [.borderless, .fullSizeContentView],
       backing: .buffered,
       defer: true
     )
