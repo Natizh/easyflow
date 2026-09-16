@@ -6,6 +6,7 @@ struct QuickNoteCaptureEditor: NSViewRepresentable {
   let focusRequestID: Int
   let onCommit: () -> Void
   let onFocusLost: () -> Void
+  var onPasteImages: (([Data]) -> Void)? = nil
 
   func makeCoordinator() -> Coordinator {
     Coordinator(parent: self)
@@ -22,6 +23,7 @@ struct QuickNoteCaptureEditor: NSViewRepresentable {
     textView.delegate = context.coordinator
     textView.string = text
     textView.onCommit = onCommit
+    textView.onPasteImages = onPasteImages
     textView.configureForEasyFlowCapture()
     scrollView.documentView = textView
     context.coordinator.textView = textView
@@ -32,6 +34,7 @@ struct QuickNoteCaptureEditor: NSViewRepresentable {
     context.coordinator.parent = self
     guard let textView = scrollView.documentView as? QuickNoteCaptureTextView else { return }
     textView.onCommit = onCommit
+    textView.onPasteImages = onPasteImages
     if textView.string != text {
       textView.string = text
     }
@@ -78,7 +81,7 @@ struct QuickNoteCaptureEditor: NSViewRepresentable {
   }
 }
 
-final class QuickNoteCaptureTextView: NSTextView {
+final class QuickNoteCaptureTextView: NoteImageTextView {
   var onCommit: (() -> Void)?
 
   func configureForEasyFlowCapture() {

@@ -129,6 +129,8 @@ struct MainPanelContextRouter: Equatable, Sendable {
     at point: CGPoint,
     previousPoint: CGPoint?,
     leftTraversalWidth: CGFloat = 24,
+    side: PanelSide = .right,
+    viewWidth: CGFloat = 0,
     rowGapTolerance: CGFloat = 12
   ) -> MainPanelPointerContext? {
     let next: MainPanelPointerContext
@@ -140,9 +142,9 @@ struct MainPanelContextRouter: Equatable, Sendable {
       next = .secondaryCollapseStrip
     } else if isBetweenAdjacentRows(point, tolerance: rowGapTolerance) {
       next = .traversal
-    } else if point.x <= leftTraversalWidth,
+    } else if (side == .right ? point.x <= leftTraversalWidth : point.x >= viewWidth - leftTraversalWidth),
       let previousPoint,
-      point.x < previousPoint.x
+      (side == .right ? point.x < previousPoint.x : point.x > previousPoint.x)
     {
       next = .traversal
     } else {

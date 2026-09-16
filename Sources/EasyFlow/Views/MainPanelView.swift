@@ -16,7 +16,6 @@ struct MainPanelView: View {
     .coordinateSpace(name: MainPanelCoordinateSpace.name)
     .easyFlowPanelSurface(model.appearanceMode)
     .tint(EasyFlowBrand.indigo)
-    .sheet(isPresented: $model.isSettingsPresented) { SettingsView(model: model) }
     .onPreferenceChange(MainTaskGeometryPreferenceKey.self) { geometries in
       model.updateTaskRows(Array(geometries.values))
     }
@@ -52,10 +51,14 @@ struct MainPanelView: View {
         ),
         focusRequestID: model.focusRequestID,
         onCommit: model.commitQuickNoteIfNeeded,
-        onFocusLost: model.commitQuickNoteIfNeeded
+        onFocusLost: model.commitQuickNoteOnFocusLoss,
+        onPasteImages: model.pasteCaptureImages
       )
+      .disabled(model.isCommittingCapture)
       .frame(minHeight: 76, maxHeight: 110)
       .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+      NoteAttachmentsView(attachments: model.snapshot.draftAttachments, model: model, height: 64)
+      if model.pendingCaptureImageCount > 0 { Text("Saving images…").font(.caption).foregroundStyle(.secondary) }
       if !model.snapshot.quickNotes.isEmpty {
         ScrollView {
           LazyVStack(spacing: 3) {
@@ -347,104 +350,33 @@ struct EffortIndicator: View {
   }
 }
 
-private struct SettingsView: View {
-  @Environment(\.dismiss) private var dismiss
-  @ObservedObject var model: AppShellViewModel
-
-  var body: some View {
-    VStack(spacing: 0) {
-      HStack {
-        Text("Settings").font(.title2.weight(.semibold))
-        Spacer()
-        Button("Done") { dismiss() }
-          .keyboardShortcut(.defaultAction)
-          .accessibilityLabel("Close Settings")
-      }
-      .padding()
-      Divider()
-      Form {
-        Section("EasyFlow") {
-          LabeledContent("Storage", value: "Stored on this Mac")
-          LabeledContent("Activation", value: "Far-right edge · 300 ms")
-          LabeledContent("Panels", value: "20% · 360–520 pt")
-          Picker("Appearance", selection: $model.appearanceMode) {
-            ForEach(AppearanceMode.available) { mode in
-              Text(mode.label).tag(mode)
-            }
-          }
-          Picker("Main Task Rows", selection: $model.mainTaskDensity) {
-            ForEach(MainTaskDensity.allCases) { density in
-              Text(density.label).tag(density)
-            }
-          }
-          .pickerStyle(.segmented)
-          Toggle(
-            "Launch at Login",
-            isOn: Binding(
-              get: { model.launchAtLoginStatus == .enabled },
-              set: { model.setLaunchAtLogin($0) }
-            )
-          )
-          if model.launchAtLoginStatus == .requiresApproval {
-            Text("Approve EasyFlow in System Settings > General > Login Items.")
-              .font(.caption)
-              .foregroundStyle(.secondary)
-          }
-          HStack {
-            Text("Reminders")
-            Spacer()
-            Text(remindersStatusLabel).foregroundStyle(.secondary)
-            if model.remindersStatus != .connected {
-              Button("Retry") { model.retryRemindersSync() }
-            }
-            if model.remindersStatus == .denied {
-              Button("Privacy Settings") { model.openRemindersPrivacySettings() }
-            }
-          }
-        }
-      }
-      .formStyle(.grouped)
-    }
-    .frame(width: 430, height: 360)
-    .onExitCommand { dismiss() }
-    .onAppear { model.refreshLaunchAtLoginStatus() }
-    .background {
-      Button("") { dismiss() }
-        .keyboardShortcut("w", modifiers: .command)
-        .hidden()
-    }
-  }
-
-  private var remindersStatusLabel: String {
-    switch model.remindersStatus {
-    case .connected: "Connected"
-    case .needsAccess: "Needs Access"
-    case .requesting: "Requesting…"
-    case .synchronizing: "Synchronizing…"
-    case .denied: "Access Denied"
-    case .ambiguousList: "Multiple EasyFlow Lists"
-    case .error: "Error"
-    }
-  }
-}
-
 private struct CompactQuickNoteRow: View {
   let note: WorkspaceNote
   @ObservedObject var model: AppShellViewModel
 
   var body: some View {
-    HStack(spacing: 7) {
+    VStack(alignment: .leading, spacing: 4) {
+      HStack(spacing: 7) {
       VStack(alignment: .leading, spacing: 1) {
         Text(note.displayTitle).font(.callout.weight(.medium)).lineLimit(1)
         Text(note.preview).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
       }
       Spacer(minLength: 4)
+      }
+      .background {
+        GeometryReader { proxy in
+          let frame = proxy.frame(in: .named(MainPanelCoordinateSpace.name))
+          Color.clear.preference(key: QuickNoteRowGeometryPreferenceKey.self,
+            value: [note.id: MainTaskRowGeometry(taskID: note.id, rowFrame: .null, reorderFrame: frame)])
+        }
+      }
+      NoteAttachmentsView(attachments: model.snapshot.attachmentsByNote[note.id] ?? [], model: model, height: 38, allowsRemoval: false)
     }
     .padding(.horizontal, 7)
     .padding(.vertical, 5)
     .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 8))
     .contentShape(Rectangle())
-    .accessibilityElement(children: .combine)
+    .accessibilityElement(children: .contain)
     .accessibilityLabel(note.displayTitle)
     .accessibilityHint("Drag to reorder or attach to a Main Task.")
     .background {
@@ -456,7 +388,7 @@ private struct CompactQuickNoteRow: View {
             note.id: MainTaskRowGeometry(
               taskID: note.id,
               rowFrame: frame,
-              reorderFrame: frame
+              reorderFrame: .null
             )
           ]
         )

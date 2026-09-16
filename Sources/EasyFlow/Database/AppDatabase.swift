@@ -3,8 +3,10 @@ import Foundation
 
 final class AppDatabase: @unchecked Sendable {
   let queue: DatabaseQueue
+  let attachmentDirectory: URL
 
   init(path: String) throws {
+    attachmentDirectory = URL(fileURLWithPath: path).deletingLastPathComponent().appendingPathComponent("Attachments", isDirectory: true)
     var configuration = Configuration()
     configuration.foreignKeysEnabled = true
     configuration.busyMode = .timeout(5)
@@ -13,6 +15,7 @@ final class AppDatabase: @unchecked Sendable {
   }
 
   init(inMemoryNamed name: String = UUID().uuidString) throws {
+    attachmentDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("EasyFlow-tests-\(UUID().uuidString)/Attachments", isDirectory: true)
     var configuration = Configuration()
     configuration.foreignKeysEnabled = true
     queue = try DatabaseQueue(
@@ -222,6 +225,33 @@ final class AppDatabase: @unchecked Sendable {
       try database.execute(
         sql: "DELETE FROM mainTask WHERE id IN (\(excessDeletedTaskIDs))"
       )
+    }
+    migrator.registerMigration("v4-note-image-attachments") { database in
+      try database.create(table: "noteAttachment") { table in
+        table.column("id", .text).primaryKey()
+        table.column("noteID", .text).references("workspaceNote", onDelete: .cascade)
+        table.column("draftID", .text).references("quickNoteDraft", onDelete: .cascade)
+        table.column("filename", .text).notNull().unique()
+        table.column("contentType", .text).notNull()
+        table.column("pixelWidth", .integer).notNull()
+        table.column("pixelHeight", .integer).notNull()
+        table.column("byteCount", .integer).notNull()
+        table.column("sortIndex", .integer).notNull()
+        table.column("createdAt", .datetime).notNull()
+        table.check(sql: "(noteID IS NOT NULL) != (draftID IS NOT NULL)")
+        table.check(sql: "pixelWidth > 0 AND pixelHeight > 0 AND byteCount > 0")
+      }
+      try database.create(index: "noteAttachment_note_order", on: "noteAttachment", columns: ["noteID", "sortIndex", "id"])
+      try database.create(index: "noteAttachment_draft_order", on: "noteAttachment", columns: ["draftID", "sortIndex", "id"])
+      try database.create(table: "attachmentFileDeletion") { table in
+        table.column("filename", .text).primaryKey()
+      }
+      try database.execute(sql: """
+        CREATE TRIGGER noteAttachment_queueDeletion AFTER DELETE ON noteAttachment
+        BEGIN
+          INSERT OR IGNORE INTO attachmentFileDeletion (filename) VALUES (OLD.filename);
+        END
+        """)
     }
     return migrator
   }

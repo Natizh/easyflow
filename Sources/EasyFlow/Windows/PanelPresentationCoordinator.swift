@@ -8,6 +8,13 @@ final class PanelPresentationCoordinator {
   var onSecondaryRequested: ((SecondaryPanelContext) -> Void)?
   var onSecondaryCleared: (() -> Void)?
   var onSettingsPresentationChanged: ((Bool) -> Void)?
+  var onPanelSideChanged: ((PanelSide) -> Void)?
+  var panelSide: PanelSide { viewModel.panelSide }
+  private var settingsController: SettingsWindowController!
+  private let previewController = ImagePreviewWindowController()
+  private weak var auxiliaryOrigin: NSWindow?
+  private var mainGeneration = 0
+  private var secondaryGeneration = 0
 
   private let activationPanel = ActivationEdgePanel()
   private let mainPanel = OverlayPanel()
@@ -46,9 +53,25 @@ final class PanelPresentationCoordinator {
     viewModel.onSecondaryCleared = { [weak self] in
       self?.onSecondaryCleared?()
     }
-    viewModel.onSettingsPresentationChanged = { [weak self] isPresented in
-      self?.onSettingsPresentationChanged?(isPresented)
+    settingsController = SettingsWindowController(model: viewModel)
+    settingsController.onClose = { [weak self] in
+      guard let self else { return }
+      self.viewModel.isSettingsPresented = false
+      self.auxiliaryClosed()
     }
+    previewController.onClose = { [weak self] in self?.auxiliaryClosed() }
+    viewModel.onSettingsPresentationChanged = { [weak self] isPresented in
+      guard let self else { return }
+      if isPresented, let screen = self.mainPanel.screen ?? NSScreen.main {
+        self.auxiliaryOrigin = self.mainPanel
+        self.onSettingsPresentationChanged?(true)
+        self.settingsController.present(on: screen)
+      } else if self.settingsController.window?.isVisible == true {
+        self.settingsController.close()
+      }
+    }
+    viewModel.onPanelSideChanged = { [weak self] side in self?.onPanelSideChanged?(side) }
+    viewModel.onImagePreview = { [weak self] attachment in self?.preview(attachment) }
     viewModel.onTaskRowsChanged = { [weak mainHostingView] rows in
       mainHostingView?.updateTaskRows(rows)
     }
@@ -134,6 +157,8 @@ final class PanelPresentationCoordinator {
   }
 
   func stop() {
+    settingsController.close()
+    previewController.close()
     viewModel.stop()
     hideAll(restoreFocus: false)
     activationPanel.orderOut(nil)
@@ -141,10 +166,16 @@ final class PanelPresentationCoordinator {
 
   func apply(layout: PanelLayout) {
     currentLayout = layout
+    mainGeneration += 1
+    secondaryGeneration += 1
+    mainHostingView.resetRouting(side: layout.side)
+    secondaryHostingView.resetRouting(side: layout.side)
     activationPanel.setFrame(layout.activationFrame, display: true)
     if !activationPanel.isVisible {
       activationPanel.orderFrontRegardless()
     }
+    mainPanel.alphaValue = 1
+    secondaryPanel.alphaValue = 1
     mainPanel.setFrame(layout.mainFrame, display: mainPanel.isVisible)
     secondaryPanel.setFrame(
       layout.secondaryFrame,
@@ -153,6 +184,7 @@ final class PanelPresentationCoordinator {
   }
 
   func showMain(layout: PanelLayout) {
+    mainGeneration += 1
     capturePreviousApplicationIfNeeded()
     currentLayout = layout
     activationPanel.setFrame(layout.activationFrame, display: true)
@@ -160,7 +192,7 @@ final class PanelPresentationCoordinator {
     NSApplication.shared.activate(ignoringOtherApps: true)
     let wasVisible = mainPanel.isVisible
     if !wasVisible {
-      mainPanel.setFrame(mainHiddenFrame(for: layout), display: false)
+      mainPanel.setFrame(layout.mainHiddenFrame, display: false)
       mainPanel.alphaValue = 0
     }
     mainPanel.orderFrontRegardless()
@@ -179,6 +211,8 @@ final class PanelPresentationCoordinator {
   }
 
   func showSecondary(context: SecondaryPanelContext, layout: PanelLayout) {
+    secondaryGeneration += 1
+    let generation = secondaryGeneration
     viewModel.secondaryContext = context
     currentLayout = layout
     let intent = SecondaryPresentationIntent(layout: layout)
@@ -202,6 +236,7 @@ final class PanelPresentationCoordinator {
       self.secondaryPanel.animator().setFrame(intent.targetFrame, display: true)
       self.secondaryPanel.animator().alphaValue = intent.targetAlpha
     } completion: {
+      guard self.secondaryGeneration == generation else { return }
       self.secondaryPanel.setFrame(intent.targetFrame, display: true)
       self.secondaryPanel.alphaValue = intent.targetAlpha
       self.secondaryPanel.order(.above, relativeTo: self.mainPanel.windowNumber)
@@ -216,24 +251,32 @@ final class PanelPresentationCoordinator {
   }
 
   func hideSecondary() {
+    secondaryGeneration += 1
+    let generation = secondaryGeneration
+    NotificationCenter.default.post(name: .easyFlowFlushEditors, object: nil)
     guard secondaryPanel.isVisible, let currentLayout else {
       viewModel.secondaryContext = nil
       return
     }
     animate(duration: Self.secondaryCloseAnimationDuration) {
       self.secondaryPanel.animator().setFrame(
-        self.secondaryHiddenFrame(for: currentLayout),
+        currentLayout.secondaryHiddenFrame,
         display: true
       )
       self.secondaryPanel.animator().alphaValue = 0
     } completion: {
+      guard self.secondaryGeneration == generation else { return }
       self.secondaryPanel.orderOut(nil)
       self.viewModel.secondaryContext = nil
     }
   }
 
   func hideAll(restoreFocus: Bool) {
-    viewModel.commitQuickNoteIfNeeded()
+    mainGeneration += 1
+    secondaryGeneration += 1
+    let generation = mainGeneration
+    NotificationCenter.default.post(name: .easyFlowFlushEditors, object: nil)
+    viewModel.commitQuickNoteOnFocusLoss()
     secondaryPanel.orderOut(nil)
     viewModel.secondaryContext = nil
     guard mainPanel.isVisible, let currentLayout else {
@@ -241,9 +284,10 @@ final class PanelPresentationCoordinator {
       return
     }
     animate(duration: 0.18) {
-      self.mainPanel.animator().setFrame(self.mainHiddenFrame(for: currentLayout), display: true)
+      self.mainPanel.animator().setFrame(currentLayout.mainHiddenFrame, display: true)
       self.mainPanel.animator().alphaValue = 0
     } completion: {
+      guard self.mainGeneration == generation else { return }
       self.mainPanel.orderOut(nil)
       if restoreFocus { self.restorePreviousApplication() } else { self.previousApplication = nil }
     }
@@ -265,17 +309,43 @@ final class PanelPresentationCoordinator {
     previousApplication.activate(options: [])
   }
 
-  private func mainHiddenFrame(for layout: PanelLayout) -> CGRect {
-    layout.mainFrame.offsetBy(dx: layout.mainFrame.width + 16, dy: 0)
+  func prepareToTerminate() async -> Bool {
+    mainPanel.makeFirstResponder(nil)
+    secondaryPanel.makeFirstResponder(nil)
+    NotificationCenter.default.post(name: .easyFlowFlushEditors, object: nil)
+    await Task.yield()
+    return await viewModel.flushPendingWrites()
   }
 
-  private func secondaryHiddenFrame(for layout: PanelLayout) -> CGRect {
-    CGRect(
-      x: layout.mainFrame.minX,
-      y: layout.secondaryFrame.minY,
-      width: layout.secondaryFrame.width,
-      height: layout.secondaryFrame.height
-    )
+  private func auxiliaryClosed() {
+    let stillOpen = settingsController.window?.isVisible == true || previewController.window?.isVisible == true
+    if !stillOpen { (auxiliaryOrigin ?? mainPanel).makeKey() }
+    // windowWillClose is called before isVisible flips; re-evaluate next turn.
+    DispatchQueue.main.async { [weak self] in
+      guard let self else { return }
+      let open = self.settingsController.window?.isVisible == true || self.previewController.window?.isVisible == true
+      if !open { (self.auxiliaryOrigin ?? self.mainPanel).makeKey() }
+      self.onSettingsPresentationChanged?(open)
+    }
+  }
+
+  private func preview(_ attachment: NoteAttachment) {
+    let origin = NSApp.keyWindow ?? secondaryPanel
+    guard let screen = origin.screen ?? mainPanel.screen ?? NSScreen.main else { return }
+    let url = viewModel.attachmentDirectory.appendingPathComponent(attachment.filename)
+    auxiliaryOrigin = origin
+    onSettingsPresentationChanged?(true)
+    Task { [weak self] in
+      let image = await Task.detached { NSImage(contentsOf: url) }.value
+      guard let self else { return }
+      guard let image else {
+        self.viewModel.errorMessage = AttachmentError.unavailable.localizedDescription
+        self.auxiliaryClosed()
+        return
+      }
+      self.previewController.present(image: image,
+        pixels: CGSize(width: attachment.pixelWidth, height: attachment.pixelHeight), on: screen)
+    }
   }
 
   private func animate(

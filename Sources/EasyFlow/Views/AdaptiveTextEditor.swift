@@ -17,6 +17,8 @@ struct AdaptiveTextEditor: NSViewRepresentable {
   let minimumHeight: CGFloat
   let maximumHeight: CGFloat
   let onSave: (String) -> Void
+  var label = "Task Description"
+  var onPasteImages: (([Data]) -> Void)? = nil
 
   func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
 
@@ -26,7 +28,9 @@ struct AdaptiveTextEditor: NSViewRepresentable {
     scrollView.borderType = .noBorder
     scrollView.autohidesScrollers = true
 
-    let textView = NSTextView()
+    let textView = MeasuredNoteTextView()
+    textView.onPasteImages = onPasteImages
+    textView.onWidthChanged = { [weak coordinator = context.coordinator] in coordinator?.measure() }
     textView.delegate = context.coordinator
     textView.font = NSFont.preferredFont(forTextStyle: .body)
     textView.drawsBackground = false
@@ -39,7 +43,8 @@ struct AdaptiveTextEditor: NSViewRepresentable {
     textView.textContainer?.lineFragmentPadding = 0
     textView.textContainer?.widthTracksTextView = true
     textView.string = text
-    textView.setAccessibilityLabel("Task Description")
+    textView.setAccessibilityLabel(label)
+    textView.textContainer?.containerSize.height = CGFloat.greatestFiniteMagnitude
     scrollView.documentView = textView
     context.coordinator.textView = textView
     context.coordinator.scrollView = scrollView
@@ -50,8 +55,13 @@ struct AdaptiveTextEditor: NSViewRepresentable {
   func updateNSView(_ scrollView: NSScrollView, context: Context) {
     context.coordinator.parent = self
     guard let textView = context.coordinator.textView else { return }
-    if textView.string != text { textView.string = text }
+    if textView.string != text, textView.window?.firstResponder !== textView { textView.string = text }
+    (textView as? NoteImageTextView)?.onPasteImages = onPasteImages
     DispatchQueue.main.async { context.coordinator.measure() }
+  }
+
+  static func dismantleNSView(_ nsView: NSScrollView, coordinator: Coordinator) {
+    coordinator.textDidEndEditing(Notification(name: NSText.didEndEditingNotification))
   }
 
   @MainActor
@@ -60,11 +70,26 @@ struct AdaptiveTextEditor: NSViewRepresentable {
     weak var textView: NSTextView?
     weak var scrollView: NSScrollView?
     var saveTask: Task<Void, Never>?
+    var isDirty = false
 
-    init(parent: AdaptiveTextEditor) { self.parent = parent }
+    init(parent: AdaptiveTextEditor) {
+      self.parent = parent
+      super.init()
+      NotificationCenter.default.addObserver(self, selector: #selector(flush), name: .easyFlowFlushEditors, object: nil)
+    }
+
+    deinit { NotificationCenter.default.removeObserver(self) }
+
+    @objc func flush() {
+      saveTask?.cancel()
+      guard isDirty, let textView else { return }
+      parent.onSave(textView.string)
+      isDirty = false
+    }
 
     func textDidChange(_ notification: Notification) {
       guard let textView else { return }
+      isDirty = true
       parent.text = textView.string
       measure()
       saveTask?.cancel()
@@ -72,16 +97,19 @@ struct AdaptiveTextEditor: NSViewRepresentable {
       saveTask = Task { @MainActor in
         do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
         parent.onSave(value)
+        if textView.string == value { isDirty = false }
       }
     }
 
     func textDidEndEditing(_ notification: Notification) {
-      saveTask?.cancel()
-      if let textView { parent.onSave(textView.string) }
+      flush()
     }
 
     func measure() {
       guard let textView, let textContainer = textView.textContainer else { return }
+      let width = scrollView?.contentSize.width ?? textView.bounds.width
+      guard width > 1 else { return }
+      textContainer.containerSize = NSSize(width: max(1, width - textView.textContainerInset.width * 2), height: CGFloat.greatestFiniteMagnitude)
       textView.layoutManager?.ensureLayout(for: textContainer)
       let usedHeight = textView.layoutManager?.usedRect(for: textContainer).height ?? 0
       let contentHeight = usedHeight + (textView.textContainerInset.height * 2) + 2
@@ -119,5 +147,14 @@ struct AdaptiveDescriptionEditor: View {
     .frame(height: height)
     .background(.quaternary.opacity(0.30), in: RoundedRectangle(cornerRadius: 8))
     .onChange(of: value) { _, newValue in text = newValue }
+  }
+}
+
+final class MeasuredNoteTextView: NoteImageTextView {
+  var onWidthChanged: (() -> Void)?
+  override func setFrameSize(_ newSize: NSSize) {
+    let changed = abs(newSize.width - frame.width) > 0.5
+    super.setFrameSize(newSize)
+    if changed { DispatchQueue.main.async { [weak self] in self?.onWidthChanged?() } }
   }
 }

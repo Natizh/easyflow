@@ -15,9 +15,12 @@ struct PersistedTextField: View {
   }
 
   var body: some View {
-    TextField(title, text: $text)
+    TextField(title, text: $text, axis: .vertical)
+      .fixedSize(horizontal: false, vertical: true)
       .focused($isFocused)
       .onSubmit { onSave(text) }
+      .onDisappear { if text != value { onSave(text) } }
+      .onReceive(NotificationCenter.default.publisher(for: .easyFlowFlushEditors)) { _ in if text != value { onSave(text) } }
       .onChange(of: isFocused) { wasFocused, focused in
         if wasFocused && !focused { onSave(text) }
       }
@@ -29,48 +32,36 @@ struct PersistedTextField: View {
 
 struct PersistedTextEditor: View {
   let value: String
-  let minimumHeight: CGFloat
+  var minimumHeight: CGFloat = 58
+  var maximumHeight: CGFloat = 180
+  var label = "Note body"
+  var onPasteImages: (([Data]) -> Void)? = nil
   let onSave: (String) -> Void
   @State private var text: String
-  @State private var saveTask: Task<Void, Never>?
-  @FocusState private var isFocused: Bool
+  @State private var height: CGFloat = 58
 
-  init(value: String, minimumHeight: CGFloat = 70, onSave: @escaping (String) -> Void) {
+  init(value: String, minimumHeight: CGFloat = 58, maximumHeight: CGFloat = 180,
+    label: String = "Note body", onPasteImages: (([Data]) -> Void)? = nil,
+    onSave: @escaping (String) -> Void) {
     self.value = value
     self.minimumHeight = minimumHeight
+    self.maximumHeight = maximumHeight
+    self.label = label
+    self.onPasteImages = onPasteImages
     self.onSave = onSave
     _text = State(initialValue: value)
   }
 
   var body: some View {
-    TextEditor(text: $text)
-      .scrollContentBackground(.hidden)
-      .padding(6)
-      .frame(minHeight: minimumHeight)
-      .background(.quaternary.opacity(0.30), in: RoundedRectangle(cornerRadius: 8))
-      .focused($isFocused)
-      .onChange(of: text) { _, newValue in scheduleSave(newValue) }
-      .onChange(of: isFocused) { wasFocused, focused in
-        if wasFocused && !focused { flush() }
-      }
-      .onChange(of: value) { _, newValue in
-        if !isFocused { text = newValue }
-      }
-      .onDisappear(perform: flush)
+    AdaptiveTextEditor(text: $text, height: $height,
+      minimumHeight: minimumHeight, maximumHeight: maximumHeight,
+      onSave: onSave, label: label, onPasteImages: onPasteImages)
+      .frame(height: max(minimumHeight, height))
+      .background(.quaternary.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
+      .onChange(of: value) { _, newValue in text = newValue }
   }
+}
 
-  private func scheduleSave(_ value: String) {
-    saveTask?.cancel()
-    saveTask = Task { @MainActor in
-      do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
-      guard !Task.isCancelled else { return }
-      onSave(value)
-    }
-  }
-
-  private func flush() {
-    saveTask?.cancel()
-    saveTask = nil
-    onSave(text)
-  }
+extension Notification.Name {
+  static let easyFlowFlushEditors = Notification.Name("EasyFlow.flushEditors")
 }

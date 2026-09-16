@@ -25,43 +25,46 @@ struct PanelSizing: Equatable, Sendable {
 
 struct PanelLayout: Equatable, Sendable {
   let display: DisplaySnapshot
+  let side: PanelSide
   let activationFrame: CGRect
   let mainFrame: CGRect
   let secondaryFrame: CGRect
   let mainInteractionFrame: CGRect
   let combinedInteractionFrame: CGRect
 
-  init(display: DisplaySnapshot, sizing: PanelSizing = PanelSizing()) {
+  init(display: DisplaySnapshot, sizing: PanelSizing = PanelSizing(), side: PanelSide = .right) {
     self.display = display
+    self.side = side
 
     let screenFrame = display.frame
     let width = sizing.width(for: screenFrame.width)
     let verticalInset = sizing.verticalInset(for: screenFrame.height)
     let height = max(1, screenFrame.height - (verticalInset * 2))
     let panelY = screenFrame.minY + verticalInset
-    let mainX = screenFrame.maxX - sizing.outerMargin - width
-    let secondaryX = mainX - sizing.panelGap - width
+    let mainX = side == .right ? screenFrame.maxX - sizing.outerMargin - width : screenFrame.minX + sizing.outerMargin
+    let secondaryX = mainX - side.outwardSign * (sizing.panelGap + width)
 
     activationFrame = CGRect(
-      x: screenFrame.maxX - sizing.hotZoneWidth,
+      x: side == .right ? screenFrame.maxX - sizing.hotZoneWidth : screenFrame.minX,
       y: screenFrame.minY,
       width: sizing.hotZoneWidth,
       height: screenFrame.height
     )
     mainFrame = CGRect(x: mainX, y: panelY, width: width, height: height)
     secondaryFrame = CGRect(x: secondaryX, y: panelY, width: width, height: height)
-    mainInteractionFrame = CGRect(
-      x: mainFrame.minX,
-      y: mainFrame.minY,
-      width: screenFrame.maxX - mainFrame.minX,
-      height: mainFrame.height
-    )
-    combinedInteractionFrame = CGRect(
-      x: secondaryFrame.minX,
-      y: secondaryFrame.minY,
-      width: screenFrame.maxX - secondaryFrame.minX,
-      height: secondaryFrame.height
-    )
+    let edgeMargin = CGRect(x: side == .right ? mainFrame.maxX : screenFrame.minX,
+      y: panelY, width: sizing.outerMargin, height: height)
+    mainInteractionFrame = mainFrame.union(edgeMargin)
+    combinedInteractionFrame = mainInteractionFrame.union(secondaryFrame)
+  }
+
+  var mainHiddenFrame: CGRect {
+    mainFrame.offsetBy(dx: side.outwardSign * (mainFrame.width + 16), dy: 0)
+  }
+
+  var secondaryHiddenFrame: CGRect {
+    CGRect(x: mainFrame.minX, y: secondaryFrame.minY,
+      width: secondaryFrame.width, height: secondaryFrame.height)
   }
 
   func pointerRegion(at point: CGPoint, secondaryIsVisible: Bool) -> PointerRegion {
@@ -94,7 +97,7 @@ struct SecondaryPresentationIntent: Equatable, Sendable {
 
   init(layout: PanelLayout) {
     targetFrame = layout.secondaryFrame
-    startFrame = layout.secondaryFrame.offsetBy(dx: 28, dy: 0)
+    startFrame = layout.secondaryFrame.offsetBy(dx: layout.side.outwardSign * 28, dy: 0)
     startAlpha = 0.15
     targetAlpha = 1
   }

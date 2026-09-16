@@ -60,6 +60,7 @@ final class PointerTrackingHostingView<Content: View>: NSHostingView<Content>,
   var onStepDragCommitted: ((UUID, Int) -> Void)?
   var onStepDragCancelled: (() -> Void)?
   private var pointerTrackingArea: NSTrackingArea?
+  var panelSide: PanelSide = .right
   private var taskRouter = MainTaskPointerRouter()
   private var noteRouter = MainTaskPointerRouter()
   private var stepRouter = MainTaskPointerRouter()
@@ -114,12 +115,37 @@ final class PointerTrackingHostingView<Content: View>: NSHostingView<Content>,
     return id
   }
 
+  func resetRouting(side: PanelSide) {
+    panelSide = side
+    if taskRouter.cancelDrag() { onTaskDragCancelled?() }
+    if noteRouter.cancelDrag() { onNoteDragCancelled?() }
+    if stepRouter.cancelDrag() { onStepDragCancelled?() }
+    capturedDrag = nil
+    noteAttachmentTargetID = nil
+    lastMousePoint = nil
+    contextRouter.pointerLeftMain()
+  }
+
+  func capturesReorder(atSuperviewPoint point: NSPoint, eventType: NSEvent.EventType?) -> Bool {
+    guard eventType == .leftMouseDown else { return false }
+    // NSView.hitTest receives superview coordinates; routing rectangles and
+    // mouseDown use this flipped hosting view's local coordinates.
+    let local = convert(point, from: superview)
+    return taskRouter.taskForReorder(at: local) != nil
+      || noteRouter.taskForReorder(at: local) != nil
+      || stepForReorder(at: local) != nil
+  }
+
+  override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+    if let event, capturesReorder(
+      atSuperviewPoint: superview?.convert(event.locationInWindow, from: nil) ?? event.locationInWindow,
+      eventType: event.type
+    ) { return true }
+    return super.acceptsFirstMouse(for: event)
+  }
+
   override func hitTest(_ point: NSPoint) -> NSView? {
-    if NSApplication.shared.currentEvent?.type == .leftMouseDown,
-      taskRouter.taskForReorder(at: point) != nil
-        || noteRouter.taskForReorder(at: point) != nil
-        || stepForReorder(at: point) != nil
-    {
+    if capturesReorder(atSuperviewPoint: point, eventType: NSApplication.shared.currentEvent?.type) {
       return self
     }
     return super.hitTest(point)
@@ -147,7 +173,7 @@ final class PointerTrackingHostingView<Content: View>: NSHostingView<Content>,
 
   override func mouseMoved(with event: NSEvent) {
     let point = convert(event.locationInWindow, from: nil)
-    if let context = contextRouter.update(at: point, previousPoint: lastMousePoint) {
+    if let context = contextRouter.update(at: point, previousPoint: lastMousePoint, side: panelSide, viewWidth: bounds.width) {
       switch context {
       case .task(let taskID):
         InputDiagnostics.record(
@@ -231,7 +257,7 @@ final class PointerTrackingHostingView<Content: View>: NSHostingView<Content>,
       guard let update = stepRouter.mouseDragged(to: point) else { return }
       onStepDragChanged?(update.taskID, update.insertionIndex)
     case nil:
-      return
+      super.mouseDragged(with: event)
     }
   }
 

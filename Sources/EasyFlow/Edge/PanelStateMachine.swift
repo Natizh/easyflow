@@ -59,6 +59,7 @@ enum PanelInteractionState: Equatable, Sendable {
 }
 
 enum PanelEvent: Equatable, Sendable {
+  case auxiliaryPresentationChanged(Bool)
   case pointerChanged(PointerRegion)
   case activationDwellElapsed
   case userInteracted
@@ -81,12 +82,37 @@ enum PanelCommand: Equatable, Sendable {
 struct PanelStateMachine: Equatable, Sendable {
   private(set) var state: PanelInteractionState = .hidden
   let timing: PanelTiming
+  private var auxiliaryIsPresented = false
 
   init(timing: PanelTiming = PanelTiming()) {
     self.timing = timing
   }
 
+  init(timing: PanelTiming, preserving state: PanelInteractionState, auxiliaryIsPresented: Bool) {
+    self.timing = timing
+    self.auxiliaryIsPresented = auxiliaryIsPresented
+    switch state {
+    case .dwelling: self.state = .hidden
+    case .closingMain: self.state = .mainVisible(isEngaged: true)
+    case .closingSecondary(let context): self.state = .secondaryVisible(context: context)
+    default: self.state = state
+    }
+  }
+
   mutating func handle(_ event: PanelEvent) -> [PanelCommand] {
+    if case .auxiliaryPresentationChanged(let presented) = event {
+      auxiliaryIsPresented = presented
+      if presented {
+        switch state {
+        case .closingSecondary(let context): state = .secondaryVisible(context: context)
+        case .closingMain, .mainVisible: state = .mainVisible(isEngaged: true)
+        default: break
+        }
+        return [.cancel(timer: .activationDwell), .cancel(timer: .mainDismissal), .cancel(timer: .secondaryDismissal)]
+      }
+      return []
+    }
+    if auxiliaryIsPresented { return [] }
     switch (state, event) {
     case (.hidden, .pointerChanged(.activationEdge)):
       state = .dwelling
@@ -236,6 +262,9 @@ struct PanelStateMachine: Equatable, Sendable {
     }
 
     state = .mainVisible(isEngaged: true)
-    return [.cancel(timer: .mainDismissal)]
+    return [
+      .cancel(timer: .mainDismissal),
+      .showMain,
+    ]
   }
 }
