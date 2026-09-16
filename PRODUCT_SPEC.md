@@ -36,7 +36,7 @@ EasyFlow runs throughout a Mac session, so the invisible state must use very lit
 
 - Normal use has no persistent primary window, menu-bar icon, or Dock icon.
 - EasyFlow can start automatically at login through the setting in the Main Panel.
-- The preferred activation surface is the far-right outer edge of the rightmost display in the current arrangement, determined using the desktop coordinate system (for example, the `NSScreen` with the greatest `frame.maxX`).
+- The activation surface follows Panel Side: Right (default) uses the far-right outer edge of the display with greatest `frame.maxX`; Left uses the far-left outer edge of the display with smallest `frame.minX`. Changes apply immediately.
 - The activation hot zone is a 3-point strip at that outer edge.
 - Intentional activation requires approximately 300 ms in the hot zone. Minor empirical tuning is allowed, but the interaction must remain immediate and must not become arbitrarily slower.
 - An accidental activation closes immediately or effectively immediately when the cursor leaves.
@@ -45,7 +45,7 @@ EasyFlow overlays ordinary, maximized, fullscreen, and Space-hosted applications
 
 ## Panel model
 
-EasyFlow has a Main Panel at the right edge and one contextual Secondary Panel immediately to its left.
+EasyFlow has a Main Panel at the selected outer edge and one contextual Secondary Panel immediately inward from it. Left mirrors Right, including motion, traversal, and dismissal geometry.
 
 The Main Panel occupies about 20% of the current display width, clamped to 360–520 points. The Secondary Panel uses the same responsive rule.
 
@@ -62,7 +62,7 @@ The visual hierarchy is calm, productive, and native. `+ New Task` is not a gian
 
 The Secondary Panel is reused for the Quick Notes browser or the currently hovered Main Task. It updates context in place; EasyFlow does not create a separate third notes/details window.
 
-Panel motion is spatial and native: Main slides out from and retreats into the right screen edge; Secondary slides left from Main and retracts toward it. Replacing content inside an already-visible Secondary Panel does not replay its entrance animation. Reduce Motion removes the transition without changing behavior.
+Panel motion is spatial and native: Main slides out from and retreats into the selected screen edge; Secondary slides inward from Main and retracts toward it. Replacing content inside an already-visible Secondary Panel does not replay its entrance animation. Reduce Motion removes the transition without changing behavior.
 
 ## Quick Notes
 
@@ -70,7 +70,7 @@ Quick Notes form a low-friction capture inbox for temporary ideas, technical tho
 
 After intentional activation, the user can type into Quick Note capture without another click. Post-v1 polish makes `Return` commit the current note and clear the composer for rapid capture, while a non-empty draft is still preserved automatically and committed when capture ends. See `docs/UX_BEHAVIOR.md` for the data-safety semantics.
 
-Each Quick Note contains an app-owned ID, optional explicit title, body, creation and update timestamps, local order, and optional deletion metadata. When no explicit title exists, the UI derives a label from the first three meaningful words without modifying or truncating the stored body. Browsing shows the explicit/generated title, creation time/date, and enough preview text for recognition.
+Each Quick Note contains an app-owned ID, optional explicit title, body, creation and update timestamps, local order, optional deletion metadata, and ordered local image attachments. Notes may contain text, images, or both. Native clipboard image paste produces thumbnails below the editable text; it does not embed a duplicate image in the text. When no explicit title exists, the UI derives a label from the first three meaningful words without modifying or truncating the stored body. Browsing shows the explicit/generated title, creation time/date, and enough preview text for recognition.
 
 When Quick Notes is active, the Secondary Panel supports opening, reading, editing, deleting, reordering, and dragging notes to Main Tasks.
 
@@ -79,7 +79,7 @@ Committed Quick Notes also appear immediately in compact rows directly below the
 Dragging a Quick Note onto a Main Task is a move:
 
 - the note leaves the inbox after a successful drop;
-- its body and sensible timestamp/history are preserved;
+- its body, images, attachment order, and sensible timestamp/history are preserved;
 - it becomes a distinct Attached Note owned by the target Main Task;
 - it is not duplicated or concatenated into the task Description.
 
@@ -122,7 +122,7 @@ Description is one lightweight free-text field for task meaning, intended execut
 
 A Main Task can contain any number of one-level Steps. Nested Steps are not supported in v1. A Step has an app-owned ID, parent Main Task ID, title, local order, completion state, optional style and notes, timestamps, and optional deletion metadata.
 
-Step position is priority. Steps support high-quality local drag reordering. Completing a Step checks it and dims it, but it remains visible and stays in position until its parent Main Task is completed, archived, or deleted. Step notes remain local.
+Step position is priority. Steps support high-quality local drag reordering. Completing a Step checks it and dims it, but it remains visible and stays in position until its parent Main Task is completed, archived, or deleted. Step notes remain local and text-only. Step titles and notes wrap and grow vertically; completion controls stay aligned at the top. The rounded New Step entry sits centered below the list.
 
 Text color, highlight, and underline are available through the same lightweight contextual model as Main Tasks.
 
@@ -164,7 +164,7 @@ An imported task's Task Detail shows an obvious `Set effort` control with `1...4
 
 ## Settings, permissions, and appearance
 
-The Main Panel gear opens Settings with real controls for Standard/Frosted/Liquid Glass appearance, Compact/Comfortable Main Task row density, native Launch at Login, and Reminders connection/recovery. Current activation and panel geometry are shown as factual information rather than fake toggles.
+The Main Panel gear opens a dedicated centered native Settings panel with the running bundle version/build, immediate Left/Right Panel Side selection, and real controls for Standard/Frosted/Liquid Glass appearance, Compact/Comfortable Main Task row density, native Launch at Login, and Reminders connection/recovery. Current activation and panel geometry are shown as factual information.
 
 EasyFlow can register as a login item through `SMAppService`, and Settings reflects whether macOS enabled it or requires approval. First run handles Reminders authorization and finding or creating the EasyFlow list. Authorization states include not determined, authorized, denied/restricted, and unavailable/error. Permission is not repeatedly requested once decided, and the local workspace remains available when Reminders access is denied.
 
@@ -205,3 +205,9 @@ EasyFlow v1 is done when the user can:
 14. leave EasyFlow running without noticeable system slowdown.
 
 Features outside this definition require explicit approval for a later release.
+
+## Local note images (v1.2)
+
+Quick Notes and Main Task Attached Notes accept native clipboard images, including screenshots. Thumbnails preserve aspect ratio, remain compact, and appear below editable text. Clicking opens one reusable native preview centered on the originating screen, bounded to the screen, with aspect-fit rendering, Escape, Command-W, and a normal close button. This temporary preview is the sole exception to the two-panel notes/details model; it is not another workspace or external application.
+
+Images stay inside EasyFlow's Application Support directory with ownership/order metadata in SQLite. Soft-deleted notes retain their images with their text; physical purge removes both. Capture Return/focus-loss/relaunch semantics include image-only drafts. Ordinary text controls keep native selection, editing menus, and Cut/Copy/Paste. Step notes and task descriptions do not accept image attachments.

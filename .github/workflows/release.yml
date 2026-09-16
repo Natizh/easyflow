@@ -45,11 +45,8 @@ jobs:
         shell: zsh {0}
         run: |
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" \
-              dist/EasyFlow.zip \
-              dist/EasyFlow.zip.sha256 \
-              --clobber \
-              --repo "$GITHUB_REPOSITORY"
+            print -u2 -r -- "Release already exists; published assets are immutable."
+            exit 1
           else
             gh release create "$GITHUB_REF_NAME" \
               dist/EasyFlow.zip \

@@ -23,7 +23,7 @@ if [[ "$bundle_id" != "io.github.natizh.easyflow" ]]; then
   exit 1
 fi
 
-codesign --verify --deep --strict "$app_bundle"
+"$repository_root/scripts/verify-release-app.sh" "$app_bundle"
 
 ditto -c -k --sequesterRsrc --keepParent "$app_bundle" "$archive"
 
