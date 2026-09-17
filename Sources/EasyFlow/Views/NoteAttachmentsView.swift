@@ -2,7 +2,8 @@ import AppKit
 import ImageIO
 import SwiftUI
 
-actor AttachmentThumbnailCache {
+@MainActor
+final class AttachmentThumbnailCache {
   static let shared = AttachmentThumbnailCache()
   private let cache = NSCache<NSURL, NSImage>()
 
@@ -74,7 +75,7 @@ private struct AttachmentThumbnail: View {
     .buttonStyle(.plain)
     .accessibilityLabel("Open image preview")
     .task(id: attachment.id) {
-      image = await AttachmentThumbnailCache.shared.image(at: directory.appendingPathComponent(attachment.filename))
+      image = AttachmentThumbnailCache.shared.image(at: directory.appendingPathComponent(attachment.filename))
     }
   }
 }

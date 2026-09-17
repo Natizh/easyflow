@@ -336,8 +336,9 @@ final class PanelPresentationCoordinator {
     auxiliaryOrigin = origin
     onSettingsPresentationChanged?(true)
     Task { [weak self] in
-      let image = await Task.detached { NSImage(contentsOf: url) }.value
+      let data = await Task.detached { try? Data(contentsOf: url) }.value
       guard let self else { return }
+      let image = data.flatMap(NSImage.init(data:))
       guard let image else {
         self.viewModel.errorMessage = AttachmentError.unavailable.localizedDescription
         self.auxiliaryClosed()
