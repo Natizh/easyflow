@@ -63,11 +63,11 @@ EasyFlow runs with the accessory activation policy and has no Dock icon or menu-
 
 The panel coordinator owns both overlay windows as one coordinated interaction surface:
 
-- Main is anchored to the right edge of the selected display.
-- Secondary is immediately left of Main and changes content between Quick Notes and task details.
+- Main is anchored to the selected outer desktop edge (Right by default).
+- Secondary is immediately inward from Main and changes content between Quick Notes and task details.
 - Panels use window levels and collection behavior suitable for fullscreen applications and Spaces without changing the underlying app layout.
 - The coordinator owns show/hide ordering, geometry, transition cancellation, previous-app focus context, and reconfiguration after display changes.
-- Presentation exposes centralized frame/opacity animation hooks: Main's hidden frame is beyond the right edge, while Secondary's hidden frame retracts toward Main. Context replacement never recreates the Secondary window.
+- Presentation exposes centralized frame/opacity animation hooks: Main's hidden frame is beyond the selected edge, while Secondary's hidden frame retracts toward Main. Context replacement never recreates the Secondary window.
 - SwiftUI renders content and emits semantic actions; it does not directly orchestrate global windows.
 - Secondary is ordered in front after Main during its entrance, and AppKit capture/saved-note hover surfaces emit explicit context requests. Main↔Secondary gap geometry remains one bridge region.
 
@@ -77,7 +77,7 @@ Main and Secondary are borderless nonactivating `NSPanel` instances that can bec
 
 ## Edge activation
 
-The display topology provider selects the screen with maximum `frame.maxX`. A transparent, non-key 3-point AppKit panel occupies only the far-right outer edge of that display. AppKit tracking areas on the activation surface, Main, and Secondary emit pointer-region changes into the state machine. This is event-driven, needs no continuous poll, and avoids adding Input Monitoring or Accessibility permission merely to observe the pointer.
+The display topology provider selects maximum `frame.maxX` for Right or minimum `frame.minX` for Left, with deterministic vertical/display-ID tie-breaking. A transparent, non-key 3-point AppKit panel occupies only that display’s selected outer edge. AppKit tracking areas on the activation surface, Main, and Secondary emit pointer-region changes into the state machine. This is event-driven, needs no continuous poll, and avoids adding Input Monitoring or Accessibility permission merely to observe the pointer.
 
 The pure state machine separates pointer crossing, 300 ms potential activation, intentional activation, active interaction, immediate accidental exit, panel traversal, and staged closing. Its commands are the only source of dwell/close tasks. An 8-point gap is classified as a traversal bridge while the related panels are visible.
 
@@ -98,7 +98,7 @@ AppKit/EventKit/SwiftUI event
 
 Local UI and persistence should update responsively. External Reminder work is asynchronous and represented with explicit pending/error/reconciliation states rather than blocking the main thread.
 
-Window motion uses centralized AppKit frame/opacity hooks: Main opens in 0.22 seconds from beyond the right edge; Secondary opens leftward in 0.28 seconds and retracts in 0.35 seconds; Main closing remains 0.18 seconds. Context replacement changes only the SwiftUI model. Reduce Motion bypasses animation.
+Window motion uses centralized AppKit frame/opacity hooks: Main opens in 0.22 seconds from beyond the selected edge; Secondary opens inward in 0.28 seconds and retracts in 0.35 seconds; Main closing remains 0.18 seconds. Context replacement changes only the SwiftUI model. Reduce Motion bypasses animation.
 
 ## Persistence boundary
 
@@ -147,3 +147,11 @@ GitHub Actions runs `swift package resolve`, `swift build`, and `swift test` on 
 ## Packaging
 
 `scripts/build-dev-app.sh` and `scripts/build-release-app.sh` create ad-hoc-signed app bundles for local use. Both use `io.github.natizh.easyflow`, the Reminders usage description, and UIElement lifecycle. The scripts generate `EasyFlow.icns` when a complete PNG iconset is present. Public distribution still requires Developer ID signing and notarization.
+
+## Native editing and auxiliary panels (v1.2)
+
+AppKit startup installs the application/Edit menu with standard responder-chain actions. Native NSTextView/TextField controls own text selection and editing menus. The pointer host captures only registered reorder surfaces and forwards ordinary mouse sequences and keyboard events. Image-capable text views extend native pasteboard reading for note attachments; text remains plain text.
+
+The coordinator owns separate native Settings and image-preview controllers in addition to the two workspace panels. Both auxiliary panels are centered on the originating screen and have normal close behavior. Their presentation suspends dismissal and cancels stale timers; closing re-evaluates pointer state. Settings reads the running version from Bundle and persists Panel Side through UserDefaults. PanelLayout owns visible/hidden frames; display selection and context traversal consume PanelSide. Animation generations prevent stale completion handlers from hiding or repositioning newer presentations.
+
+WorkspaceRepository serializes image staging, metadata writes, draft ownership transfer, and cleanup. AttachmentFileStore uses immutable local files; a database deletion queue bridges SQLite transactions and fallible filesystem deletion. ImageIO creates bounded thumbnails off the main actor. Native multiline editor measurement drives Step-note height and row geometry. Orderly termination flushes editors and pending capture/workspace writes before exiting.

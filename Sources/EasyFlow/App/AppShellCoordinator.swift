@@ -41,6 +41,7 @@ final class AppShellCoordinator {
     panelPresenter.onSettingsPresentationChanged = { [weak self] isPresented in
       guard let self else { return }
       self.settingsIsPresented = isPresented
+      self.process(.auxiliaryPresentationChanged(isPresented))
       if isPresented {
         self.process(.userInteracted)
       } else {
@@ -49,6 +50,13 @@ final class AppShellCoordinator {
       }
     }
 
+    panelPresenter.onPanelSideChanged = { [weak self] _ in
+      guard let self else { return }
+      for timer in Array(self.timerTasks.keys) { self.cancel(timer: timer) }
+      self.stateMachine = PanelStateMachine(timing: self.stateMachine.timing,
+        preserving: self.stateMachine.state, auxiliaryIsPresented: self.settingsIsPresented)
+      self.screenConfigurationChanged()
+    }
     panelPresenter.onPointerMoved = { [weak self] point in
       self?.pointerMoved(to: point)
     }
@@ -62,6 +70,10 @@ final class AppShellCoordinator {
     }
     screenConfigurationMonitor.start()
     pointerMoved(to: NSEvent.mouseLocation)
+  }
+
+  func prepareToTerminate() async -> Bool {
+    await panelPresenter.prepareToTerminate()
   }
 
   func stop() {
@@ -83,11 +95,11 @@ final class AppShellCoordinator {
   }
 
   private func refreshLayout() {
-    guard let display = DisplayGeometry.rightmostScreen() else {
+    guard let display = DisplayGeometry.rightmostScreen(side: panelPresenter.panelSide) else {
       layout = nil
       return
     }
-    layout = PanelLayout(display: display, sizing: sizing)
+    layout = PanelLayout(display: display, sizing: sizing, side: panelPresenter.panelSide)
   }
 
   private func pointerMoved(to point: CGPoint) {

@@ -18,8 +18,17 @@ enum DisplayGeometry {
     }
   }
 
+  static func outermost(in displays: [DisplaySnapshot], side: PanelSide) -> DisplaySnapshot? {
+    if side == .right { return rightmost(in: displays) }
+    return displays.max { lhs, rhs in
+      if lhs.frame.minX != rhs.frame.minX { return lhs.frame.minX > rhs.frame.minX }
+      if lhs.frame.maxY != rhs.frame.maxY { return lhs.frame.maxY < rhs.frame.maxY }
+      return lhs.id < rhs.id
+    }
+  }
+
   @MainActor
-  static func rightmostScreen(from screens: [NSScreen] = NSScreen.screens) -> DisplaySnapshot? {
+  static func rightmostScreen(from screens: [NSScreen] = NSScreen.screens, side: PanelSide = .right) -> DisplaySnapshot? {
     let snapshots = screens.enumerated().map { index, screen in
       let screenNumber =
         screen.deviceDescription[
@@ -32,6 +41,6 @@ enum DisplayGeometry {
       )
     }
 
-    return rightmost(in: snapshots)
+    return outermost(in: snapshots, side: side)
   }
 }

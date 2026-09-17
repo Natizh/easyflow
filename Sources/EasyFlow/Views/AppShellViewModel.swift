@@ -8,6 +8,21 @@ final class AppShellViewModel: ObservableObject {
   @Published private(set) var newTaskTitleFocusRequestID = 0
   @Published var secondaryContext: SecondaryPanelContext?
   @Published var quickNoteDraft = ""
+  @Published private(set) var isCommittingCapture = false
+  @Published private(set) var pendingCaptureImageCount = 0
+  @Published var panelSide: PanelSide {
+    didSet {
+      userDefaults.set(panelSide.rawValue, forKey: Self.panelSideKey)
+      if oldValue != panelSide { onPanelSideChanged?(panelSide) }
+    }
+  }
+  var onPanelSideChanged: ((PanelSide) -> Void)?
+  var onImagePreview: ((NoteAttachment) -> Void)?
+  nonisolated let attachmentDirectory: URL
+  private var captureTask: Task<Void, Never>?
+  private var captureHasImages = false
+  private var pendingImages: [(id: UUID, data: [Data])] = []
+  private var workspaceWrites: [UUID: Task<Void, Never>] = [:]
   @Published private(set) var isCreatingTask = false
   @Published private(set) var isSelectingNewTaskEffort = false
   @Published var newTaskTitle = ""
@@ -64,6 +79,7 @@ final class AppShellViewModel: ObservableObject {
   private var isSubmittingNewTask = false
 
   static let appearanceModeKey = "appearanceMode"
+  static let panelSideKey = "panelSide"
   static let mainTaskDensityKey = "mainTaskDensity"
 
   init(
@@ -72,6 +88,8 @@ final class AppShellViewModel: ObservableObject {
     userDefaults: UserDefaults = .standard
   ) {
     self.repository = repository
+    attachmentDirectory = repository.attachmentDirectory
+    panelSide = PanelSide(rawValue: userDefaults.string(forKey: Self.panelSideKey) ?? "right") ?? .right
     self.userDefaults = userDefaults
     let sync =
       remindersSync
@@ -100,6 +118,7 @@ final class AppShellViewModel: ObservableObject {
     guard observationTask == nil else { return }
     observationTask = Task { [weak self, repository] in
       do {
+        try await repository.maintainAttachmentFiles()
         let stream = await repository.observe()
         for try await snapshot in stream {
           guard let self else { return }
@@ -113,7 +132,7 @@ final class AppShellViewModel: ObservableObject {
   }
 
   func stop() {
-    commitQuickNoteIfNeeded()
+    commitQuickNoteOnFocusLoss()
     observationTask?.cancel()
     observationTask = nil
     draftSaveTask?.cancel()
@@ -315,37 +334,102 @@ final class AppShellViewModel: ObservableObject {
 
   func setQuickNoteDraft(_ body: String) {
     quickNoteDraft = body
-    draftRevision = UUID()
     registerInteraction()
     scheduleDraftSave(body: body, revision: draftRevision)
   }
 
-  func commitQuickNoteIfNeeded() {
+  private func enqueueCapture(_ operation: @escaping @MainActor () async -> Void) {
+    let previous = captureTask
+    captureTask = Task {
+      await previous?.value
+      await operation()
+    }
+  }
+
+  func pasteCaptureImages(_ images: [Data]) {
+    guard !images.isEmpty else { return }
+    let batch = (id: UUID(), data: images)
+    captureHasImages = true
+    pendingImages.append(batch)
+    pendingCaptureImageCount += images.count
+    let revision = draftRevision
+    registerInteraction()
+    enqueueCapture { [self] in
+      do {
+        try await repository.addImages(images, to: .draft(revision: revision, body: quickNoteDraft))
+        pendingImages.removeAll { $0.id == batch.id }
+        pendingCaptureImageCount -= images.count
+      } catch { errorMessage = error.localizedDescription }
+    }
+  }
+
+  func pasteImages(_ images: [Data], into noteID: UUID) {
+    registerInteraction()
+    performWorkspaceWrite { [self] in
+      do { try await repository.addImages(images, to: .note(noteID)) }
+      catch { errorMessage = error.localizedDescription }
+    }
+  }
+
+  func removeAttachment(_ id: UUID) {
+    performWorkspaceWrite { [self] in
+      do { try await repository.removeAttachment(id: id) }
+      catch { errorMessage = error.localizedDescription }
+    }
+  }
+
+  func previewImage(_ attachment: NoteAttachment) {
+    onImagePreview?(attachment)
+  }
+
+  func commitQuickNoteIfNeeded() { commitCapture(refocus: true) }
+
+  func commitQuickNoteOnFocusLoss() { commitCapture(refocus: false) }
+
+  private func commitCapture(refocus: Bool) {
+    guard !isCommittingCapture else { return }
+    draftSaveTask?.cancel()
     let body = quickNoteDraft
-    guard !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-      quickNoteDraft = ""
-      draftSaveTask?.cancel()
-      Task { [repository] in try? await repository.clearDraft() }
+    let revision = draftRevision
+    let hasImages = captureHasImages || !pendingImages.isEmpty || !snapshot.draftAttachments.isEmpty
+    guard !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || hasImages else {
+      enqueueCapture { [repository] in try? await repository.clearDraft(revision: revision) }
       return
     }
-
-    let revision = draftRevision
-    draftSaveTask?.cancel()
-    quickNoteDraft = ""
-    draftRevision = UUID()
-    requestQuickNoteFocus()
-    Task { [weak self, repository] in
+    isCommittingCapture = true
+    enqueueCapture { [self] in
+      defer { isCommittingCapture = false }
       do {
-        _ = try await repository.commitDraft(body: body, revision: revision)
-      } catch {
-        guard let self else { return }
-        if self.quickNoteDraft.isEmpty {
-          self.quickNoteDraft = body
-          self.draftRevision = revision
+        // Retry any failed import before committing; never clear failed content.
+        for batch in pendingImages {
+          try await repository.addImages(batch.data, to: .draft(revision: revision, body: body))
+          pendingImages.removeAll { $0.id == batch.id }
+          pendingCaptureImageCount -= batch.data.count
         }
-        self.errorMessage = error.localizedDescription
-      }
+        _ = try await repository.commitDraft(body: body, revision: revision)
+        quickNoteDraft = ""
+        draftRevision = UUID()
+        snapshot.draftAttachments = []
+        captureHasImages = false
+        if refocus { requestQuickNoteFocus() }
+      } catch { errorMessage = error.localizedDescription }
     }
+  }
+
+  private func performWorkspaceWrite(_ operation: @escaping @MainActor () async -> Void) {
+    let id = UUID()
+    workspaceWrites[id] = Task { [self] in
+      await operation()
+      workspaceWrites[id] = nil
+    }
+  }
+
+  func flushPendingWrites() async -> Bool {
+    commitQuickNoteOnFocusLoss()
+    await captureTask?.value
+    for write in Array(workspaceWrites.values) { await write.value }
+    return !isCommittingCapture && pendingImages.isEmpty
+      && quickNoteDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
   }
 
   func createMainTask() {
@@ -354,7 +438,7 @@ final class AppShellViewModel: ObservableObject {
     let title = newTaskTitle
     guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
     isSubmittingNewTask = true
-    Task { [weak self, repository] in
+    performWorkspaceWrite { [weak self, repository] in
       do {
         _ = try await repository.createMainTask(title: title, effort: effort)
         self?.newTaskTitle = ""
@@ -376,7 +460,7 @@ final class AppShellViewModel: ObservableObject {
     description: String? = nil,
     style: ItemStyle? = nil
   ) {
-    Task { [weak self, repository] in
+    performWorkspaceWrite { [weak self, repository] in
       do {
         try await repository.updateMainTask(
           id: id,
@@ -392,7 +476,7 @@ final class AppShellViewModel: ObservableObject {
   }
 
   func completeMainTask(_ id: UUID) {
-    Task { [weak self, repository] in
+    performWorkspaceWrite { [weak self, repository] in
       do { try await repository.completeMainTask(id: id) } catch {
         self?.errorMessage = error.localizedDescription
       }
@@ -400,7 +484,7 @@ final class AppShellViewModel: ObservableObject {
   }
 
   func deleteMainTask(_ id: UUID) {
-    Task { [weak self, repository] in
+    performWorkspaceWrite { [weak self, repository] in
       do { try await repository.softDeleteMainTask(id: id) } catch {
         self?.errorMessage = error.localizedDescription
       }
@@ -415,7 +499,7 @@ final class AppShellViewModel: ObservableObject {
         before: targetID
       )
     else { return }
-    Task { [weak self, repository] in
+    performWorkspaceWrite { [weak self, repository] in
       do { try await repository.reorderMainTasks(ids: ids) } catch {
         self?.errorMessage = error.localizedDescription
       }
@@ -430,7 +514,7 @@ final class AppShellViewModel: ObservableObject {
         toInsertionIndex: toInsertionIndex
       )
     else { return }
-    Task { [weak self, repository] in
+    performWorkspaceWrite { [weak self, repository] in
       do { try await repository.reorderMainTasks(ids: ids) } catch {
         self?.errorMessage = error.localizedDescription
       }
@@ -438,7 +522,7 @@ final class AppShellViewModel: ObservableObject {
   }
 
   func createStep(mainTaskID: UUID, title: String) {
-    Task { [weak self, repository] in
+    performWorkspaceWrite { [weak self, repository] in
       do { _ = try await repository.createStep(mainTaskID: mainTaskID, title: title) } catch {
         self?.errorMessage = error.localizedDescription
       }
@@ -452,7 +536,7 @@ final class AppShellViewModel: ObservableObject {
     isCompleted: Bool? = nil,
     style: ItemStyle? = nil
   ) {
-    Task { [weak self, repository] in
+    performWorkspaceWrite { [weak self, repository] in
       do {
         try await repository.updateStep(
           id: id,
@@ -468,7 +552,7 @@ final class AppShellViewModel: ObservableObject {
   }
 
   func deleteStep(_ id: UUID) {
-    Task { [weak self, repository] in
+    performWorkspaceWrite { [weak self, repository] in
       do { try await repository.softDeleteStep(id: id) } catch {
         self?.errorMessage = error.localizedDescription
       }
@@ -483,7 +567,7 @@ final class AppShellViewModel: ObservableObject {
         before: targetID
       )
     else { return }
-    Task { [weak self, repository] in
+    performWorkspaceWrite { [weak self, repository] in
       do { try await repository.reorderSteps(mainTaskID: mainTaskID, ids: ids) } catch {
         self?.errorMessage = error.localizedDescription
       }
@@ -498,7 +582,7 @@ final class AppShellViewModel: ObservableObject {
         toInsertionIndex: toInsertionIndex
       )
     else { return }
-    Task { [weak self, repository] in
+    performWorkspaceWrite { [weak self, repository] in
       do { try await repository.reorderSteps(mainTaskID: mainTaskID, ids: ids) } catch {
         self?.errorMessage = error.localizedDescription
       }
@@ -506,7 +590,7 @@ final class AppShellViewModel: ObservableObject {
   }
 
   func updateNoteTitle(id: UUID, title: String?) {
-    Task { [weak self, repository] in
+    performWorkspaceWrite { [weak self, repository] in
       do { try await repository.updateNoteTitle(id: id, title: title) } catch {
         self?.errorMessage = error.localizedDescription
       }
@@ -514,7 +598,7 @@ final class AppShellViewModel: ObservableObject {
   }
 
   func updateNoteBody(id: UUID, body: String) {
-    Task { [weak self, repository] in
+    performWorkspaceWrite { [weak self, repository] in
       do { try await repository.updateNoteBody(id: id, body: body) } catch {
         self?.errorMessage = error.localizedDescription
       }
@@ -522,7 +606,7 @@ final class AppShellViewModel: ObservableObject {
   }
 
   func deleteNote(_ id: UUID) {
-    Task { [weak self, repository] in
+    performWorkspaceWrite { [weak self, repository] in
       do { try await repository.softDeleteNote(id: id) } catch {
         self?.errorMessage = error.localizedDescription
       }
@@ -537,7 +621,7 @@ final class AppShellViewModel: ObservableObject {
         before: targetID
       )
     else { return }
-    Task { [weak self, repository] in
+    performWorkspaceWrite { [weak self, repository] in
       do { try await repository.reorderQuickNotes(ids: ids) } catch {
         self?.errorMessage = error.localizedDescription
       }
@@ -552,7 +636,7 @@ final class AppShellViewModel: ObservableObject {
         toInsertionIndex: toInsertionIndex
       )
     else { return }
-    Task { [weak self, repository] in
+    performWorkspaceWrite { [weak self, repository] in
       do { try await repository.reorderQuickNotes(ids: ids) } catch {
         self?.errorMessage = error.localizedDescription
       }
@@ -560,7 +644,7 @@ final class AppShellViewModel: ObservableObject {
   }
 
   func moveQuickNote(_ noteID: UUID, to taskID: UUID) {
-    Task { [weak self, repository] in
+    performWorkspaceWrite { [weak self, repository] in
       do { try await repository.moveQuickNote(id: noteID, to: taskID) } catch {
         self?.errorMessage = error.localizedDescription
       }
@@ -598,6 +682,7 @@ final class AppShellViewModel: ObservableObject {
       if let draft = newSnapshot.draft {
         quickNoteDraft = draft.body
         draftRevision = draft.revision
+        captureHasImages = !newSnapshot.draftAttachments.isEmpty
       }
     }
   }
@@ -608,7 +693,10 @@ final class AppShellViewModel: ObservableObject {
       do {
         try await Task.sleep(for: .milliseconds(400))
         guard !Task.isCancelled else { return }
-        try await repository.saveDraft(body: body, revision: revision)
+        self?.enqueueCapture { [weak self, repository] in
+          do { try await repository.saveDraft(body: body, revision: revision) }
+          catch { self?.errorMessage = error.localizedDescription }
+        }
       } catch is CancellationError {
       } catch {
         self?.errorMessage = error.localizedDescription

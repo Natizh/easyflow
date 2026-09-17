@@ -19,11 +19,11 @@ struct SecondaryPanelView: View {
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    .coordinateSpace(name: SecondaryPanelCoordinateSpace.name)
     .padding(20)
+    .coordinateSpace(name: SecondaryPanelCoordinateSpace.name)
     .easyFlowPanelSurface(model.appearanceMode)
     .tint(EasyFlowBrand.indigo)
-    .onTapGesture { model.registerInteraction() }
+    .simultaneousGesture(TapGesture().onEnded { model.registerInteraction() })
     .onPreferenceChange(StepRowGeometryPreferenceKey.self) { geometries in
       model.updateStepRows(Array(geometries.values))
     }
@@ -37,6 +37,7 @@ private struct QuickNotesBrowser: View {
   @ObservedObject var model: AppShellViewModel
   @State private var draggedNoteID: UUID?
   @State private var insertionIndex: Int?
+  @State private var noteFrames: [UUID: CGRect] = [:]
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
@@ -59,12 +60,12 @@ private struct QuickNotesBrowser: View {
                 isInbox: true,
                 onReorderChanged: { translation in
                   draggedNoteID = note.id
-                  insertionIndex = ReorderLogic.insertionIndex(
-                    ids: model.snapshot.quickNotes.map(\.id),
-                    draggedID: note.id,
-                    translation: translation,
-                    rowExtent: 132
-                  )
+                  if let origin = noteFrames[note.id] {
+                    let targetY = origin.midY + translation
+                    insertionIndex = model.snapshot.quickNotes.firstIndex {
+                      targetY < (noteFrames[$0.id]?.midY ?? .greatestFiniteMagnitude)
+                    } ?? model.snapshot.quickNotes.count
+                  }
                 },
                 onReorderEnded: {
                   if let insertionIndex {
@@ -78,11 +79,19 @@ private struct QuickNotesBrowser: View {
                 }
               )
               .opacity(draggedNoteID == note.id ? 0.55 : 1)
+              .background {
+                GeometryReader { proxy in
+                  Color.clear.preference(key: BrowserNoteFrames.self,
+                    value: [note.id: proxy.frame(in: .named("NoteBrowser"))])
+                }
+              }
             }
             if insertionIndex == model.snapshot.quickNotes.count {
               ReorderInsertionBar()
             }
           }
+          .coordinateSpace(name: "NoteBrowser")
+          .onPreferenceChange(BrowserNoteFrames.self) { noteFrames = $0 }
         }
       }
     }
@@ -114,9 +123,10 @@ private struct NoteCard: View {
             .help("Attach to Main Task")
         }
       }
-      PersistedTextEditor(value: note.body, minimumHeight: 58) {
+      PersistedTextEditor(value: note.body, minimumHeight: 58, onPasteImages: { model.pasteImages($0, into: note.id) }) {
         model.updateNoteBody(id: note.id, body: $0)
       }
+      NoteAttachmentsView(attachments: model.snapshot.attachmentsByNote[note.id] ?? [], model: model)
       HStack {
         Text(note.createdAt, style: .relative)
           .font(.caption2)
@@ -186,6 +196,8 @@ private struct TaskDetailView: View {
           PersistedTextField(title: "Task title", value: task.title) {
             model.updateMainTask(id: task.id, title: $0)
           }
+          .textFieldStyle(.plain)
+          .font(.title3.weight(.semibold))
           if task.effort == nil {
             VStack(alignment: .trailing, spacing: 3) {
               Text("Set effort")
@@ -231,13 +243,17 @@ private struct TaskDetailView: View {
               ReorderInsertionBar()
             }
             HStack {
-              TextField("New step", text: $newStepTitle).onSubmit(addStep)
+              TextField("New step", text: $newStepTitle).textFieldStyle(.plain).onSubmit(addStep)
               Button(action: addStep) { Image(systemName: "plus.circle.fill") }
                 .buttonStyle(.plain)
                 .disabled(
                   newStepTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 )
             }
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .frame(maxWidth: 260)
+            .background(.quaternary.opacity(0.35), in: Capsule())
+            .frame(maxWidth: .infinity)
           }
         }
         section("Notes") {
@@ -290,7 +306,7 @@ private struct StepRow: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 5) {
-      HStack {
+      HStack(alignment: .top) {
         Button {
           model.updateStep(id: step.id, isCompleted: !step.isCompleted)
         } label: {
@@ -313,8 +329,16 @@ private struct StepRow: View {
               .frame(height: 1)
           }
         }
+        Menu {
+          AppearanceMenu(style: step.style) { model.updateStep(id: step.id, style: $0) }
+          Divider()
+          Button("Delete", role: .destructive) { model.deleteStep(step.id) }
+        } label: { Image(systemName: "ellipsis") }
+        .menuStyle(.borderlessButton).frame(width: 20)
+        .background { StepExclusionReporter(stepID: step.id) }
+        .accessibilityLabel("Step actions")
       }
-      PersistedTextField(title: StepNoteFieldPresentation.placeholder, value: step.notes) {
+      PersistedTextEditor(value: step.notes, minimumHeight: 28, maximumHeight: .greatestFiniteMagnitude, label: "Step notes") {
         model.updateStep(id: step.id, notes: $0)
       }
       .font(.caption)
@@ -323,7 +347,7 @@ private struct StepRow: View {
     }
     .opacity(step.isCompleted ? 0.52 : 1)
     .padding(8)
-    .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
+
     .accessibilityElement(children: .contain)
     .accessibilityLabel("Step: \(step.title)")
     .background {
@@ -341,11 +365,7 @@ private struct StepRow: View {
         )
       }
     }
-    .contextMenu {
-      AppearanceMenu(style: step.style) { model.updateStep(id: step.id, style: $0) }
-      Divider()
-      Button("Delete", role: .destructive) { model.deleteStep(step.id) }
-    }
+
   }
 }
 
@@ -361,5 +381,12 @@ private struct StepExclusionReporter: View {
         ]
       )
     }
+  }
+}
+
+private struct BrowserNoteFrames: PreferenceKey {
+  static let defaultValue: [UUID: CGRect] = [:]
+  static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) {
+    value.merge(nextValue()) { _, next in next }
   }
 }

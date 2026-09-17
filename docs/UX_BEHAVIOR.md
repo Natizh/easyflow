@@ -4,12 +4,12 @@ This document defines interaction behavior and state transitions. Product scope 
 
 ## Interaction regions
 
-- **Activation hot zone:** a deliberately narrow strip at the outer right edge of the rightmost display.
+- **Activation hot zone:** a deliberately narrow strip at the selected outer desktop edge.
 - **Main Panel region:** the primary EasyFlow surface at the screen edge.
-- **Secondary Panel region:** a contextual surface directly left of Main.
+- **Secondary Panel region:** a contextual surface directly inward from Main.
 - **Grace region:** the combined traversal area and short-lived state used to prevent dismissal while the pointer legitimately moves between panels.
 
-The rightmost display is the screen with the greatest desktop-coordinate `frame.maxX`. EasyFlow does not install activation edges on other displays.
+Right (default) chooses the screen with greatest desktop-coordinate `frame.maxX`; Left chooses smallest `frame.minX`. EasyFlow does not install activation edges on other displays.
 
 ## Activation state machine
 
@@ -36,21 +36,21 @@ The window coordinator records the previously active application before activati
 - Post-v1 polish: `Return` explicitly commits the non-empty note to the inbox, resets the composer, and leaves it ready for another capture. `Command+Return` may remain an equivalent submit path.
 - The Quick Note composer is quick-capture text, not paragraph composition; `Return` does not insert a newline into the saved note.
 - While typing, the non-empty composer is persisted as one debounced draft rather than creating duplicate inbox notes.
-- When EasyFlow closes or the composer loses focus, a non-whitespace draft is committed automatically; an empty/whitespace-only draft is discarded.
+- When EasyFlow closes or the composer loses focus, a draft containing non-whitespace text or images is committed automatically; a draft without either is discarded.
 - Relaunch restores an interrupted persisted draft until it has been committed.
 
 These semantics keep ordinary capture fast and protect typed drafts from accidental dismissal, focus changes, or process interruption.
 
 ## Main and Secondary Panels
 
-- Main opens first from the right edge.
-- Secondary opens immediately to Main's left when Quick Notes or a Main Task becomes contextual.
+- Main opens first from the selected edge.
+- Secondary opens immediately inward from Main when Quick Notes or a Main Task becomes contextual.
 - Only one Secondary Panel exists. Its content changes in place rather than closing and reopening or spawning overlapping windows.
 - Main and Secondary overlay the current application and never resize or shift it.
 - The panels must remain available over maximized/fullscreen applications and across Spaces.
 - Each panel uses 20% of display width clamped to 360–520 points, with an 8-point outer margin/gap.
 - The vertical inset is 8% of display height clamped to 64–96 points. Main and Secondary share identical vertical alignment and height, leaving a clearly visible band above and below.
-- Main visually slides from and back into the right edge. Secondary slides left from Main and retracts toward it with calmer independent timing: about 0.28 seconds to open and 0.35 seconds to close. Context replacement within a visible Secondary updates in place without replaying the entrance transition. Reduce Motion uses immediate frame changes.
+- Main visually slides from and back into the selected edge. Secondary slides inward from Main and retracts toward it with calmer independent timing: about 0.28 seconds to open and 0.35 seconds to close. Context replacement within a visible Secondary updates in place without replaying the entrance transition. Reduce Motion uses immediate frame changes.
 
 ## Context switching
 
@@ -67,9 +67,9 @@ These semantics keep ordinary capture fast and protect typed drafts from acciden
 | Secondary → invisible collapse strip above Recently Completed | Collapse Secondary; keep Main open |
 | Main ↔ Secondary traversal | Do not dismiss during legitimate traversal |
 
-The AppKit Main-context router owns this distinction. Quick Notes and task row rectangles are contextual. Empty background, section/footer space, gaps, and other non-owned areas do not clear Secondary. One invisible horizontal strip immediately above Recently Completed emits the central `clearSecondary` event; `clearSecondary` transitions to engaged Main and issues only `hideSecondary`. Narrow gaps between adjacent task rows and leftward movement through the Main edge toward Secondary are traversal regions, so they never collapse the panel mid-crossing.
+The AppKit Main-context router owns this distinction. Quick Notes and task row rectangles are contextual. Empty background, section/footer space, gaps, and other non-owned areas do not clear Secondary. One invisible horizontal strip immediately above Recently Completed emits the central `clearSecondary` event; `clearSecondary` transitions to engaged Main and issues only `hideSecondary`. Narrow gaps between adjacent task rows and movement through the inward Main boundary toward Secondary are traversal regions, so they never collapse the panel mid-crossing.
 
-Quick Notes and every visible Main Task row are full contextual hover surfaces. The AppKit capture editor emits native hover entry. Secondary opens above Main at a nonzero visible start alpha, settles entirely inside the selected display directly left of Main, and content replacement never replays entrance.
+Quick Notes and every visible Main Task row are full contextual hover surfaces. The AppKit capture editor emits native hover entry. Secondary opens above Main at a nonzero visible start alpha, settles entirely inside the selected display directly inward from Main, and content replacement never replays entrance.
 
 Main Task contextual hover is resolved from AppKit `mouseMoved` against the current rendered row frames; it does not depend on SwiftUI hover delivery. Repeated movement within one row is deduplicated, A→B emits one replacement, and leaving rows toward the bridge does not clear Secondary.
 
@@ -165,6 +165,16 @@ Use these repeatable manual checks for window-server behavior:
 4. Task A → Task B and Quick Notes ↔ Task switches Secondary in place;
 5. traversal between panels never crosses an unintended dismissal gap;
 6. overlays work over normal, maximized, fullscreen, and multiple Spaces;
-7. the correct rightmost display is selected for varied display arrangements;
+7. the correct outermost display is selected for both panel sides and varied arrangements;
 8. drag pickup, cancellation, drop indicators, and persistence remain fluid;
 9. light/dark mode, reduced motion, and accessibility behavior remain usable.
+
+## Image notes and Settings (v1.2)
+
+Command-X/C/V/A, native selection, word selection, and contextual editing are available throughout editable workspace text. Paste into Quick Note capture or a persisted Quick/Attached Note body uses native image representations when present; ordinary text paste stays native. Multiple images appear once as ordered, rounded aspect-fit thumbnails below text. Image-only captures use the same Return/focus-loss/relaunch behavior. Failed imports retain the capture for retry; capture cannot be silently discarded during orderly quit.
+
+A thumbnail opens a centered, screen-bounded native image preview. Escape, Command-W, and its close button close it. Settings opens in its own centered native panel and shows the running version/build. Both temporarily hold the coordinated surface open. Panel Side applies immediately, preserving context and draft while mirroring activation, Main/Secondary placement, animation, bridge regions, and traversal direction.
+
+Step titles and text-only notes wrap and grow vertically. Checkbox alignment remains at the top; completion does not move the row. A centered rounded New Step entry retains Return-to-create. Text fields retain their editing menus; Step styling/deletion lives in the row action menu.
+
+Regression smoke checks include full New Task/Settings click cycles, text and screenshot paste, image-only/multiple-image captures, moving a note with images, direct Attached Note paste, preview close paths, long Step content, measured-row reorder, both physical outer edges, fullscreen/Spaces, and two Launch Services quit/relaunch cycles. Record GUI checks actually exercised separately from synthetic geometry coverage; unavailable exotic arrangements alone do not block a release without a concrete failure.

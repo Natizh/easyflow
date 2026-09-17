@@ -160,6 +160,8 @@ struct WorkspaceSnapshot: Equatable, Sendable {
   var stepsByTask: [UUID: [TaskStep]]
   var attachedNotesByTask: [UUID: [WorkspaceNote]]
   var draft: QuickNoteDraft?
+  var attachmentsByNote: [UUID: [NoteAttachment]] = [:]
+  var draftAttachments: [NoteAttachment] = []
 
   static let empty = WorkspaceSnapshot(
     quickNotes: [],

@@ -10,7 +10,7 @@
 - Migrations are versioned, tested, and non-destructive to production data.
 - Database work must not block UI interaction.
 
-The schema uses three migrations: `v1-local-workspace`, `v2-reminders-sync`, and `v3-deleted-task-retention`. Existing rated values and child relationships migrate without a reset.
+The schema uses four additive/versioned migrations: `v1-local-workspace`, `v2-reminders-sync`, `v3-deleted-task-retention`, and `v4-note-image-attachments`. The first three migration definitions remain unchanged. Existing rated values and child relationships migrate without a reset.
 
 ## Conceptual relationships
 
@@ -59,11 +59,11 @@ Required concepts:
 | --- | --- |
 | `id` | App-owned UUID |
 | `mainTaskID` | Required parent; Steps cannot exist outside one Main Task |
-| `title` | Short Step text |
+| `title` | Multiline Step title |
 | `sortIndex` | Local priority/order within the parent |
 | `isCompleted` | Completion flag; completion does not reorder or hide the Step |
 | style fields | Optional text color, highlight, and underline |
-| `notes` | Local short execution notes |
+| `notes` | Local multiline text-only execution notes |
 | `createdAt`, `updatedAt` | Lifecycle timestamps |
 | `deletedAt` | Optional soft-deletion timestamp |
 
@@ -97,7 +97,7 @@ The generated display title is derived at presentation/domain level from the fir
 
 ## Settings
 
-`AppSetting` stores only preferences that exist in the product, potentially including appearance, launch-at-login preference/status, activation tuning, and panel sizing. Do not prepopulate speculative settings. Panel/UI state remains local and does not synchronize through Reminders.
+`appSetting` stores the Reminders list mapping. UserDefaults stores appearance, Main Task density, and `panelSide` (`left` or `right`, default `right`). Launch at Login status comes from SMAppService. Do not prepopulate speculative settings. Panel/UI state remains local and does not synchronize through Reminders.
 
 ## Ordering
 
@@ -114,9 +114,9 @@ Reorder operations validate that the submitted UUID set exactly matches the curr
 
 ### Quick Note to Attached Note
 
-One transaction changes the existing note from null inbox ownership to the target Main Task and assigns a target-local order. It preserves ID, body, explicit title, and creation time while updating `updatedAt`. A failed transaction leaves the inbox note unchanged.
+One transaction changes the existing note from null inbox ownership to the target Main Task and assigns a target-local order. It preserves ID, body, explicit title, image ownership/order, and creation time while updating `updatedAt`. A failed transaction leaves the inbox note unchanged.
 
-Drafts use one `quickNoteDraft` row with a UUID revision. Committed notes retain that revision in a unique `sourceDraftRevision`, making focus-loss/panel-close/explicit-submit races idempotent. A late debounced save is ignored after its revision has already produced a note.
+Drafts use one `quickNoteDraft` row with a UUID revision stable for the capture session. Committed notes retain that revision in a unique `sourceDraftRevision`, making focus-loss/panel-close/explicit-submit races idempotent. A late debounced save is ignored after its revision has already produced a note.
 
 ### Step completion
 
@@ -173,3 +173,13 @@ Expected indexes include active Main Task order, Steps by parent/order, inbox No
 - active-query exclusion of deleted/completed records as appropriate;
 - five-item deleted Main Task retention, FIFO purge, UUID tie ordering, child cascades, and Reminder tombstones;
 - identifier mapping loss without destructive metadata deletion.
+
+## Image attachments
+
+`v4-note-image-attachments` adds `noteAttachment` and `attachmentFileDeletion`. Existing task, Step, note, draft, settings, and Reminders records are not rewritten.
+
+An attachment has a UUID, exactly one note/draft owner enforced by a check constraint and cascading foreign keys, relative UUID-generated filename, content type, pixel dimensions, byte count, creation time, and local `sortIndex`. Queries order by index and UUID. Snapshots carry metadata, not image bytes. Draft commit transfers attachment ownership to the new note before deleting the draft in the same transaction. Duplicate commits and late saves cannot clear a newer draft.
+
+Images are immutable files under Application Support `EasyFlow/Attachments`. PNG/JPEG originals are retained; other supported clipboard formats normalize to lossless PNG with orientation metadata. File staging/finalization precedes the metadata transaction. Failed batches leave note content unchanged and reclaim unreferenced files. No image bytes enter the app bundle or Reminders.
+
+Soft-deleted notes, completed tasks, and retained deleted tasks keep their attachments. Removing an individual image or physically purging its owner deletes metadata and queues its filename through a SQLite trigger. Cleanup drains this durable queue and removes abandoned staging/unreferenced files at startup and after destructive operations, without hidden-state polling. Referenced files, including soft-deleted content, are never orphan cleanup candidates. Failed file deletion retries later; missing files do not invalidate a note's text.

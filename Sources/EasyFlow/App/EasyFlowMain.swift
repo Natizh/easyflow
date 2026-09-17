@@ -6,6 +6,7 @@ final class EasyFlowAppDelegate: NSObject, NSApplicationDelegate {
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApplication.shared.setActivationPolicy(.accessory)
+    ApplicationMenu.install()
 
     do {
       let database = try AppDatabase.production()
@@ -26,6 +27,20 @@ final class EasyFlowAppDelegate: NSObject, NSApplicationDelegate {
       alert.runModal()
       NSApplication.shared.terminate(nil)
     }
+  }
+
+  func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+    Task { @MainActor in
+      let saved = await appShellCoordinator?.prepareToTerminate() ?? true
+      if !saved {
+        let alert = NSAlert()
+        alert.messageText = "Your Quick Note could not be saved."
+        alert.informativeText = "EasyFlow will stay open so you can retry without losing the draft."
+        alert.runModal()
+      }
+      sender.reply(toApplicationShouldTerminate: saved)
+    }
+    return .terminateLater
   }
 
   func applicationWillTerminate(_ notification: Notification) {

@@ -9,6 +9,8 @@ actor WorkspaceRepository {
   static let deletedMainTaskRetentionLimit = 5
 
   private let database: AppDatabase
+  nonisolated let attachmentDirectory: URL
+  private let attachmentFiles: AttachmentFileStore
   private let now: @Sendable () -> Date
 
   init(
@@ -16,6 +18,8 @@ actor WorkspaceRepository {
     now: @escaping @Sendable () -> Date = { Date() }
   ) {
     self.database = database
+    attachmentDirectory = database.attachmentDirectory
+    attachmentFiles = AttachmentFileStore(directory: database.attachmentDirectory)
     self.now = now
   }
 
@@ -141,6 +145,7 @@ actor WorkspaceRepository {
   }
 
   func softDeleteMainTask(id: UUID) throws {
+    defer { try? maintainAttachmentFiles() }
     try database.queue.write { database in
       guard var task = try MainTask.fetchOne(database, key: id) else {
         throw WorkspaceError.taskNotFound
@@ -292,21 +297,25 @@ actor WorkspaceRepository {
 
   @discardableResult
   func commitDraft(body: String, revision: UUID) throws -> WorkspaceNote? {
-    guard !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-      try clearDraft()
-      return nil
-    }
-
     return try database.queue.write { database in
       if let existing =
         try WorkspaceNote
         .filter(Column("sourceDraftRevision") == revision)
         .fetchOne(database)
       {
-        try QuickNoteDraft.deleteOne(database, key: QuickNoteDraft.singletonID)
+        try QuickNoteDraft.filter(Column("revision") == revision).deleteAll(database)
         return existing
       }
 
+      let draft = try QuickNoteDraft.fetchOne(database, key: QuickNoteDraft.singletonID)
+      let ownsDraft = draft?.revision == revision
+      let imageCount = ownsDraft
+        ? try NoteAttachment.filter(Column("draftID") == QuickNoteDraft.singletonID).fetchCount(database)
+        : 0
+      guard !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || imageCount > 0 else {
+        try QuickNoteDraft.filter(Column("revision") == revision).deleteAll(database)
+        return nil
+      }
       let timestamp = now()
       let nextIndex = try Self.nextSortIndex(
         in: database,
@@ -325,15 +334,90 @@ actor WorkspaceRepository {
         deletedAt: nil
       )
       try note.insert(database)
-      _ = try QuickNoteDraft.deleteOne(database, key: QuickNoteDraft.singletonID)
+      if ownsDraft {
+        try database.execute(sql: "UPDATE noteAttachment SET noteID = ?, draftID = NULL WHERE draftID = ?", arguments: [note.id, QuickNoteDraft.singletonID])
+        try QuickNoteDraft.filter(Column("revision") == revision).deleteAll(database)
+      }
       return note
     }
   }
 
-  func clearDraft() throws {
+  func clearDraft(revision: UUID? = nil) throws {
+    defer { try? maintainAttachmentFiles() }
     try database.queue.write { database in
-      _ = try QuickNoteDraft.deleteOne(database, key: QuickNoteDraft.singletonID)
+      if let revision {
+        try QuickNoteDraft.filter(Column("revision") == revision).deleteAll(database)
+      } else {
+        try QuickNoteDraft.deleteOne(database, key: QuickNoteDraft.singletonID)
+      }
     }
+  }
+
+  /// Decoding/file writes run on this actor, never on the UI actor. No suspension
+  /// occurs between finalizing files, committing ownership, and cleanup.
+  func addImages(_ images: [Data], to owner: AttachmentOwner) throws {
+    var created: [NoteAttachment] = []
+    do {
+      for data in images {
+        created.append(try attachmentFiles.write(data, order: created.count, now: now()))
+      }
+      try database.queue.write { db in
+        let noteID: UUID?
+        let draftID: String?
+        switch owner {
+        case .note(let id):
+          guard let note = try WorkspaceNote.fetchOne(db, key: id), note.deletedAt == nil else {
+            throw WorkspaceError.noteNotFound
+          }
+          noteID = id
+          draftID = nil
+        case .draft(let revision, let body):
+          if let committed = try WorkspaceNote.filter(Column("sourceDraftRevision") == revision).fetchOne(db) {
+            noteID = committed.id
+            draftID = nil
+          } else {
+            var draft = QuickNoteDraft(revision: revision, body: body, updatedAt: now())
+            try draft.save(db)
+            noteID = nil
+            draftID = QuickNoteDraft.singletonID
+          }
+        }
+        let count = try Int.fetchOne(db, sql: "SELECT COALESCE(MAX(sortIndex), -1) + 1 FROM noteAttachment WHERE noteID IS ? AND draftID IS ?", arguments: [noteID, draftID]) ?? 0
+        for (index, var attachment) in created.enumerated() {
+          attachment.noteID = noteID
+          attachment.draftID = draftID
+          attachment.sortIndex = count + index
+          try attachment.insert(db)
+        }
+        if let noteID {
+          try db.execute(sql: "UPDATE workspaceNote SET updatedAt = ? WHERE id = ?", arguments: [now(), noteID])
+        }
+      }
+    } catch {
+      for attachment in created { try? attachmentFiles.remove(attachment.filename) }
+      throw error
+    }
+  }
+
+  func removeAttachment(id: UUID) throws {
+    try database.queue.write { db in _ = try NoteAttachment.deleteOne(db, key: id) }
+    try? maintainAttachmentFiles()
+  }
+
+  func maintainAttachmentFiles() throws {
+    let (referenced, pending) = try database.queue.read { db in
+      (Set(try String.fetchAll(db, sql: "SELECT filename FROM noteAttachment")),
+       try String.fetchAll(db, sql: "SELECT filename FROM attachmentFileDeletion"))
+    }
+    for filename in pending where !referenced.contains(filename) {
+      do {
+        try attachmentFiles.remove(filename)
+        try database.queue.write { db in
+          try db.execute(sql: "DELETE FROM attachmentFileDeletion WHERE filename = ?", arguments: [filename])
+        }
+      } catch { /* Durable queue retries on next maintenance pass. */ }
+    }
+    try attachmentFiles.removeUnreferenced(keeping: referenced.union(pending))
   }
 
   func updateNoteTitle(id: UUID, title: String?) throws {
@@ -630,6 +714,7 @@ actor WorkspaceRepository {
   }
 
   func confirmExternalDeletion(taskID: UUID) throws {
+    defer { try? maintainAttachmentFiles() }
     try database.queue.write { database in
       guard var task = try MainTask.fetchOne(database, key: taskID) else { return }
       let timestamp = now()
@@ -681,7 +766,12 @@ actor WorkspaceRepository {
         grouping: notes.filter { $0.mainTaskID != nil },
         by: { $0.mainTaskID! }
       ),
-      draft: draft
+      draft: draft,
+      attachmentsByNote: Dictionary(grouping: try NoteAttachment
+        .filter(Column("noteID") != nil)
+        .order(Column("sortIndex"), Column("id")).fetchAll(database), by: { $0.noteID! }),
+      draftAttachments: try NoteAttachment.filter(Column("draftID") != nil)
+        .order(Column("sortIndex"), Column("id")).fetchAll(database)
     )
   }
 

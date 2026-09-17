@@ -60,7 +60,8 @@ struct PanelStateMachineTests {
     #expect(machine.state == .closingMain(previousContext: nil))
     #expect(
       machine.handle(.pointerChanged(.main)) == [
-        .cancel(timer: .mainDismissal)
+        .cancel(timer: .mainDismissal),
+        .showMain,
       ])
     #expect(machine.state == .mainVisible(isEngaged: true))
     #expect(machine.handle(.mainDismissalElapsed).isEmpty)

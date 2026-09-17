@@ -45,7 +45,7 @@ struct QuickNoteRowGeometryPreferenceKey: PreferenceKey {
     value: inout [UUID: MainTaskRowGeometry],
     nextValue: () -> [UUID: MainTaskRowGeometry]
   ) {
-    value.merge(nextValue()) { _, next in next }
+    MainTaskGeometryPreferenceKey.reduce(value: &value, nextValue: nextValue)
   }
 }
 

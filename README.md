@@ -6,7 +6,7 @@
   </picture>
 </p>
 
-EasyFlow is a native macOS edge workspace for keeping quick notes and the tasks you are actively working on close at hand. Move the pointer to the far-right edge of the rightmost display and the workspace slides over the current app; move away and it gets out of the way.
+EasyFlow is a native macOS edge workspace for keeping quick notes and the tasks you are actively working on close at hand. Move the pointer to the selected outer desktop edge (Right by default) and the workspace slides over the current app; move away and it gets out of the way.
 
 ## Install
 
@@ -39,28 +39,30 @@ The installer builds the release app, copies it to `/Applications` when possible
 ## Use EasyFlow
 
 1. Launch EasyFlow. It runs without a Dock icon or menu-bar item.
-2. Move the pointer to the far-right edge of the rightmost display and hold it there briefly.
+2. Move the pointer to the selected outer desktop edge (Right by default) and hold it there briefly.
 3. Type into Quick Notes. **Return** saves the note and readies the composer for the next one.
 4. Select **New Task**, enter a title, and choose an effort from 1 to 4.
 5. Hover a task to open its detail panel with Description, Steps, and Attached Notes.
 6. Drag Quick Notes onto tasks to move them into Attached Notes.
 7. Drag tasks, Quick Notes, and Steps directly to reorder them.
 8. Complete a task to move it into Recently Completed. EasyFlow shows the five most recent completed tasks; there is currently no restore action.
-9. Use the gear in the Main Panel for appearance, Main Task row density, Reminders status, and Launch at Login.
+9. Use the gear for centered Settings: Panel Side, appearance, Main Task row density, Reminders status, Launch at Login, and the running version.
 
 ## Features
 
-- Edge activation from the far-right side of the rightmost display.
+- Left or Right edge activation, with Main on the outermost display and Secondary opening inward. Right is the default; changes apply immediately.
 - Rapid Quick Notes capture: Return saves the current note and immediately readies the next one, with direct drag/reorder.
 - Main Tasks with local effort, order, descriptions, Steps, styling, and Attached Notes.
-- Quick Note → task movement without copying or merging note content.
+- Paste clipboard images or screenshots into Quick Notes and Attached Notes. Image-only notes and multiple images are supported, with compact thumbnails and a centered larger preview.
+- Quick Note → task movement preserves the same note, text, and images without copying or merging content.
+- Native Cut/Copy/Paste and selection; multiline Step titles and text-only Step notes grow with their content.
 - A contextual Secondary panel for task details and Quick Notes.
 - Five-item Recently Completed view.
 - Compact or Comfortable Main Task row density.
 - Apple Reminders synchronization for Main Task existence, title, and completion.
 - Standard and Frosted appearances on macOS 14+, with Liquid Glass available on macOS 26+.
 - Launch at Login through native macOS APIs.
-- Local SQLite storage with no EasyFlow account, backend, telemetry, or analytics.
+- Local SQLite metadata and image files in EasyFlow’s Application Support directory, with no EasyFlow account, backend, telemetry, or analytics.
 
 ## Apple Reminders
 
