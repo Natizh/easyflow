@@ -6,6 +6,22 @@
   </picture>
 </p>
 
+<p align="center">
+  <a href="https://natizh.github.io/easyflow/"><strong>Website</strong></a>
+  ·
+  <a href="https://github.com/Natizh/easyflow/releases/latest">Download the latest release</a>
+</p>
+
+## A note from the creator
+
+I am a university student, not a software developer. EasyFlow started because I needed this kind of tool in my own daily work and could not find one that behaved the way I wanted.
+
+I did not personally write the implementation code. My contribution was defining the product: the original idea, project planning and organization, user stories, requirements, interaction details, UX and visual direction, testing decisions, and the many rounds of feedback that shaped the result. I used AI tools to turn that specification into the working macOS application in this repository. The website was created through the same process.
+
+This project is also an honest experiment about the period we are living through. For a product like this, being able to define a problem clearly, communicate with AI, evaluate its output, identify mistakes, and keep iterating was more useful to me than already knowing how to write every line of code myself. That does not make software engineering unimportant; it shows that the ability to direct AI effectively is becoming a real and increasingly important way to build software.
+
+I am not selling EasyFlow, and I do not want to hide or apologize for the fact that it was built with AI. I made it to practice this new way of creating, to keep training my ability to work with AI, and because EasyFlow is genuinely useful to me every day. If it can also be useful to somebody else, even better.
+
 EasyFlow is a native macOS edge workspace for keeping quick notes and the tasks you are actively working on close at hand. Move the pointer to the selected outer desktop edge (Right by default) and the workspace slides over the current app; move away and it gets out of the way.
 
 ## Install
