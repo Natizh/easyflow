@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EasyFlow — Your current work, one movement away</title>
+  <meta name="description" content="A native macOS edge workspace for quick notes and the tasks you are actively working on. Local-first, private, and always one movement away.">
+  <link rel="canonical" href="https://natizh.github.io/easyflow/">
+  <meta name="theme-color" content="#070a12">
+  <link rel="preconnect" href="https://raw.githubusercontent.com">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%23070a12'/%3E%3Cpath d='M18 18h28M18 32h20M18 46h28' stroke='%237b8cff' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
+  <style>
+    :root{--bg:#070a12;--panel:#0e1320;--panel2:#12192a;--ink:#f6f7fb;--muted:#9da8bd;--line:rgba(255,255,255,.11);--accent:#7b8cff;--accent2:#77d5ff;--good:#8ee3bd;--max:1180px;--radius:24px}
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;font-size:16px;line-height:1.55;overflow-x:hidden}
+    body:before{content:"";position:fixed;inset:-30vh -20vw auto auto;width:70vw;height:70vw;background:radial-gradient(circle,rgba(75,91,255,.18),transparent 64%);pointer-events:none;z-index:-1}
+    a{color:inherit;text-decoration:none}
+    img{display:block;max-width:100%}
+    .wrap{width:min(calc(100% - 40px),var(--max));margin-inline:auto}
+    .nav{height:76px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}
+    .brand{display:flex;align-items:center;gap:12px;font-weight:700;letter-spacing:-.02em}
+    .brand img{width:32px;height:32px;border-radius:9px}
+    .navlinks{display:flex;align-items:center;gap:28px;color:var(--muted);font-size:.93rem;font-weight:560}
+    .navlinks a:hover{color:var(--ink)}
+    .navcta{padding:10px 16px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.055);color:var(--ink)!important}
+    .hero{min-height:calc(100vh - 76px);display:grid;grid-template-columns:.82fr 1.18fr;gap:52px;align-items:center;padding:72px 0 68px}
+    .eyebrow{display:inline-flex;align-items:center;gap:9px;color:#cbd2ff;font-weight:650;font-size:.85rem;letter-spacing:.04em;text-transform:uppercase}
+    .eyebrow:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 18px var(--accent)}
+    h1{font-size:clamp(3.1rem,6.7vw,6.3rem);line-height:.94;letter-spacing:-.067em;margin:23px 0 26px;max-width:760px}
+    .grad{background:linear-gradient(105deg,#fff 5%,#a9b5ff 55%,#78d4ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .lede{font-size:clamp(1.08rem,1.6vw,1.28rem);color:var(--muted);max-width:560px;line-height:1.55;margin:0 0 31px}
+    .actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+    .button{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:50px;padding:0 21px;border-radius:13px;font-weight:680;transition:.2s ease}
+    .button.primary{background:var(--ink);color:#080b13;box-shadow:0 10px 34px rgba(255,255,255,.11)}
+    .button.primary:hover{transform:translateY(-2px);box-shadow:0 14px 40px rgba(255,255,255,.18)}
+    .button.secondary{border:1px solid var(--line);background:rgba(255,255,255,.045)}
+    .button.secondary:hover{background:rgba(255,255,255,.08)}
+    .meta{display:flex;gap:18px;flex-wrap:wrap;margin-top:20px;color:#7f8aa0;font-size:.84rem}
+    .meta span{display:flex;align-items:center;gap:7px}
+    .meta span:before{content:"✓";color:var(--good)}
+    .hero-art{position:relative;min-width:0}
+    .hero-art:before{content:"";position:absolute;inset:12% 2% 2%;background:linear-gradient(120deg,rgba(117,135,255,.26),rgba(87,213,255,.08));filter:blur(55px);border-radius:40%;z-index:-1}
+    .hero-frame{position:relative;border:1px solid rgba(255,255,255,.15);border-radius:28px;background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.018));padding:12px;box-shadow:0 40px 100px rgba(0,0,0,.5),inset 0 1px rgba(255,255,255,.08);transform:perspective(1400px) rotateY(-5deg) rotateX(1deg)}
+    .hero-frame img{width:100%;border-radius:19px;background:#101522}
+    .edge-chip{position:absolute;right:-15px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:8px;padding:10px 13px;border:1px solid rgba(255,255,255,.16);border-radius:12px;background:rgba(15,20,33,.86);backdrop-filter:blur(18px);font-size:.78rem;color:#d7dded;box-shadow:0 18px 45px rgba(0,0,0,.35)}
+    .edge-chip i{display:block;width:3px;height:26px;border-radius:3px;background:linear-gradient(var(--accent2),var(--accent))}
+    section{padding:110px 0;border-top:1px solid var(--line)}
+    .section-head{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:end;margin-bottom:48px}
+    h2{font-size:clamp(2.2rem,4.7vw,4.5rem);line-height:1.02;letter-spacing:-.052em;margin:0;max-width:760px}
+    .section-head p{color:var(--muted);margin:0;max-width:520px;justify-self:end;font-size:1.05rem}
+    .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    .card{min-height:330px;padding:28px;border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.022));position:relative;overflow:hidden}
+    .card .num{font-size:.78rem;color:#bac3d7;letter-spacing:.08em;font-weight:700}
+    .card h3{font-size:1.42rem;letter-spacing:-.025em;margin:128px 0 10px}
+    .card p{margin:0;color:var(--muted)}
+    .mini{position:absolute;left:28px;right:28px;top:65px;height:88px;border:1px solid var(--line);border-radius:15px;background:#0a0f1b;padding:14px;box-shadow:0 14px 32px rgba(0,0,0,.25)}
+    .mini-note{height:10px;border-radius:6px;background:#263049;margin-bottom:9px}.mini-note.short{width:66%;background:#1b2438}
+    .task{display:flex;align-items:center;gap:10px;margin-bottom:9px;color:#dce2ef;font-size:.78rem}.task i{width:15px;height:15px;border:1px solid #66718a;border-radius:5px}.task b{margin-left:auto;color:#91a1ff;font-size:.7rem}
+    .privacy{display:grid;grid-template-columns:1.05fr .95fr;gap:18px}
+    .privacy-main,.privacy-list{border:1px solid var(--line);border-radius:28px;background:var(--panel);padding:clamp(28px,5vw,56px)}
+    .privacy-main{background:linear-gradient(140deg,rgba(123,140,255,.16),rgba(15,20,32,.88) 60%)}
+    .privacy-main h2{font-size:clamp(2.4rem,5.2vw,5rem);margin:20px 0 22px}
+    .privacy-main p{max-width:540px;color:#b5bfd1;font-size:1.08rem}
+    .privacy-list{display:flex;flex-direction:column;justify-content:center}
+    .check{display:grid;grid-template-columns:36px 1fr;gap:16px;padding:20px 0;border-bottom:1px solid var(--line)}
+    .check:last-child{border:0}.check i{width:32px;height:32px;border-radius:10px;background:rgba(142,227,189,.1);display:grid;place-items:center;color:var(--good);font-style:normal}.check h3{font-size:1rem;margin:0 0 3px}.check p{font-size:.9rem;color:var(--muted);margin:0}
+    .install{display:grid;grid-template-columns:1fr auto;gap:40px;align-items:center;padding:60px;border:1px solid rgba(151,164,255,.23);border-radius:30px;background:linear-gradient(115deg,#11182a,#0b1020 62%,#10162a)}
+    .install h2{font-size:clamp(2.2rem,4vw,3.9rem);margin-bottom:14px}.install p{color:var(--muted);margin:0}.install-actions{display:flex;flex-direction:column;gap:10px;min-width:220px}
+    footer{padding:32px 0 42px;color:#758097;font-size:.86rem}
+    .footer-row{display:flex;justify-content:space-between;align-items:center;gap:25px}.footer-links{display:flex;gap:22px}
+    @media(max-width:900px){.hero{grid-template-columns:1fr;padding-top:52px}.hero-copy{text-align:center}.lede{margin-inline:auto}.actions,.meta{justify-content:center}.hero-art{width:min(760px,100%);margin:auto}.hero-frame{transform:none}.section-head,.privacy{grid-template-columns:1fr}.section-head p{justify-self:start}.steps{grid-template-columns:1fr}.card{min-height:290px}.install{grid-template-columns:1fr}.install-actions{flex-direction:row;min-width:0}.install-actions .button{flex:1}.navlinks a:not(.navcta){display:none}}
+    @media(max-width:600px){.wrap{width:min(calc(100% - 24px),var(--max))}.nav{height:66px}.hero{min-height:auto;padding:54px 0 72px;gap:42px}h1{font-size:3.35rem}.edge-chip{right:5px}.section-head{margin-bottom:30px}section{padding:78px 0}.privacy-main,.privacy-list{padding:26px}.install{padding:30px}.install-actions{flex-direction:column}.footer-row{align-items:flex-start;flex-direction:column}.footer-links{flex-wrap:wrap}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.button{transition:none}}
+  </style>
+</head>
+<body>
+  <header class="wrap">
+    <nav class="nav" aria-label="Main navigation">
+      <a class="brand" href="#top"><img src="https://raw.githubusercontent.com/Natizh/easyflow/main/assets/brand/easyflow-mark.png" alt=""><span>EasyFlow</span></a>
+      <div class="navlinks"><a href="#how">How it works</a><a href="#privacy">Privacy</a><a href="https://github.com/Natizh/easyflow" target="_blank" rel="noreferrer">GitHub</a><a class="navcta" href="https://github.com/Natizh/easyflow/releases/latest/download/EasyFlow.zip">Download latest</a></div>
+    </nav>
+  </header>
+  <main id="top">
+    <div class="wrap hero">
+      <div class="hero-copy">
+        <span class="eyebrow">Native macOS workspace</span>
+        <h1>Your current work, <span class="grad">one movement away.</span></h1>
+        <p class="lede">Keep quick notes and active tasks close at hand. Touch the edge of your screen and EasyFlow slides in—move away, and it gets out of the way.</p>
+        <div class="actions"><a class="button primary" href="https://github.com/Natizh/easyflow/releases/latest/download/EasyFlow.zip">Download for macOS <span aria-hidden="true">↓</span></a><a class="button secondary" href="https://github.com/Natizh/easyflow" target="_blank" rel="noreferrer">View source <span aria-hidden="true">↗</span></a></div>
+        <div class="meta"><span>Free &amp; open source</span><span>macOS 14+</span><span>No account</span></div>
+      </div>
+      <div class="hero-art">
+        <div class="hero-frame">
+          <img src="https://raw.githubusercontent.com/Natizh/easyflow/main/assets/brand/easyflow-hero-poster.png" alt="EasyFlow workspace open at the edge of a Mac desktop">
+          <span class="edge-chip"><i></i>Move to the edge</span>
+        </div>
+      </div>
+    </div>
+    <section id="how">
+      <div class="wrap">
+        <div class="section-head"><h2>Focus without breaking your flow.</h2><p>EasyFlow keeps the small, active layer of your work separate from full project management. Capture, organize, and continue—without changing apps.</p></div>
+        <div class="steps">
+          <article class="card"><span class="num">01 · CAPTURE</span><div class="mini"><div class="mini-note"></div><div class="mini-note short"></div></div><h3>Save a thought instantly</h3><p>Type a Quick Note and press Return. The composer is immediately ready for the next one.</p></article>
+          <article class="card"><span class="num">02 · FOCUS</span><div class="mini"><div class="task"><i></i>Ship the release<b>2</b></div><div class="task"><i></i>Review onboarding<b>1</b></div><div class="task"><i></i>Plan next sprint<b>3</b></div></div><h3>Keep active tasks visible</h3><p>Order is priority. Effort stays separate, so the next thing to do remains obvious.</p></article>
+          <article class="card"><span class="num">03 · CONNECT</span><div class="mini"><div class="task"><i style="border-color:#7b8cff;background:#7b8cff22"></i>Apple Reminders<b>↔</b></div><div class="mini-note short"></div></div><h3>Sync only what matters</h3><p>Main task titles, completion, and existence sync through Apple Reminders. Everything richer stays local.</p></article>
+        </div>
+      </div>
+    </section>
+    <section id="privacy">
+      <div class="wrap privacy">
+        <div class="privacy-main"><span class="eyebrow">Local by design</span><h2>Your workspace stays yours.</h2><p>No EasyFlow account. No backend. No telemetry or analytics. Notes, task details, images, effort, and workspace state live on your Mac.</p></div>
+        <div class="privacy-list">
+          <div class="check"><i>✓</i><div><h3>Native and lightweight</h3><p>Built in SwiftUI and AppKit—no Electron or embedded web runtime.</p></div></div>
+          <div class="check"><i>✓</i><div><h3>A narrow sync boundary</h3><p>Apple Reminders is used only for core Main Task fields.</p></div></div>
+          <div class="check"><i>✓</i><div><h3>Open source</h3><p>MIT licensed, with product behavior and architecture documented in the repository.</p></div></div>
+        </div>
+      </div>
+    </section>
+    <section>
+      <div class="wrap install">
+        <div><h2>Make room for what matters now.</h2><p>Download the latest EasyFlow release for macOS 14 or later. The community build is free and open source.</p></div>
+        <div class="install-actions"><a class="button primary" href="https://github.com/Natizh/easyflow/releases/latest/download/EasyFlow.zip">Download EasyFlow</a><a class="button secondary" href="https://github.com/Natizh/easyflow#install" target="_blank" rel="noreferrer">Installation guide</a></div>
+      </div>
+    </section>
+  </main>
+  <footer><div class="wrap footer-row"><span>© 2026 EasyFlow · MIT License</span><div class="footer-links"><a href="https://github.com/Natizh/easyflow/releases" target="_blank" rel="noreferrer">Releases</a><a href="https://github.com/Natizh/easyflow/issues" target="_blank" rel="noreferrer">Issues</a><a href="https://github.com/Natizh/easyflow" target="_blank" rel="noreferrer">Source</a></div></div></footer>
+</body>
+</html>
