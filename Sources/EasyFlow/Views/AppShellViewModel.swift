@@ -697,15 +697,18 @@ final class AppShellViewModel: ObservableObject {
 
   func setReminderFrequency(_ frequency: ReminderFrequency) {
     var settings = reminderSettings
-    settings.frequency = frequency
     if case .custom(let interval) = frequency {
-      settings.customInterval = interval
+      let normalized = ReminderMinuteRange.interval(for: Int(interval / 60))
+      settings.frequency = .custom(normalized)
+      settings.customInterval = normalized
+    } else {
+      settings.frequency = frequency
     }
     storeReminderSettings(settings)
   }
 
   func setReminderCustomInterval(minutes: Int) {
-    let interval = TimeInterval(max(1, minutes) * 60)
+    let interval = ReminderMinuteRange.interval(for: minutes)
     var settings = reminderSettings
     settings.customInterval = interval
     settings.frequency = .custom(interval)
@@ -720,7 +723,9 @@ final class AppShellViewModel: ObservableObject {
 
   func pauseReminders(minutes: Int) {
     var settings = reminderSettings
-    settings.pausedUntil = Date().addingTimeInterval(TimeInterval(max(1, minutes) * 60))
+    settings.pausedUntil = Date().addingTimeInterval(
+      TimeInterval(ReminderMinuteRange.clamped(minutes) * 60)
+    )
     storeReminderSettings(settings)
   }
 

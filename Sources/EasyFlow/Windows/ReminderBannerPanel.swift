@@ -14,12 +14,7 @@ final class ReminderBannerPanel: NSPanel {
     )
     isFloatingPanel = true
     level = .statusBar
-    collectionBehavior = [
-      .canJoinAllSpaces,
-      .fullScreenAuxiliary,
-      .stationary,
-      .ignoresCycle,
-    ]
+    collectionBehavior = EasyFlowOverlayWindowConfiguration.collectionBehavior
     backgroundColor = .clear
     isOpaque = false
     hasShadow = true

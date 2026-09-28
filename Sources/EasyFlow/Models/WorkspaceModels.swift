@@ -108,8 +108,17 @@ enum ReminderFrequency: Equatable, Sendable {
     case .hour1: 60 * 60
     case .hours2: 2 * 60 * 60
     case .hours3: 3 * 60 * 60
-    case .custom(let interval): max(60, interval)
+    case .custom(let interval):
+      min(
+        max(TimeInterval(ReminderMinuteRange.minimum * 60), interval),
+        TimeInterval(ReminderMinuteRange.maximum * 60)
+      )
     }
+  }
+
+  var isCustom: Bool {
+    if case .custom = self { return true }
+    return false
   }
 }
 
@@ -132,6 +141,28 @@ struct ReminderSettings: Equatable, Sendable {
   func isPaused(at date: Date) -> Bool {
     guard let pausedUntil else { return false }
     return pausedUntil > date
+  }
+}
+
+enum ReminderMinuteRange {
+  static let minimum = 5
+  static let maximum = 720
+  static let step = 5
+
+  static func clamped(_ minutes: Int) -> Int {
+    min(max(minutes, minimum), maximum)
+  }
+
+  static func decrementing(_ minutes: Int) -> Int {
+    clamped(minutes - step)
+  }
+
+  static func incrementing(_ minutes: Int) -> Int {
+    clamped(minutes + step)
+  }
+
+  static func interval(for minutes: Int) -> TimeInterval {
+    TimeInterval(clamped(minutes) * 60)
   }
 }
 

@@ -35,6 +35,29 @@ struct WindowConfigurationTests {
     #expect(!panel.isOpaque)
   }
 
+  @Test("Overlay, activation, and reminder windows use one Spaces policy")
+  func coordinatedSpacesConfiguration() {
+    let overlay = OverlayPanel()
+    let activation = ActivationEdgePanel()
+    let reminder = ReminderBannerPanel()
+
+    #expect(overlay.collectionBehavior == EasyFlowOverlayWindowConfiguration.collectionBehavior)
+    #expect(activation.collectionBehavior == overlay.collectionBehavior)
+    #expect(reminder.collectionBehavior == overlay.collectionBehavior)
+  }
+
+  @Test("Rounded content masking clips both panel hosting surfaces")
+  func roundedContentMasking() {
+    let view = NSView()
+
+    EasyFlowOverlayWindowConfiguration.maskRoundedContent(view)
+
+    #expect(view.wantsLayer)
+    #expect(view.layer?.cornerRadius == 22)
+    #expect(view.layer?.cornerCurve == .continuous)
+    #expect(view.layer?.masksToBounds == true)
+  }
+
   @Test("Secondary uses calmer independent motion")
   func secondaryAnimationTiming() {
     #expect(PanelPresentationCoordinator.secondaryOpenAnimationDuration == 0.28)

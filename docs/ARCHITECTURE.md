@@ -67,6 +67,7 @@ The panel coordinator owns both overlay windows as one coordinated interaction s
 - Secondary is immediately inward from Main and changes content between Quick Notes and task details.
 - Panels use window levels and collection behavior suitable for fullscreen applications and Spaces without changing the underlying app layout.
 - The coordinator owns show/hide ordering, geometry, transition cancellation, previous-app focus context, and reconfiguration after display changes.
+- The screen monitor observes `NSWorkspace.activeSpaceDidChangeNotification` through the workspace notification center. A Space transition cancels stale dwell/close tasks, stabilizes in-flight state, and asks the coordinator to reconcile every window from logical presentation intent rather than `NSWindow.isVisible`; AppKit's `isOnActiveSpace` is used when deciding whether an existing ordered panel can be reused.
 - Presentation exposes centralized frame/opacity animation hooks: Main's hidden frame is beyond the selected edge, while Secondary's hidden frame retracts toward Main. Context replacement never recreates the Secondary window.
 - The internal reminder banner is a separate small nonactivating panel owned by the same coordinator. It never steals focus when shown; banner clicks re-enter the panel state machine with an explicit task-open event.
 - SwiftUI renders content and emits semantic actions; it does not directly orchestrate global windows.
@@ -83,6 +84,8 @@ The display topology provider selects maximum `frame.maxX` for Right or minimum 
 The pure state machine separates pointer crossing, 300 ms potential activation, intentional activation, active interaction, immediate accidental exit, panel traversal, and staged closing. Its commands are the only source of dwell/close tasks. An 8-point gap is classified as a traversal bridge while the related panels are visible.
 
 The activation panel and visible overlays use `.canJoinAllSpaces` and `.fullScreenAuxiliary` at status-bar window level. EasyFlow does not install activation edges on other displays.
+
+Activation, Main, Secondary, and reminder-banner panels share one collection-behavior configuration, including `.stationary` for Mission Control and `.ignoresCycle`. After a Space change, the activation edge is ordered first, then Main and Secondary are restored in coordinated order when logically presented; visible reminder and auxiliary windows are reasserted independently.
 
 ## State management and data flow
 

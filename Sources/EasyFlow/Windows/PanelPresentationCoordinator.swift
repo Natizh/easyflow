@@ -156,10 +156,8 @@ final class PanelPresentationCoordinator {
     activationPanel.contentView = activationTrackingView
     mainPanel.contentView = mainHostingView
     secondaryPanel.contentView = secondaryHostingView
-    mainHostingView.wantsLayer = true
-    mainHostingView.layer?.cornerRadius = 22
-    mainHostingView.layer?.cornerCurve = .continuous
-    mainHostingView.layer?.masksToBounds = true
+    EasyFlowOverlayWindowConfiguration.maskRoundedContent(mainHostingView)
+    EasyFlowOverlayWindowConfiguration.maskRoundedContent(secondaryHostingView)
   }
 
   func start(layout: PanelLayout) {
@@ -196,6 +194,57 @@ final class PanelPresentationCoordinator {
     )
   }
 
+  func reconcileActiveSpace(
+    _ presentation: PanelSpacePresentation,
+    layout: PanelLayout
+  ) {
+    mainGeneration += 1
+    secondaryGeneration += 1
+    prepareForSupersedingAnimation(on: mainPanel)
+    prepareForSupersedingAnimation(on: secondaryPanel)
+    currentLayout = layout
+    mainHostingView.resetRouting(side: layout.side)
+    secondaryHostingView.resetRouting(side: layout.side)
+
+    activationPanel.setFrame(layout.activationFrame, display: true)
+    activationPanel.orderFrontRegardless()
+
+    switch presentation {
+    case .hidden:
+      secondaryPanel.orderOut(nil)
+      mainPanel.orderOut(nil)
+      mainPanel.alphaValue = 1
+      secondaryPanel.alphaValue = 1
+      viewModel.secondaryContext = nil
+    case .main:
+      secondaryPanel.orderOut(nil)
+      secondaryPanel.alphaValue = 1
+      viewModel.secondaryContext = nil
+      mainPanel.setFrame(layout.mainFrame, display: true)
+      mainPanel.alphaValue = 1
+      mainPanel.orderFrontRegardless()
+    case .mainAndSecondary(let context):
+      viewModel.secondaryContext = context
+      mainPanel.setFrame(layout.mainFrame, display: true)
+      secondaryPanel.setFrame(layout.secondaryFrame, display: true)
+      mainPanel.alphaValue = 1
+      secondaryPanel.alphaValue = 1
+      mainPanel.orderFrontRegardless()
+      secondaryPanel.orderFrontRegardless()
+      secondaryPanel.order(.above, relativeTo: mainPanel.windowNumber)
+    }
+
+    if reminderBannerPanel.isVisible {
+      reminderBannerPanel.orderFrontRegardless()
+    }
+    if settingsController.window?.isVisible == true {
+      settingsController.window?.orderFrontRegardless()
+    }
+    if previewController.window?.isVisible == true {
+      previewController.window?.orderFrontRegardless()
+    }
+  }
+
   func showMain(layout: PanelLayout) {
     mainGeneration += 1
     prepareForSupersedingAnimation(on: mainPanel)
@@ -204,7 +253,7 @@ final class PanelPresentationCoordinator {
     activationPanel.setFrame(layout.activationFrame, display: true)
 
     NSApplication.shared.activate(ignoringOtherApps: true)
-    let wasVisible = mainPanel.isVisible
+    let wasVisible = mainPanel.isVisible && mainPanel.isOnActiveSpace
     if !wasVisible {
       mainPanel.setFrame(layout.mainHiddenFrame, display: false)
       mainPanel.alphaValue = 0
@@ -235,7 +284,7 @@ final class PanelPresentationCoordinator {
     InputDiagnostics.record(
       "showSecondary context=\(Self.contextLabel(context)) target=\(NSStringFromRect(intent.targetFrame)) level=\(secondaryPanel.level.rawValue)"
     )
-    if secondaryPanel.isVisible {
+    if secondaryPanel.isVisible && secondaryPanel.isOnActiveSpace {
       secondaryPanel.alphaValue = 1
       secondaryPanel.setFrame(layout.secondaryFrame, display: true)
       secondaryPanel.orderFrontRegardless()
@@ -368,7 +417,7 @@ final class PanelPresentationCoordinator {
   }
 
   private func capturePreviousApplicationIfNeeded() {
-    guard !mainPanel.isVisible else { return }
+    guard !(mainPanel.isVisible && mainPanel.isOnActiveSpace) else { return }
     let currentProcessIdentifier = ProcessInfo.processInfo.processIdentifier
     let candidate = NSWorkspace.shared.frontmostApplication
     previousApplication =

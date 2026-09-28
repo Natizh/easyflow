@@ -1,5 +1,22 @@
 import AppKit
 
+enum EasyFlowOverlayWindowConfiguration {
+  static let collectionBehavior: NSWindow.CollectionBehavior = [
+    .canJoinAllSpaces,
+    .fullScreenAuxiliary,
+    .stationary,
+    .ignoresCycle,
+  ]
+
+  @MainActor
+  static func maskRoundedContent(_ view: NSView) {
+    view.wantsLayer = true
+    view.layer?.cornerRadius = 22
+    view.layer?.cornerCurve = .continuous
+    view.layer?.masksToBounds = true
+  }
+}
+
 final class OverlayPanel: NSPanel {
   override var canBecomeKey: Bool { true }
   override var canBecomeMain: Bool { false }
@@ -14,12 +31,7 @@ final class OverlayPanel: NSPanel {
 
     isFloatingPanel = true
     level = .statusBar
-    collectionBehavior = [
-      .canJoinAllSpaces,
-      .fullScreenAuxiliary,
-      .stationary,
-      .ignoresCycle,
-    ]
+    collectionBehavior = EasyFlowOverlayWindowConfiguration.collectionBehavior
     animationBehavior = .utilityWindow
     backgroundColor = .clear
     isOpaque = false

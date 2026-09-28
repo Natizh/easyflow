@@ -76,6 +76,9 @@ final class AppShellCoordinator {
     screenConfigurationMonitor.onScreenConfigurationChanged = { [weak self] in
       self?.screenConfigurationChanged()
     }
+    screenConfigurationMonitor.onActiveSpaceChanged = { [weak self] in
+      self?.activeSpaceChanged()
+    }
 
     refreshLayout()
     if let layout {
@@ -108,6 +111,17 @@ final class AppShellCoordinator {
       panelPresenter.apply(layout: layout)
     }
     pointerMoved(to: NSEvent.mouseLocation)
+  }
+
+  private func activeSpaceChanged() {
+    lastPointerRegion = nil
+    refreshLayout()
+    process(.activeSpaceChanged)
+    // AppKit finishes assigning windows to the new Space on the next run-loop
+    // turn. Re-evaluate the pointer only after window ordering is reconciled.
+    DispatchQueue.main.async { [weak self] in
+      self?.pointerMoved(to: NSEvent.mouseLocation)
+    }
   }
 
   private func refreshLayout() {
@@ -176,6 +190,9 @@ final class AppShellCoordinator {
       panelPresenter.showSecondary(context: context, layout: layout)
     case .hideSecondary:
       panelPresenter.hideSecondary()
+    case .reconcileActiveSpace(let presentation):
+      guard let layout else { return }
+      panelPresenter.reconcileActiveSpace(presentation, layout: layout)
     }
   }
 
