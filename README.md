@@ -62,16 +62,18 @@ The installer builds the release app, copies it to `/Applications` when possible
 6. Drag Quick Notes onto tasks to move them into Attached Notes.
 7. Drag tasks, Quick Notes, and Steps directly to reorder them.
 8. Complete a task to move it into Recently Completed. EasyFlow shows the five most recent completed tasks; there is currently no restore action.
-9. Use the gear for centered Settings: Panel Side, appearance, Main Task row density, Reminders status, Launch at Login, and the running version.
+9. Use the gear for centered Settings: Panel Side, task reminder frequency and pause, appearance, Main Task row density, Reminders status, Launch at Login, and the running version.
 
 ## Features
 
 - Left or Right edge activation, with Main on the outermost display and Secondary opening inward. Right is the default; changes apply immediately.
 - Rapid Quick Notes capture: Return saves the current note and immediately readies the next one, with direct drag/reorder.
 - Main Tasks with local effort, order, descriptions, Steps, styling, and Attached Notes.
+- Internal EasyFlow reminder banners for active Main Tasks, with frequency presets, pause controls, per-task exclusion, and click-to-open navigation.
 - Paste clipboard images or screenshots into Quick Notes and Attached Notes. Image-only notes and multiple images are supported, with compact thumbnails and a centered larger preview.
 - Quick Note → task movement preserves the same note, text, and images without copying or merging content.
-- Native Cut/Copy/Paste and selection; multiline Step titles and text-only Step notes grow with their content.
+- Native Cut/Copy/Paste and selection; multiline editors support Command-B, Command-I, Command-U, and Control-Command-H for bold, italic, underline, and rounded text-marker highlighting.
+- Step title menus use the compact chevron action affordance while preserving drag behavior.
 - A contextual Secondary panel for task details and Quick Notes.
 - Five-item Recently Completed view.
 - Compact or Comfortable Main Task row density.

@@ -177,7 +177,7 @@ Use these repeatable manual checks for window-server behavior:
 8. drag pickup, cancellation, drop indicators, and persistence remain fluid;
 9. light/dark mode, reduced motion, and accessibility behavior remain usable.
 
-## Image notes and Settings (v1.2)
+## Image notes, rich text, reminders, and Settings
 
 Command-X/C/V/A, native selection, word selection, and contextual editing are available throughout editable workspace text. Multiline editors also support Command-B, Command-I, Command-U, and Control-Command-H for bold, italic, underline, and text-marker highlight. With no selection, formatting affects subsequently typed text. Highlight follows selected glyph ranges line-by-line with subtle rounded marker geometry rather than a paragraph-sized block. Paste into Quick Note capture or a persisted Quick/Attached Note body uses native image representations when present; ordinary text paste stays native. Multiple images appear once as ordered, rounded aspect-fit thumbnails below text. Image-only captures use the same Return/focus-loss/relaunch behavior. Failed imports retain the capture for retry; capture cannot be silently discarded during orderly quit.
 
@@ -185,4 +185,4 @@ A thumbnail opens a centered, screen-bounded native image preview. Escape, Comma
 
 Step titles and text-only notes wrap and grow vertically. Checkbox alignment remains at the top; completion does not move the row. A centered rounded New Step entry retains Return-to-create. Text fields retain their editing menus; Step styling/deletion lives in the row action menu.
 
-Regression smoke checks include full New Task/Settings click cycles, text and screenshot paste, image-only/multiple-image captures, moving a note with images, direct Attached Note paste, preview close paths, long Step content, measured-row reorder, both physical outer edges, fullscreen/Spaces, and two Launch Services quit/relaunch cycles. Record GUI checks actually exercised separately from synthetic geometry coverage; unavailable exotic arrangements alone do not block a release without a concrete failure.
+Regression smoke checks include full New Task/Settings click cycles, reminder banner placement/click navigation, reminder settings restore, text and screenshot paste, image-only/multiple-image captures, moving a note with images, direct Attached Note paste, rounded highlight rendering, Step chevron menus, lower panel corner clipping, rapid panel open/close, preview close paths, long Step content, measured-row reorder, both physical outer edges, fullscreen/Spaces, and two Launch Services quit/relaunch cycles. Record GUI checks actually exercised separately from synthetic geometry coverage; unavailable exotic arrangements alone do not block a release without a concrete failure.
