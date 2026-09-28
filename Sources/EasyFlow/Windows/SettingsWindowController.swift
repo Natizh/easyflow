@@ -65,10 +65,16 @@ private func resizeSettingsPanel(
       height: contentHeight
     )
   ).size
-  var newFrame = CGRect(origin: oldFrame.origin, size: newSize)
-  if oldFrame.width > 0, oldFrame.height > 0 {
-    newFrame.origin.x = oldFrame.midX - newSize.width / 2
-    newFrame.origin.y = oldFrame.midY - newSize.height / 2
+  let newFrame: CGRect
+  if let visibleFrame = panel.screen?.visibleFrame {
+    newFrame = AuxiliaryWindowLayout.centered(size: newSize, in: visibleFrame)
+  } else if oldFrame.width > 0, oldFrame.height > 0 {
+    var centeredFrame = CGRect(origin: oldFrame.origin, size: newSize)
+    centeredFrame.origin.x = oldFrame.midX - newSize.width / 2
+    centeredFrame.origin.y = oldFrame.midY - newSize.height / 2
+    newFrame = centeredFrame
+  } else {
+    newFrame = CGRect(origin: oldFrame.origin, size: newSize)
   }
   panel.setFrame(newFrame, display: true, animate: animate)
 }
