@@ -77,6 +77,8 @@ Main Task pointer ownership is AppKit-backed. SwiftUI publishes actual visible r
 
 Main and Secondary are borderless nonactivating `NSPanel` instances that can become key for editing but never become main windows. They join all Spaces, remain available beside fullscreen apps, ignore window cycling, and use status-bar window level. The app records the previously active application and restores it after an immediately abandoned activation where macOS permits.
 
+Focus restoration is session-scoped. Opening a previously hidden Main panel starts an eligible restoration session; any active-Space notification invalidates that session and clears the saved application. Closing on the same Space may reactivate the saved application, while closing after a Space transition never activates an application from the previous Space.
+
 ## Edge activation
 
 The display topology provider selects maximum `frame.maxX` for Right or minimum `frame.minX` for Left, with deterministic vertical/display-ID tie-breaking. A transparent, non-key 3-point AppKit panel occupies only that display’s selected outer edge. AppKit tracking areas on the activation surface, Main, and Secondary emit pointer-region changes into the state machine. This is event-driven, needs no continuous poll, and avoids adding Input Monitoring or Accessibility permission merely to observe the pointer.

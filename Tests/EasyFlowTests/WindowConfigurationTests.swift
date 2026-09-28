@@ -58,6 +58,21 @@ struct WindowConfigurationTests {
     #expect(view.layer?.masksToBounds == true)
   }
 
+  @Test("Reminder banner installs content through the shared rounded mask")
+  func reminderBannerContentMasking() {
+    let panel = ReminderBannerPanel()
+    let view = NSView()
+
+    panel.setRoundedContentView(view)
+
+    #expect(panel.contentView === view)
+    #expect(view.wantsLayer)
+    #expect(view.layer?.cornerRadius == 22)
+    #expect(view.layer?.cornerCurve == .continuous)
+    #expect(view.layer?.masksToBounds == true)
+    #expect(!panel.canBecomeKey)
+  }
+
   @Test("Secondary uses calmer independent motion")
   func secondaryAnimationTiming() {
     #expect(PanelPresentationCoordinator.secondaryOpenAnimationDuration == 0.28)

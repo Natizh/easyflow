@@ -25,6 +25,11 @@ final class ReminderBannerPanel: NSPanel {
     titleVisibility = .hidden
     titlebarAppearsTransparent = true
   }
+
+  func setRoundedContentView(_ view: NSView) {
+    EasyFlowOverlayWindowConfiguration.maskRoundedContent(view)
+    contentView = view
+  }
 }
 
 struct ReminderBannerView: View {

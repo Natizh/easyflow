@@ -30,6 +30,8 @@ After intentional activation, keyboard input goes directly to the Quick Note cap
 
 The window coordinator records the previously active application before activation. If EasyFlow takes focus and the interaction is immediately abandoned, it restores the prior application where macOS permits. A real EasyFlow interaction follows normal activation behavior.
 
+Previous-application restoration is scoped to one panel presentation on one Space. If the active Space changes while EasyFlow is presented, that session's saved application is invalidated; dismissal leaves the current Space and its current application untouched. A later presentation starts a fresh same-Space restoration session.
+
 ## Quick Note keyboard and data-safety semantics
 
 - Intentional activation places keyboard focus in the Quick Note composer without a click.
@@ -153,6 +155,8 @@ For unrated imports, Task Detail displays `Set effort` and four immediate button
 ## Internal reminder banner
 
 EasyFlow reminder banners are internal transient overlays, not macOS notifications. When enabled, the app schedules one reminder timer at a time from the current workspace snapshot. The chosen task is the first active Main Task in EasyFlow order whose reminder exclusion flag is false; if all active tasks are excluded, no banner appears.
+
+The banner's AppKit hosting view uses the same continuous 22-point layer mask as Main and Secondary so material and hosted content cannot draw square extensions beyond the lower rounded corners.
 
 The banner appears near the top of the selected panel side, remains compact, truncates long task titles to one line, does not steal keyboard focus while appearing, and auto-dismisses after about 6 seconds. Clicking it activates EasyFlow, opens Main and the task Secondary context, and ignores the click if the referenced task is no longer active.
 

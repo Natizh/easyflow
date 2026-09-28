@@ -1,6 +1,30 @@
 import AppKit
 import SwiftUI
 
+struct FocusRestorationSession: Equatable, Sendable {
+  enum State: Equatable, Sendable {
+    case idle
+    case eligible
+    case invalidatedBySpaceChange
+  }
+
+  private(set) var state: State = .idle
+
+  mutating func begin() {
+    state = .eligible
+  }
+
+  mutating func activeSpaceChanged() {
+    guard state == .eligible else { return }
+    state = .invalidatedBySpaceChange
+  }
+
+  mutating func end(restoreRequested: Bool) -> Bool {
+    defer { state = .idle }
+    return restoreRequested && state == .eligible
+  }
+}
+
 @MainActor
 final class PanelPresentationCoordinator {
   var onPointerMoved: ((CGPoint) -> Void)?
@@ -24,6 +48,7 @@ final class PanelPresentationCoordinator {
   private let reminderBannerPanel = ReminderBannerPanel()
   private let viewModel: AppShellViewModel
   private var previousApplication: NSRunningApplication?
+  private var focusRestorationSession = FocusRestorationSession()
 
   private let activationTrackingView = PointerTrackingView()
   private let mainHostingView: PointerTrackingHostingView<MainPanelView>
@@ -198,6 +223,8 @@ final class PanelPresentationCoordinator {
     _ presentation: PanelSpacePresentation,
     layout: PanelLayout
   ) {
+    focusRestorationSession.activeSpaceChanged()
+    previousApplication = nil
     mainGeneration += 1
     secondaryGeneration += 1
     prepareForSupersedingAnimation(on: mainPanel)
@@ -248,12 +275,15 @@ final class PanelPresentationCoordinator {
   func showMain(layout: PanelLayout) {
     mainGeneration += 1
     prepareForSupersedingAnimation(on: mainPanel)
-    capturePreviousApplicationIfNeeded()
     currentLayout = layout
     activationPanel.setFrame(layout.activationFrame, display: true)
 
-    NSApplication.shared.activate(ignoringOtherApps: true)
     let wasVisible = mainPanel.isVisible && mainPanel.isOnActiveSpace
+    if !wasVisible {
+      capturePreviousApplication()
+      focusRestorationSession.begin()
+    }
+    NSApplication.shared.activate(ignoringOtherApps: true)
     if !wasVisible {
       mainPanel.setFrame(layout.mainHiddenFrame, display: false)
       mainPanel.alphaValue = 0
@@ -347,7 +377,7 @@ final class PanelPresentationCoordinator {
     secondaryPanel.orderOut(nil)
     viewModel.secondaryContext = nil
     guard mainPanel.isVisible, let currentLayout else {
-      if restoreFocus { restorePreviousApplication() } else { previousApplication = nil }
+      if restoreFocus { restorePreviousApplication() } else { discardPreviousApplication() }
       return
     }
     animate(duration: 0.18) {
@@ -356,7 +386,11 @@ final class PanelPresentationCoordinator {
     } completion: {
       guard self.mainGeneration == generation else { return }
       self.mainPanel.orderOut(nil)
-      if restoreFocus { self.restorePreviousApplication() } else { self.previousApplication = nil }
+      if restoreFocus {
+        self.restorePreviousApplication()
+      } else {
+        self.discardPreviousApplication()
+      }
     }
   }
 
@@ -364,13 +398,14 @@ final class PanelPresentationCoordinator {
     reminderBannerDismissTask?.cancel()
     reminderBannerTaskID = task.id
     let frame = reminderBannerFrame(layout: layout)
-    reminderBannerPanel.contentView = NSHostingView(
+    let hostingView = NSHostingView(
       rootView: ReminderBannerView(
         title: task.title,
         appearanceMode: viewModel.appearanceMode,
         action: { [weak self] in self?.clickReminderBanner() }
       )
     )
+    reminderBannerPanel.setRoundedContentView(hostingView)
     reminderBannerPanel.setFrame(frame.offsetBy(dx: 0, dy: 10), display: false)
     reminderBannerPanel.alphaValue = 0
     reminderBannerPanel.orderFrontRegardless()
@@ -416,8 +451,7 @@ final class PanelPresentationCoordinator {
     return CGRect(x: x, y: y, width: size.width, height: size.height)
   }
 
-  private func capturePreviousApplicationIfNeeded() {
-    guard !(mainPanel.isVisible && mainPanel.isOnActiveSpace) else { return }
+  private func capturePreviousApplication() {
     let currentProcessIdentifier = ProcessInfo.processInfo.processIdentifier
     let candidate = NSWorkspace.shared.frontmostApplication
     previousApplication =
@@ -428,8 +462,14 @@ final class PanelPresentationCoordinator {
 
   private func restorePreviousApplication() {
     defer { previousApplication = nil }
+    guard focusRestorationSession.end(restoreRequested: true) else { return }
     guard let previousApplication, !previousApplication.isTerminated else { return }
     previousApplication.activate(options: [])
+  }
+
+  private func discardPreviousApplication() {
+    previousApplication = nil
+    _ = focusRestorationSession.end(restoreRequested: false)
   }
 
   func prepareToTerminate() async -> Bool {
