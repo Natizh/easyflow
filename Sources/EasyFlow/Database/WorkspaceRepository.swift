@@ -93,6 +93,7 @@ actor WorkspaceRepository {
     title: String? = nil,
     effort: Effort? = nil,
     description: String? = nil,
+    descriptionAttributes: RichTextAttributes? = nil,
     style: ItemStyle? = nil
   ) throws {
     try database.queue.write { database in
@@ -106,6 +107,9 @@ actor WorkspaceRepository {
       }
       if let effort { task.effort = effort }
       if let description { task.taskDescription = description }
+      if let descriptionAttributes {
+        task.taskDescriptionAttributes = descriptionAttributes.jsonString
+      }
       if let style {
         task.textColor = style.textColor
         task.highlightColor = style.highlightColor
@@ -122,6 +126,17 @@ actor WorkspaceRepository {
           timestamp: task.updatedAt
         )
       }
+    }
+  }
+
+  func setMainTaskReminderExcluded(id: UUID, excluded: Bool) throws {
+    try database.queue.write { database in
+      guard var task = try MainTask.fetchOne(database, key: id) else {
+        throw WorkspaceError.taskNotFound
+      }
+      task.remindersExcluded = excluded
+      task.updatedAt = now()
+      try task.update(database)
     }
   }
 
@@ -224,7 +239,9 @@ actor WorkspaceRepository {
   func updateStep(
     id: UUID,
     title: String? = nil,
+    titleAttributes: RichTextAttributes? = nil,
     notes: String? = nil,
+    notesAttributes: RichTextAttributes? = nil,
     isCompleted: Bool? = nil,
     style: ItemStyle? = nil
   ) throws {
@@ -237,7 +254,13 @@ actor WorkspaceRepository {
         guard !cleanTitle.isEmpty else { throw WorkspaceError.emptyTitle }
         step.title = cleanTitle
       }
+      if let titleAttributes {
+        step.titleAttributes = titleAttributes.jsonString
+      }
       if let notes { step.notes = notes }
+      if let notesAttributes {
+        step.notesAttributes = notesAttributes.jsonString
+      }
       if let isCompleted { step.isCompleted = isCompleted }
       if let style {
         step.textColor = style.textColor
@@ -278,6 +301,14 @@ actor WorkspaceRepository {
   }
 
   func saveDraft(body: String, revision: UUID) throws {
+    try saveDraft(body: body, attributes: .empty, revision: revision)
+  }
+
+  func saveDraft(
+    body: String,
+    attributes: RichTextAttributes,
+    revision: UUID
+  ) throws {
     try database.queue.write { database in
       if try WorkspaceNote
         .filter(Column("sourceDraftRevision") == revision)
@@ -289,6 +320,7 @@ actor WorkspaceRepository {
       var draft = QuickNoteDraft(
         revision: revision,
         body: body,
+        bodyAttributes: attributes.jsonString,
         updatedAt: now()
       )
       try draft.save(database)
@@ -297,6 +329,15 @@ actor WorkspaceRepository {
 
   @discardableResult
   func commitDraft(body: String, revision: UUID) throws -> WorkspaceNote? {
+    try commitDraft(body: body, attributes: .empty, revision: revision)
+  }
+
+  @discardableResult
+  func commitDraft(
+    body: String,
+    attributes: RichTextAttributes,
+    revision: UUID
+  ) throws -> WorkspaceNote? {
     return try database.queue.write { database in
       if let existing =
         try WorkspaceNote
@@ -326,6 +367,7 @@ actor WorkspaceRepository {
         id: UUID(),
         title: nil,
         body: body,
+        bodyAttributes: attributes.jsonString,
         mainTaskID: nil,
         sourceDraftRevision: revision,
         sortIndex: nextIndex,
@@ -433,11 +475,20 @@ actor WorkspaceRepository {
   }
 
   func updateNoteBody(id: UUID, body: String) throws {
+    try updateNoteBody(id: id, body: body, attributes: .empty)
+  }
+
+  func updateNoteBody(
+    id: UUID,
+    body: String,
+    attributes: RichTextAttributes
+  ) throws {
     try database.queue.write { database in
       guard var note = try WorkspaceNote.fetchOne(database, key: id) else {
         throw WorkspaceError.noteNotFound
       }
       note.body = body
+      note.bodyAttributes = attributes.jsonString
       note.updatedAt = now()
       try note.update(database)
     }
@@ -542,13 +593,60 @@ actor WorkspaceRepository {
 
   func storeReminderListIdentifier(_ identifier: String) throws {
     try database.queue.write { database in
-      try database.execute(
-        sql: """
-          INSERT INTO appSetting (key, value, updatedAt) VALUES (?, ?, ?)
-          ON CONFLICT(key) DO UPDATE SET value = excluded.value, updatedAt = excluded.updatedAt
-          """,
-        arguments: ["reminders.listIdentifier", identifier, now()]
+      try Self.writeSetting(
+        key: "reminders.listIdentifier",
+        value: identifier,
+        timestamp: now(),
+        database: database
       )
+    }
+  }
+
+  func storeReminderSettings(_ settings: ReminderSettings) throws {
+    try database.queue.write { database in
+      let timestamp = now()
+      try Self.writeSetting(
+        key: "reminders.enabled",
+        value: settings.isEnabled ? "true" : "false",
+        timestamp: timestamp,
+        database: database
+      )
+      try Self.writeSetting(
+        key: "reminders.frequency",
+        value: Self.frequencyKey(for: settings.frequency),
+        timestamp: timestamp,
+        database: database
+      )
+      try Self.writeSetting(
+        key: "reminders.customIntervalSeconds",
+        value: String(Int(settings.customInterval.rounded())),
+        timestamp: timestamp,
+        database: database
+      )
+      if let pausedUntil = settings.pausedUntil {
+        try Self.writeSetting(
+          key: "reminders.pausedUntil",
+          value: Self.string(fromSettingDate: pausedUntil),
+          timestamp: timestamp,
+          database: database
+        )
+      } else {
+        try database.execute(
+          sql: "DELETE FROM appSetting WHERE key = ?",
+          arguments: ["reminders.pausedUntil"]
+        )
+      }
+    }
+  }
+
+  func firstReminderEligibleMainTask() throws -> MainTask? {
+    try database.queue.read { database in
+      let tasks =
+        try MainTask
+        .filter(Column("deletedAt") == nil && Column("completedAt") == nil)
+        .order(Column("sortIndex"), Column("id"))
+        .fetchAll(database)
+      return ReminderEligibility.firstEligibleTask(in: tasks)
     }
   }
 
@@ -771,7 +869,89 @@ actor WorkspaceRepository {
         .filter(Column("noteID") != nil)
         .order(Column("sortIndex"), Column("id")).fetchAll(database), by: { $0.noteID! }),
       draftAttachments: try NoteAttachment.filter(Column("draftID") != nil)
-        .order(Column("sortIndex"), Column("id")).fetchAll(database)
+        .order(Column("sortIndex"), Column("id")).fetchAll(database),
+      reminderSettings: try fetchReminderSettings(database)
+    )
+  }
+
+  private static func fetchReminderSettings(_ database: Database) throws -> ReminderSettings {
+    let rows = try Row.fetchAll(
+      database,
+      sql: "SELECT key, value FROM appSetting WHERE key LIKE 'reminders.%'"
+    )
+    let values = Dictionary(uniqueKeysWithValues: rows.compactMap { row -> (String, String)? in
+      guard let key: String = row["key"], let value: String = row["value"] else { return nil }
+      return (key, value)
+    })
+    let customInterval = TimeInterval(
+      Int(values["reminders.customIntervalSeconds"] ?? "") ?? Int(ReminderSettings.defaultCustomInterval)
+    )
+    let frequency = frequency(
+      for: values["reminders.frequency"],
+      customInterval: customInterval
+    )
+    let pausedUntil = values["reminders.pausedUntil"].flatMap {
+      date(fromSettingString: $0)
+    }
+    return ReminderSettings(
+      isEnabled: values["reminders.enabled"] != "false",
+      frequency: frequency,
+      customInterval: customInterval,
+      pausedUntil: pausedUntil
+    )
+  }
+
+  private static func frequency(
+    for key: String?,
+    customInterval: TimeInterval
+  ) -> ReminderFrequency {
+    switch key {
+    case "minutes15": .minutes15
+    case "minutes30": .minutes30
+    case "hours2": .hours2
+    case "hours3": .hours3
+    case "custom": .custom(customInterval)
+    default: .hour1
+    }
+  }
+
+  private static func frequencyKey(for frequency: ReminderFrequency) -> String {
+    switch frequency {
+    case .minutes15: "minutes15"
+    case .minutes30: "minutes30"
+    case .hour1: "hour1"
+    case .hours2: "hours2"
+    case .hours3: "hours3"
+    case .custom: "custom"
+    }
+  }
+
+  private static func date(fromSettingString value: String) -> Date? {
+    settingDateFormatter().date(from: value)
+  }
+
+  private static func string(fromSettingDate date: Date) -> String {
+    settingDateFormatter().string(from: date)
+  }
+
+  private static func settingDateFormatter() -> ISO8601DateFormatter {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return formatter
+  }
+
+  private static func writeSetting(
+    key: String,
+    value: String,
+    timestamp: Date,
+    database: Database
+  ) throws {
+    try database.execute(
+      sql: """
+        INSERT INTO appSetting (key, value, updatedAt) VALUES (?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updatedAt = excluded.updatedAt
+        """,
+      arguments: [key, value, timestamp]
     )
   }
 

@@ -10,7 +10,7 @@
 - Migrations are versioned, tested, and non-destructive to production data.
 - Database work must not block UI interaction.
 
-The schema uses four additive/versioned migrations: `v1-local-workspace`, `v2-reminders-sync`, `v3-deleted-task-retention`, and `v4-note-image-attachments`. The first three migration definitions remain unchanged. Existing rated values and child relationships migrate without a reset.
+The schema uses five additive/versioned migrations: `v1-local-workspace`, `v2-reminders-sync`, `v3-deleted-task-retention`, `v4-note-image-attachments`, and `v5-internal-reminders-rich-text`. Existing rated values and child relationships migrate without a reset.
 
 ## Conceptual relationships
 
@@ -45,6 +45,8 @@ Required concepts:
 | `highlight` | Optional cosmetic metadata |
 | `isUnderlined` | Optional cosmetic metadata |
 | `description` | Local lightweight free text |
+| `remindersExcluded` | Local per-task reminder exclusion flag |
+| `taskDescriptionAttributes` | Optional rich-text sidecar for Description |
 | `createdAt`, `updatedAt` | Lifecycle timestamps |
 | `completedAt` | Optional completion timestamp |
 | `deletedAt` | Optional soft-deletion timestamp |
@@ -63,7 +65,9 @@ Required concepts:
 | `sortIndex` | Local priority/order within the parent |
 | `isCompleted` | Completion flag; completion does not reorder or hide the Step |
 | style fields | Optional text color, highlight, and underline |
+| `titleAttributes` | Optional rich-text sidecar for Step title |
 | `notes` | Local multiline text-only execution notes |
+| `notesAttributes` | Optional rich-text sidecar for Step notes |
 | `createdAt`, `updatedAt` | Lifecycle timestamps |
 | `deletedAt` | Optional soft-deletion timestamp |
 
@@ -86,6 +90,7 @@ Required concepts:
 | `id` | App-owned UUID preserved across a move |
 | `title` | Optional explicit title |
 | `body` | Full note content, never destructively truncated for display |
+| `bodyAttributes` | Optional rich-text sidecar for body |
 | `mainTaskID` | Null for inbox; target task for attached state |
 | `sortIndex` | Order within the current inbox/task collection |
 | `createdAt`, `updatedAt` | Preserved history timestamps |
@@ -97,7 +102,9 @@ The generated display title is derived at presentation/domain level from the fir
 
 ## Settings
 
-`appSetting` stores the Reminders list mapping. UserDefaults stores appearance, Main Task density, and `panelSide` (`left` or `right`, default `right`). Launch at Login status comes from SMAppService. Do not prepopulate speculative settings. Panel/UI state remains local and does not synchronize through Reminders.
+`appSetting` stores the Reminders list mapping and internal reminder settings: enabled/disabled, interval preset, custom interval seconds, and optional paused-until timestamp. Missing reminder rows mean the default enabled 1-hour interval. UserDefaults stores appearance, Main Task density, and `panelSide` (`left` or `right`, default `right`). Launch at Login status comes from SMAppService. Panel/UI state remains local and does not synchronize through Reminders.
+
+Plain text columns remain authoritative for previews, derived titles, and compatibility. Rich-text sidecar columns store formatting ranges only; missing or invalid sidecars load as plain text without data loss.
 
 ## Ordering
 

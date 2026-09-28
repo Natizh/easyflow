@@ -9,6 +9,8 @@ final class PanelPresentationCoordinator {
   var onSecondaryCleared: (() -> Void)?
   var onSettingsPresentationChanged: ((Bool) -> Void)?
   var onPanelSideChanged: ((PanelSide) -> Void)?
+  var onReminderBannerClicked: ((UUID) -> Void)?
+  var onWorkspaceSnapshotChanged: ((WorkspaceSnapshot) -> Void)?
   var panelSide: PanelSide { viewModel.panelSide }
   private var settingsController: SettingsWindowController!
   private let previewController = ImagePreviewWindowController()
@@ -19,6 +21,7 @@ final class PanelPresentationCoordinator {
   private let activationPanel = ActivationEdgePanel()
   private let mainPanel = OverlayPanel()
   private let secondaryPanel = OverlayPanel()
+  private let reminderBannerPanel = ReminderBannerPanel()
   private let viewModel: AppShellViewModel
   private var previousApplication: NSRunningApplication?
 
@@ -26,6 +29,8 @@ final class PanelPresentationCoordinator {
   private let mainHostingView: PointerTrackingHostingView<MainPanelView>
   private let secondaryHostingView: PointerTrackingHostingView<SecondaryPanelView>
   private var currentLayout: PanelLayout?
+  private var reminderBannerTaskID: UUID?
+  private var reminderBannerDismissTask: Task<Void, Never>?
 
   static let secondaryOpenAnimationDuration: TimeInterval = 0.28
   static let secondaryCloseAnimationDuration: TimeInterval = 0.35
@@ -69,6 +74,9 @@ final class PanelPresentationCoordinator {
       } else if self.settingsController.window?.isVisible == true {
         self.settingsController.close()
       }
+    }
+    viewModel.onWorkspaceSnapshotChanged = { [weak self] snapshot in
+      self?.onWorkspaceSnapshotChanged?(snapshot)
     }
     viewModel.onPanelSideChanged = { [weak self] side in self?.onPanelSideChanged?(side) }
     viewModel.onImagePreview = { [weak self] attachment in self?.preview(attachment) }
@@ -148,6 +156,10 @@ final class PanelPresentationCoordinator {
     activationPanel.contentView = activationTrackingView
     mainPanel.contentView = mainHostingView
     secondaryPanel.contentView = secondaryHostingView
+    mainHostingView.wantsLayer = true
+    mainHostingView.layer?.cornerRadius = 22
+    mainHostingView.layer?.cornerCurve = .continuous
+    mainHostingView.layer?.masksToBounds = true
   }
 
   func start(layout: PanelLayout) {
@@ -159,6 +171,7 @@ final class PanelPresentationCoordinator {
   func stop() {
     settingsController.close()
     previewController.close()
+    hideReminderBanner()
     viewModel.stop()
     hideAll(restoreFocus: false)
     activationPanel.orderOut(nil)
@@ -185,6 +198,7 @@ final class PanelPresentationCoordinator {
 
   func showMain(layout: PanelLayout) {
     mainGeneration += 1
+    prepareForSupersedingAnimation(on: mainPanel)
     capturePreviousApplicationIfNeeded()
     currentLayout = layout
     activationPanel.setFrame(layout.activationFrame, display: true)
@@ -212,6 +226,7 @@ final class PanelPresentationCoordinator {
 
   func showSecondary(context: SecondaryPanelContext, layout: PanelLayout) {
     secondaryGeneration += 1
+    prepareForSupersedingAnimation(on: secondaryPanel)
     let generation = secondaryGeneration
     viewModel.secondaryContext = context
     currentLayout = layout
@@ -252,6 +267,7 @@ final class PanelPresentationCoordinator {
 
   func hideSecondary() {
     secondaryGeneration += 1
+    prepareForSupersedingAnimation(on: secondaryPanel)
     let generation = secondaryGeneration
     NotificationCenter.default.post(name: .easyFlowFlushEditors, object: nil)
     guard secondaryPanel.isVisible, let currentLayout else {
@@ -274,6 +290,8 @@ final class PanelPresentationCoordinator {
   func hideAll(restoreFocus: Bool) {
     mainGeneration += 1
     secondaryGeneration += 1
+    prepareForSupersedingAnimation(on: mainPanel)
+    prepareForSupersedingAnimation(on: secondaryPanel)
     let generation = mainGeneration
     NotificationCenter.default.post(name: .easyFlowFlushEditors, object: nil)
     viewModel.commitQuickNoteOnFocusLoss()
@@ -291,6 +309,62 @@ final class PanelPresentationCoordinator {
       self.mainPanel.orderOut(nil)
       if restoreFocus { self.restorePreviousApplication() } else { self.previousApplication = nil }
     }
+  }
+
+  func showReminderBanner(task: MainTask, layout: PanelLayout) {
+    reminderBannerDismissTask?.cancel()
+    reminderBannerTaskID = task.id
+    let frame = reminderBannerFrame(layout: layout)
+    reminderBannerPanel.contentView = NSHostingView(
+      rootView: ReminderBannerView(
+        title: task.title,
+        appearanceMode: viewModel.appearanceMode,
+        action: { [weak self] in self?.clickReminderBanner() }
+      )
+    )
+    reminderBannerPanel.setFrame(frame.offsetBy(dx: 0, dy: 10), display: false)
+    reminderBannerPanel.alphaValue = 0
+    reminderBannerPanel.orderFrontRegardless()
+    animate(duration: 0.18) {
+      self.reminderBannerPanel.animator().setFrame(frame, display: true)
+      self.reminderBannerPanel.animator().alphaValue = 1
+    }
+    reminderBannerDismissTask = Task { @MainActor [weak self] in
+      do { try await Task.sleep(for: .seconds(6)) } catch { return }
+      self?.hideReminderBanner()
+    }
+  }
+
+  func hideReminderBanner() {
+    reminderBannerDismissTask?.cancel()
+    reminderBannerDismissTask = nil
+    reminderBannerTaskID = nil
+    prepareForSupersedingAnimation(on: reminderBannerPanel)
+    guard reminderBannerPanel.isVisible else { return }
+    animate(duration: 0.14) {
+      self.reminderBannerPanel.animator().alphaValue = 0
+    } completion: {
+      self.reminderBannerPanel.orderOut(nil)
+      self.reminderBannerPanel.alphaValue = 1
+    }
+  }
+
+  private func clickReminderBanner() {
+    guard let taskID = reminderBannerTaskID else { return }
+    hideReminderBanner()
+    NSApplication.shared.activate(ignoringOtherApps: true)
+    onReminderBannerClicked?(taskID)
+  }
+
+  private func reminderBannerFrame(layout: PanelLayout) -> CGRect {
+    let size = CGSize(width: 320, height: 64)
+    let horizontalInset: CGFloat = 20
+    let x =
+      layout.side == .right
+      ? min(layout.display.frame.maxX - size.width - horizontalInset, layout.mainFrame.minX)
+      : max(layout.display.frame.minX + horizontalInset, layout.mainFrame.minX)
+    let y = layout.display.frame.maxY - size.height - 48
+    return CGRect(x: x, y: y, width: size.width, height: size.height)
   }
 
   private func capturePreviousApplicationIfNeeded() {
@@ -366,6 +440,14 @@ final class PanelPresentationCoordinator {
     } completionHandler: {
       Task { @MainActor in completion?() }
     }
+  }
+
+  private func prepareForSupersedingAnimation(on window: NSWindow) {
+    // NSWindow animator() does not expose a reliable public cancellation hook.
+    // Presentation generations are the correctness guard for stale completions;
+    // this only clears hosted-view layer animations before the next explicit
+    // frame/alpha write starts a superseding transition.
+    window.contentView?.layer?.removeAllAnimations()
   }
 
   private static func contextLabel(_ context: SecondaryPanelContext) -> String {

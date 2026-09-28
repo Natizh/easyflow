@@ -19,7 +19,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
   func present(on screen: NSScreen) {
     model.refreshLaunchAtLoginStatus()
     guard let window else { return }
-    let size = window.frameRect(forContentRect: CGRect(x: 0, y: 0, width: 480, height: 460)).size
+    let size = window.frameRect(forContentRect: CGRect(x: 0, y: 0, width: 520, height: 620)).size
     window.setFrame(AuxiliaryWindowLayout.centered(size: size, in: screen.visibleFrame), display: true)
     NSApp.activate(ignoringOtherApps: true)
     window.orderFrontRegardless()

@@ -68,6 +68,7 @@ The panel coordinator owns both overlay windows as one coordinated interaction s
 - Panels use window levels and collection behavior suitable for fullscreen applications and Spaces without changing the underlying app layout.
 - The coordinator owns show/hide ordering, geometry, transition cancellation, previous-app focus context, and reconfiguration after display changes.
 - Presentation exposes centralized frame/opacity animation hooks: Main's hidden frame is beyond the selected edge, while Secondary's hidden frame retracts toward Main. Context replacement never recreates the Secondary window.
+- The internal reminder banner is a separate small nonactivating panel owned by the same coordinator. It never steals focus when shown; banner clicks re-enter the panel state machine with an explicit task-open event.
 - SwiftUI renders content and emits semantic actions; it does not directly orchestrate global windows.
 - Secondary is ordered in front after Main during its entrance, and AppKit capture/saved-note hover surfaces emit explicit context requests. Main↔Secondary gap geometry remains one bridge region.
 
@@ -105,6 +106,8 @@ Window motion uses centralized AppKit frame/opacity hooks: Main opens in 0.22 se
 `AppDatabase` owns the production Application Support location and versioned migrator. The actor-isolated `WorkspaceRepository` owns CRUD, transactions, dense ordering, draft idempotency, soft deletion, five-item deleted-task retention, and a GRDB `ValueObservation` exposed as an async snapshot stream. Records, repository operations, and SQL remain explicit and inspectable.
 
 Database observations notify only the affected feature state. Writes occur off the UI-critical path with clear transaction boundaries. Production databases are never wiped to resolve migration errors.
+
+Internal reminder scheduling is snapshot-driven in the app shell: there is at most one reminder timer, settings, pause, startup, timer-fire, and zero-to-eligible transitions can reschedule it, and ordinary workspace snapshots only replace the task data used when the current timer fires. Temporary pause is restored from local persistence. The scheduler asks the panel coordinator to present or dismiss the banner; it does not use Notification Center.
 
 See `docs/DATA_MODEL.md`.
 
@@ -150,7 +153,7 @@ GitHub Actions runs `swift package resolve`, `swift build`, and `swift test` on 
 
 ## Native editing and auxiliary panels (v1.2)
 
-AppKit startup installs the application/Edit menu with standard responder-chain actions. Native NSTextView/TextField controls own text selection and editing menus. The pointer host captures only registered reorder surfaces and forwards ordinary mouse sequences and keyboard events. Image-capable text views extend native pasteboard reading for note attachments; text remains plain text.
+AppKit startup installs the application/Edit menu with standard responder-chain actions plus rich-text formatting actions for multiline editors. Native NSTextView/TextField controls own text selection and editing menus. The pointer host captures only registered reorder surfaces and forwards ordinary mouse sequences and keyboard events. Image-capable text views extend native pasteboard reading for note attachments. Plain text columns remain authoritative, while rich formatting is serialized as local sidecar ranges and rendered through the shared AppKit text-view implementation.
 
 The coordinator owns separate native Settings and image-preview controllers in addition to the two workspace panels. Both auxiliary panels are centered on the originating screen and have normal close behavior. Their presentation suspends dismissal and cancels stale timers; closing re-evaluates pointer state. Settings reads the running version from Bundle and persists Panel Side through UserDefaults. PanelLayout owns visible/hidden frames; display selection and context traversal consume PanelSide. Animation generations prevent stale completion handlers from hiding or repositioning newer presentations.
 

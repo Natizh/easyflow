@@ -14,9 +14,11 @@ enum AdaptiveTextMetrics {
 struct AdaptiveTextEditor: NSViewRepresentable {
   @Binding var text: String
   @Binding var height: CGFloat
+  var attributes: RichTextAttributes = .empty
   let minimumHeight: CGFloat
   let maximumHeight: CGFloat
   let onSave: (String) -> Void
+  var onSaveRichText: ((RichTextValue) -> Void)? = nil
   var label = "Task Description"
   var onPasteImages: (([Data]) -> Void)? = nil
 
@@ -28,13 +30,18 @@ struct AdaptiveTextEditor: NSViewRepresentable {
     scrollView.borderType = .noBorder
     scrollView.autohidesScrollers = true
 
-    let textView = MeasuredNoteTextView()
+    let storage = EasyFlowRichText.textStorage()
+    let textView = MeasuredNoteTextView(
+      frame: .zero,
+      textContainer: storage.layoutManagers.first?.textContainers.first
+    )
     textView.onPasteImages = onPasteImages
     textView.onWidthChanged = { [weak coordinator = context.coordinator] in coordinator?.measure() }
     textView.delegate = context.coordinator
     textView.font = NSFont.preferredFont(forTextStyle: .body)
     textView.drawsBackground = false
-    textView.isRichText = false
+    textView.isRichText = true
+    textView.importsGraphics = false
     textView.allowsUndo = true
     textView.isVerticallyResizable = true
     textView.isHorizontallyResizable = false
@@ -42,7 +49,9 @@ struct AdaptiveTextEditor: NSViewRepresentable {
     textView.textContainerInset = NSSize(width: 8, height: 7)
     textView.textContainer?.lineFragmentPadding = 0
     textView.textContainer?.widthTracksTextView = true
-    textView.string = text
+    textView.textStorage?.setAttributedString(
+      EasyFlowRichText.attributedString(text: text, attributes: attributes)
+    )
     textView.setAccessibilityLabel(label)
     textView.textContainer?.containerSize.height = CGFloat.greatestFiniteMagnitude
     scrollView.documentView = textView
@@ -55,7 +64,14 @@ struct AdaptiveTextEditor: NSViewRepresentable {
   func updateNSView(_ scrollView: NSScrollView, context: Context) {
     context.coordinator.parent = self
     guard let textView = context.coordinator.textView else { return }
-    if textView.string != text, textView.window?.firstResponder !== textView { textView.string = text }
+    if textView.window?.firstResponder !== textView,
+      textView.string != text
+        || EasyFlowRichText.sidecar(from: textView.attributedString()) != attributes
+    {
+      textView.textStorage?.setAttributedString(
+        EasyFlowRichText.attributedString(text: text, attributes: attributes)
+      )
+    }
     (textView as? NoteImageTextView)?.onPasteImages = onPasteImages
     DispatchQueue.main.async { context.coordinator.measure() }
   }
@@ -83,7 +99,7 @@ struct AdaptiveTextEditor: NSViewRepresentable {
     @objc func flush() {
       saveTask?.cancel()
       guard isDirty, let textView else { return }
-      parent.onSave(textView.string)
+      save(textView)
       isDirty = false
     }
 
@@ -93,11 +109,14 @@ struct AdaptiveTextEditor: NSViewRepresentable {
       parent.text = textView.string
       measure()
       saveTask?.cancel()
-      let value = textView.string
+      let value = RichTextValue(
+        text: textView.string,
+        attributes: EasyFlowRichText.sidecar(from: textView.attributedString())
+      )
       saveTask = Task { @MainActor in
         do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
-        parent.onSave(value)
-        if textView.string == value { isDirty = false }
+        parent.save(value)
+        if textView.string == value.text { isDirty = false }
       }
     }
 
@@ -121,17 +140,43 @@ struct AdaptiveTextEditor: NSViewRepresentable {
       if abs(parent.height - clamped) > 0.5 { parent.height = clamped }
       scrollView?.hasVerticalScroller = contentHeight > parent.maximumHeight
     }
+
+    private func save(_ textView: NSTextView) {
+      parent.save(
+        RichTextValue(
+          text: textView.string,
+          attributes: EasyFlowRichText.sidecar(from: textView.attributedString())
+        )
+      )
+    }
+  }
+
+  fileprivate func save(_ value: RichTextValue) {
+    if let onSaveRichText {
+      onSaveRichText(value)
+    } else {
+      onSave(value.text)
+    }
   }
 }
 
 struct AdaptiveDescriptionEditor: View {
   let value: String
+  var attributes: RichTextAttributes = .empty
   let onSave: (String) -> Void
+  var onSaveRichText: ((RichTextValue) -> Void)? = nil
   @State private var text: String
   @State private var height: CGFloat = 42
 
-  init(value: String, onSave: @escaping (String) -> Void) {
+  init(
+    value: String,
+    attributes: RichTextAttributes = .empty,
+    onSaveRichText: ((RichTextValue) -> Void)? = nil,
+    onSave: @escaping (String) -> Void
+  ) {
     self.value = value
+    self.attributes = attributes
+    self.onSaveRichText = onSaveRichText
     self.onSave = onSave
     _text = State(initialValue: value)
   }
@@ -140,9 +185,11 @@ struct AdaptiveDescriptionEditor: View {
     AdaptiveTextEditor(
       text: $text,
       height: $height,
+      attributes: attributes,
       minimumHeight: 42,
       maximumHeight: 156,
-      onSave: onSave
+      onSave: onSave,
+      onSaveRichText: onSaveRichText
     )
     .frame(height: height)
     .background(.quaternary.opacity(0.30), in: RoundedRectangle(cornerRadius: 8))

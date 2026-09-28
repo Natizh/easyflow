@@ -158,7 +158,6 @@ struct AttachmentTests {
     let path = directory.appendingPathComponent("migration.sqlite").path
     let queue = try DatabaseQueue(path: path)
     try AppDatabase.migrator.migrate(queue, upTo: "v3-deleted-task-retention")
-    let tables = ["mainTask", "taskStep", "workspaceNote", "quickNoteDraft", "appSetting", "reminderSync"]
     try queue.write { db in
       try db.execute(sql: """
         INSERT INTO mainTask (id, reminderIdentifier, title, effort, sortIndex, taskDescription, createdAt, updatedAt, completedAt)
@@ -173,11 +172,19 @@ struct AttachmentTests {
         VALUES ('task', 'reminder', 'local', 2);
         """)
     }
-    let before = try queue.read { db in try tables.map { try Row.fetchAll(db, sql: "SELECT * FROM \($0)") } }
+    let legacyQueries = [
+      "SELECT id, reminderIdentifier, title, effort, sortIndex, taskDescription, textColor, highlightColor, isUnderlined, createdAt, updatedAt, completedAt, deletedAt FROM mainTask",
+      "SELECT id, mainTaskID, title, sortIndex, isCompleted, notes, textColor, highlightColor, isUnderlined, createdAt, updatedAt, deletedAt FROM taskStep",
+      "SELECT id, title, body, mainTaskID, sourceDraftRevision, sortIndex, createdAt, updatedAt, deletedAt FROM workspaceNote",
+      "SELECT id, revision, body, updatedAt FROM quickNoteDraft",
+      "SELECT * FROM appSetting",
+      "SELECT * FROM reminderSync",
+    ]
+    let before = try queue.read { db in try legacyQueries.map { try Row.fetchAll(db, sql: $0) } }
     let upgraded = try AppDatabase(path: path)
-    let after = try upgraded.queue.read { db in try tables.map { try Row.fetchAll(db, sql: "SELECT * FROM \($0)") } }
+    let after = try upgraded.queue.read { db in try legacyQueries.map { try Row.fetchAll(db, sql: $0) } }
     #expect(before == after)
-    #expect(try upgraded.queue.read { try String.fetchAll($0, sql: "SELECT identifier FROM grdb_migrations") }.last == "v4-note-image-attachments")
+    #expect(try upgraded.queue.read { try String.fetchAll($0, sql: "SELECT identifier FROM grdb_migrations") }.last == "v5-internal-reminders-rich-text")
     #expect(try upgraded.queue.read { try Row.fetchAll($0, sql: "PRAGMA foreign_key_check") }.isEmpty)
   }
 }

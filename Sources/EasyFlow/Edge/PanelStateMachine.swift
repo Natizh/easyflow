@@ -64,6 +64,7 @@ enum PanelEvent: Equatable, Sendable {
   case activationDwellElapsed
   case userInteracted
   case requestSecondary(SecondaryPanelContext)
+  case openFromReminder(SecondaryPanelContext)
   case clearSecondary
   case secondaryDismissalElapsed
   case mainDismissalElapsed
@@ -113,6 +114,16 @@ struct PanelStateMachine: Equatable, Sendable {
       return []
     }
     if auxiliaryIsPresented { return [] }
+    if case .openFromReminder(let context) = event {
+      state = .secondaryVisible(context: context)
+      return [
+        .cancel(timer: .activationDwell),
+        .cancel(timer: .secondaryDismissal),
+        .cancel(timer: .mainDismissal),
+        .showMain,
+        .showSecondary(context),
+      ]
+    }
     switch (state, event) {
     case (.hidden, .pointerChanged(.activationEdge)):
       state = .dwelling

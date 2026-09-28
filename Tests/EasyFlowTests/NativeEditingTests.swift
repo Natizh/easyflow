@@ -68,6 +68,86 @@ struct NativeEditingTests {
     #expect(editor.string == "replacement")
   }
 
+  @Test("Formatting actions toggle sidecar attributes and typing attributes")
+  func richTextFormattingActions() throws {
+    let editor = NoteImageTextView()
+    editor.isRichText = true
+    editor.font = .preferredFont(forTextStyle: .body)
+    editor.textStorage?.setAttributedString(
+      EasyFlowRichText.attributedString(text: "alpha beta", attributes: .empty)
+    )
+    editor.setSelectedRange(NSRange(location: 0, length: 5))
+
+    editor.toggleBoldface(nil)
+    editor.toggleItalics(nil)
+    editor.toggleUnderline(nil)
+    editor.toggleEasyFlowHighlight(nil)
+
+    let sidecar = EasyFlowRichText.sidecar(from: editor.attributedString())
+    let run = try #require(sidecar.runs.first)
+    #expect(run.location == 0)
+    #expect(run.length == 5)
+    #expect(run.bold)
+    #expect(run.italic)
+    #expect(run.underline)
+    #expect(run.highlightColor == .yellow)
+
+    editor.setSelectedRange(NSRange(location: 10, length: 0))
+    editor.toggleEasyFlowHighlight(nil)
+    #expect((editor.typingAttributes[.easyFlowHighlight] as? String) == StyleColor.yellow.rawValue)
+  }
+
+  @Test("Rich text sidecar round trips without changing plain text")
+  func richTextSidecarRoundTrip() throws {
+    let attributes = RichTextAttributes(runs: [
+      .init(location: 0, length: 5, bold: true, italic: false, underline: true, highlightColor: .green),
+      .init(location: 6, length: 4, bold: false, italic: true, underline: false, highlightColor: nil),
+    ])
+    let attributed = EasyFlowRichText.attributedString(
+      text: "alpha beta",
+      attributes: attributes
+    )
+
+    #expect(attributed.string == "alpha beta")
+    #expect(EasyFlowRichText.sidecar(from: attributed) == attributes)
+  }
+
+  @Test("Legacy Step highlight renders as marker and stays out of sidecar saves")
+  func legacyStepHighlightPresentation() throws {
+    let base = RichTextAttributes(runs: [
+      .init(location: 0, length: 4, bold: true, italic: false, underline: false, highlightColor: nil)
+    ])
+    let presentation = EasyFlowRichText.presentationAttributes(
+      text: "Step",
+      attributes: base,
+      legacyHighlight: .green
+    )
+    let attributed = EasyFlowRichText.attributedString(
+      text: "Step",
+      attributes: presentation
+    )
+    let rendered = try #require(EasyFlowRichText.sidecar(from: attributed).runs.first)
+    #expect(rendered.bold)
+    #expect(rendered.highlightColor == .green)
+
+    let stored = EasyFlowRichText.storageAttributes(
+      EasyFlowRichText.sidecar(from: attributed),
+      text: "Step",
+      removingLegacyHighlight: .green
+    )
+    #expect(stored == base)
+
+    let partialHighlight = RichTextAttributes(runs: [
+      .init(location: 1, length: 2, bold: false, italic: false, underline: false, highlightColor: .green)
+    ])
+    let storedPartial = EasyFlowRichText.storageAttributes(
+      partialHighlight,
+      text: "Step",
+      removingLegacyHighlight: .green
+    )
+    #expect(storedPartial == partialHighlight)
+  }
+
   @Test("Measured native text wraps long paragraphs and unbroken titles")
   func wrapping() throws {
     let editor = MeasuredNoteTextView(frame: CGRect(x: 0, y: 0, width: 180, height: 30))

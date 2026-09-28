@@ -8,6 +8,7 @@ final class AppShellViewModel: ObservableObject {
   @Published private(set) var newTaskTitleFocusRequestID = 0
   @Published var secondaryContext: SecondaryPanelContext?
   @Published var quickNoteDraft = ""
+  @Published var quickNoteDraftAttributes = RichTextAttributes.empty
   @Published private(set) var isCommittingCapture = false
   @Published private(set) var pendingCaptureImageCount = 0
   @Published var panelSide: PanelSide {
@@ -55,11 +56,13 @@ final class AppShellViewModel: ObservableObject {
     }
   }
   @Published private(set) var launchAtLoginStatus: LaunchAtLoginStatus
+  @Published private(set) var reminderSettings = ReminderSettings.defaults
 
   var onInteraction: (() -> Void)?
   var onSecondaryRequested: ((SecondaryPanelContext) -> Void)?
   var onSecondaryCleared: (() -> Void)?
   var onSettingsPresentationChanged: ((Bool) -> Void)?
+  var onWorkspaceSnapshotChanged: ((WorkspaceSnapshot) -> Void)?
   var onTaskRowsChanged: (([MainTaskRowGeometry]) -> Void)?
   var onQuickNotesFrameChanged: ((CGRect?) -> Void)?
   var onSecondaryCollapseStripFrameChanged: ((CGRect?) -> Void)?
@@ -335,7 +338,22 @@ final class AppShellViewModel: ObservableObject {
   func setQuickNoteDraft(_ body: String) {
     quickNoteDraft = body
     registerInteraction()
-    scheduleDraftSave(body: body, revision: draftRevision)
+    scheduleDraftSave(
+      body: body,
+      attributes: quickNoteDraftAttributes,
+      revision: draftRevision
+    )
+  }
+
+  func setQuickNoteDraft(_ value: RichTextValue) {
+    quickNoteDraft = value.text
+    quickNoteDraftAttributes = value.attributes
+    registerInteraction()
+    scheduleDraftSave(
+      body: value.text,
+      attributes: value.attributes,
+      revision: draftRevision
+    )
   }
 
   private func enqueueCapture(_ operation: @escaping @MainActor () async -> Void) {
@@ -390,6 +408,7 @@ final class AppShellViewModel: ObservableObject {
     guard !isCommittingCapture else { return }
     draftSaveTask?.cancel()
     let body = quickNoteDraft
+    let attributes = quickNoteDraftAttributes
     let revision = draftRevision
     let hasImages = captureHasImages || !pendingImages.isEmpty || !snapshot.draftAttachments.isEmpty
     guard !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || hasImages else {
@@ -406,8 +425,13 @@ final class AppShellViewModel: ObservableObject {
           pendingImages.removeAll { $0.id == batch.id }
           pendingCaptureImageCount -= batch.data.count
         }
-        _ = try await repository.commitDraft(body: body, revision: revision)
+        _ = try await repository.commitDraft(
+          body: body,
+          attributes: attributes,
+          revision: revision
+        )
         quickNoteDraft = ""
+        quickNoteDraftAttributes = .empty
         draftRevision = UUID()
         snapshot.draftAttachments = []
         captureHasImages = false
@@ -458,6 +482,7 @@ final class AppShellViewModel: ObservableObject {
     title: String? = nil,
     effort: Effort? = nil,
     description: String? = nil,
+    descriptionAttributes: RichTextAttributes? = nil,
     style: ItemStyle? = nil
   ) {
     performWorkspaceWrite { [weak self, repository] in
@@ -467,8 +492,27 @@ final class AppShellViewModel: ObservableObject {
           title: title,
           effort: effort,
           description: description,
+          descriptionAttributes: descriptionAttributes,
           style: style
         )
+      } catch {
+        self?.errorMessage = error.localizedDescription
+      }
+    }
+  }
+
+  func updateMainTaskDescription(id: UUID, value: RichTextValue) {
+    updateMainTask(
+      id: id,
+      description: value.text,
+      descriptionAttributes: value.attributes
+    )
+  }
+
+  func setMainTaskReminderExcluded(_ id: UUID, excluded: Bool) {
+    performWorkspaceWrite { [weak self, repository] in
+      do {
+        try await repository.setMainTaskReminderExcluded(id: id, excluded: excluded)
       } catch {
         self?.errorMessage = error.localizedDescription
       }
@@ -532,7 +576,9 @@ final class AppShellViewModel: ObservableObject {
   func updateStep(
     id: UUID,
     title: String? = nil,
+    titleAttributes: RichTextAttributes? = nil,
     notes: String? = nil,
+    notesAttributes: RichTextAttributes? = nil,
     isCompleted: Bool? = nil,
     style: ItemStyle? = nil
   ) {
@@ -541,7 +587,9 @@ final class AppShellViewModel: ObservableObject {
         try await repository.updateStep(
           id: id,
           title: title,
+          titleAttributes: titleAttributes,
           notes: notes,
+          notesAttributes: notesAttributes,
           isCompleted: isCompleted,
           style: style
         )
@@ -549,6 +597,14 @@ final class AppShellViewModel: ObservableObject {
         self?.errorMessage = error.localizedDescription
       }
     }
+  }
+
+  func updateStepTitle(id: UUID, value: RichTextValue) {
+    updateStep(id: id, title: value.text, titleAttributes: value.attributes)
+  }
+
+  func updateStepNotes(id: UUID, value: RichTextValue) {
+    updateStep(id: id, notes: value.text, notesAttributes: value.attributes)
   }
 
   func deleteStep(_ id: UUID) {
@@ -603,6 +659,75 @@ final class AppShellViewModel: ObservableObject {
         self?.errorMessage = error.localizedDescription
       }
     }
+  }
+
+  func updateNoteBody(id: UUID, value: RichTextValue) {
+    performWorkspaceWrite { [weak self, repository] in
+      do {
+        try await repository.updateNoteBody(
+          id: id,
+          body: value.text,
+          attributes: value.attributes
+        )
+      } catch {
+        self?.errorMessage = error.localizedDescription
+      }
+    }
+  }
+
+  func storeReminderSettings(_ settings: ReminderSettings) {
+    reminderSettings = settings
+    performWorkspaceWrite { [weak self, repository] in
+      do {
+        try await repository.storeReminderSettings(settings)
+      } catch {
+        self?.errorMessage = error.localizedDescription
+      }
+    }
+  }
+
+  func setRemindersEnabled(_ enabled: Bool) {
+    var settings = reminderSettings
+    settings.isEnabled = enabled
+    if enabled, settings.pausedUntil.map({ $0 <= Date() }) == true {
+      settings.pausedUntil = nil
+    }
+    storeReminderSettings(settings)
+  }
+
+  func setReminderFrequency(_ frequency: ReminderFrequency) {
+    var settings = reminderSettings
+    settings.frequency = frequency
+    if case .custom(let interval) = frequency {
+      settings.customInterval = interval
+    }
+    storeReminderSettings(settings)
+  }
+
+  func setReminderCustomInterval(minutes: Int) {
+    let interval = TimeInterval(max(1, minutes) * 60)
+    var settings = reminderSettings
+    settings.customInterval = interval
+    settings.frequency = .custom(interval)
+    storeReminderSettings(settings)
+  }
+
+  func pauseReminders(_ preset: ReminderPausePreset) {
+    var settings = reminderSettings
+    settings.pausedUntil = preset.pausedUntil(from: Date())
+    storeReminderSettings(settings)
+  }
+
+  func pauseReminders(minutes: Int) {
+    var settings = reminderSettings
+    settings.pausedUntil = Date().addingTimeInterval(TimeInterval(max(1, minutes) * 60))
+    storeReminderSettings(settings)
+  }
+
+  func resumeReminders() {
+    var settings = reminderSettings
+    settings.pausedUntil = nil
+    storeReminderSettings(settings)
   }
 
   func deleteNote(_ id: UUID) {
@@ -681,20 +806,33 @@ final class AppShellViewModel: ObservableObject {
       loadedInitialDraft = true
       if let draft = newSnapshot.draft {
         quickNoteDraft = draft.body
+        quickNoteDraftAttributes = draft.bodyRichTextAttributes
         draftRevision = draft.revision
         captureHasImages = !newSnapshot.draftAttachments.isEmpty
       }
     }
+    reminderSettings = newSnapshot.reminderSettings
+    onWorkspaceSnapshotChanged?(newSnapshot)
   }
 
-  private func scheduleDraftSave(body: String, revision: UUID) {
+  private func scheduleDraftSave(
+    body: String,
+    attributes: RichTextAttributes,
+    revision: UUID
+  ) {
     draftSaveTask?.cancel()
     draftSaveTask = Task { [weak self, repository] in
       do {
         try await Task.sleep(for: .milliseconds(400))
         guard !Task.isCancelled else { return }
         self?.enqueueCapture { [weak self, repository] in
-          do { try await repository.saveDraft(body: body, revision: revision) }
+          do {
+            try await repository.saveDraft(
+              body: body,
+              attributes: attributes,
+              revision: revision
+            )
+          }
           catch { self?.errorMessage = error.localizedDescription }
         }
       } catch is CancellationError {

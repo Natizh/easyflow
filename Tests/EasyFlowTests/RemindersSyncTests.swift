@@ -564,45 +564,42 @@ struct RemindersMigrationTests {
             taskIDs[0], "pending-delete", "Deleted 0", Date(timeIntervalSince1970: 0),
           ]
         )
-        var step = TaskStep(
-          id: purgedStepID,
-          mainTaskID: taskIDs[0],
-          title: "Owned",
-          sortIndex: 0,
-          isCompleted: false,
-          notes: "",
-          textColor: nil,
-          highlightColor: nil,
-          isUnderlined: false,
-          createdAt: Date(timeIntervalSince1970: 0),
-          updatedAt: Date(timeIntervalSince1970: 0),
-          deletedAt: nil
+        try database.execute(
+          sql: """
+            INSERT INTO taskStep (
+              id, mainTaskID, title, sortIndex, isCompleted, notes,
+              isUnderlined, createdAt, updatedAt
+            ) VALUES (?, ?, 'Owned', 0, 0, '', 0, ?, ?)
+            """,
+          arguments: [
+            purgedStepID, taskIDs[0], Date(timeIntervalSince1970: 0),
+            Date(timeIntervalSince1970: 0),
+          ]
         )
-        try step.insert(database)
-        var attached = WorkspaceNote(
-          id: purgedAttachedNoteID,
-          title: nil,
-          body: "Owned",
-          mainTaskID: taskIDs[0],
-          sourceDraftRevision: nil,
-          sortIndex: 0,
-          createdAt: Date(timeIntervalSince1970: 0),
-          updatedAt: Date(timeIntervalSince1970: 0),
-          deletedAt: nil
+        try database.execute(
+          sql: """
+            INSERT INTO workspaceNote (
+              id, title, body, mainTaskID, sourceDraftRevision, sortIndex,
+              createdAt, updatedAt
+            ) VALUES (?, NULL, 'Owned', ?, NULL, 0, ?, ?)
+            """,
+          arguments: [
+            purgedAttachedNoteID, taskIDs[0], Date(timeIntervalSince1970: 0),
+            Date(timeIntervalSince1970: 0),
+          ]
         )
-        try attached.insert(database)
-        var inbox = WorkspaceNote(
-          id: inboxNoteID,
-          title: nil,
-          body: "Independent",
-          mainTaskID: nil,
-          sourceDraftRevision: nil,
-          sortIndex: 0,
-          createdAt: Date(timeIntervalSince1970: 0),
-          updatedAt: Date(timeIntervalSince1970: 0),
-          deletedAt: nil
+        try database.execute(
+          sql: """
+            INSERT INTO workspaceNote (
+              id, title, body, mainTaskID, sourceDraftRevision, sortIndex,
+              createdAt, updatedAt
+            ) VALUES (?, NULL, 'Independent', NULL, NULL, 0, ?, ?)
+            """,
+          arguments: [
+            inboxNoteID, Date(timeIntervalSince1970: 0),
+            Date(timeIntervalSince1970: 0),
+          ]
         )
-        try inbox.insert(database)
       }
     }
 

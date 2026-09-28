@@ -188,6 +188,100 @@ struct PanelStateMachineTests {
     #expect(machine.state == .secondaryVisible(context: .task(id: second)))
   }
 
+  @Test("Reminder click opens Main and target task idempotently")
+  func reminderClickOpensTargetTask() {
+    var machine = PanelStateMachine(timing: timing)
+    let taskID = UUID()
+
+    #expect(
+      machine.handle(.openFromReminder(.task(id: taskID))) == [
+        .cancel(timer: .activationDwell),
+        .cancel(timer: .secondaryDismissal),
+        .cancel(timer: .mainDismissal),
+        .showMain,
+        .showSecondary(.task(id: taskID)),
+      ])
+    #expect(machine.state == .secondaryVisible(context: .task(id: taskID)))
+    #expect(machine.handle(.mainDismissalElapsed).isEmpty)
+    #expect(machine.handle(.secondaryDismissalElapsed).isEmpty)
+  }
+
+  @Test("Reminder click supersedes a pending Main dismissal")
+  func reminderClickSupersedesPendingMainDismissal() {
+    var machine = activatedMachine()
+    let taskID = UUID()
+
+    _ = machine.handle(.pointerChanged(.main))
+    _ = machine.handle(.pointerChanged(.outside))
+    #expect(machine.state == .closingMain(previousContext: nil))
+    #expect(
+      machine.handle(.openFromReminder(.task(id: taskID))) == [
+        .cancel(timer: .activationDwell),
+        .cancel(timer: .secondaryDismissal),
+        .cancel(timer: .mainDismissal),
+        .showMain,
+        .showSecondary(.task(id: taskID)),
+      ])
+    #expect(machine.state == .secondaryVisible(context: .task(id: taskID)))
+    #expect(machine.handle(.mainDismissalElapsed).isEmpty)
+  }
+
+  @Test("Reminder scheduler keeps active timer across unrelated workspace edits")
+  func reminderSchedulerKeepsTimerForUnrelatedEdits() {
+    let now = Date(timeIntervalSince1970: 1_000)
+    let previous = ReminderScheduleState(
+      settings: .defaults,
+      activeTasks: [makeTask(title: "Original")]
+    )
+    let edited = ReminderScheduleState(
+      settings: .defaults,
+      activeTasks: [makeTask(title: "Edited title")]
+    )
+
+    #expect(
+      ReminderSchedulePolicy.action(
+        previous: previous,
+        current: edited,
+        timerIsActive: true,
+        now: now
+      ) == .keep
+    )
+  }
+
+  @Test("Reminder scheduler reschedules only for settings and eligibility changes")
+  func reminderSchedulerRescheduleBoundaries() {
+    let now = Date(timeIntervalSince1970: 1_000)
+    let active = ReminderScheduleState(
+      settings: .defaults,
+      activeTasks: [makeTask()]
+    )
+    var disabledSettings = ReminderSettings.defaults
+    disabledSettings.isEnabled = false
+    let disabled = ReminderScheduleState(
+      settings: disabledSettings,
+      activeTasks: [makeTask()]
+    )
+    let noEligible = ReminderScheduleState(
+      settings: .defaults,
+      activeTasks: [makeTask(excluded: true)]
+    )
+    let changedFrequency = ReminderScheduleState(
+      settings: ReminderSettings(
+        isEnabled: true,
+        frequency: .minutes30,
+        customInterval: ReminderSettings.defaultCustomInterval,
+        pausedUntil: nil
+      ),
+      activeTasks: [makeTask()]
+    )
+
+    #expect(ReminderSchedulePolicy.action(previous: nil, current: active, timerIsActive: false, now: now) == .schedule(after: 3600))
+    #expect(ReminderSchedulePolicy.action(previous: active, current: disabled, timerIsActive: true, now: now) == .cancel)
+    #expect(ReminderSchedulePolicy.action(previous: active, current: changedFrequency, timerIsActive: true, now: now) == .schedule(after: 1800))
+    #expect(ReminderSchedulePolicy.action(previous: noEligible, current: active, timerIsActive: false, now: now) == .schedule(after: 3600))
+    #expect(ReminderSchedulePolicy.action(previous: active, current: noEligible, timerIsActive: true, now: now) == .cancel)
+  }
+
   private func activatedMachine() -> PanelStateMachine {
     var machine = PanelStateMachine(timing: timing)
     _ = machine.handle(.pointerChanged(.activationEdge))
@@ -197,5 +291,28 @@ struct PanelStateMachineTests {
         .focusQuickNote,
       ])
     return machine
+  }
+
+  private func makeTask(
+    title: String = "Task",
+    excluded: Bool = false
+  ) -> MainTask {
+    MainTask(
+      id: UUID(),
+      reminderIdentifier: nil,
+      title: title,
+      effort: .one,
+      sortIndex: 0,
+      taskDescription: "",
+      textColor: nil,
+      highlightColor: nil,
+      isUnderlined: false,
+      remindersExcluded: excluded,
+      taskDescriptionAttributes: nil,
+      createdAt: Date(timeIntervalSince1970: 0),
+      updatedAt: Date(timeIntervalSince1970: 0),
+      completedAt: nil,
+      deletedAt: nil
+    )
   }
 }

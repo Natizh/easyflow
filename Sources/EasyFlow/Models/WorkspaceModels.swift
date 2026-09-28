@@ -40,6 +40,180 @@ struct ItemStyle: Equatable, Sendable {
   )
 }
 
+struct RichTextAttributes: Codable, Equatable, Sendable {
+  struct Run: Codable, Equatable, Sendable {
+    var location: Int
+    var length: Int
+    var bold: Bool
+    var italic: Bool
+    var underline: Bool
+    var highlightColor: StyleColor?
+
+    var isEmpty: Bool {
+      !bold && !italic && !underline && highlightColor == nil
+    }
+  }
+
+  var runs: [Run]
+
+  static let empty = RichTextAttributes(runs: [])
+
+  var isEmpty: Bool { runs.isEmpty }
+
+  init(runs: [Run] = []) {
+    self.runs = runs.filter { $0.length > 0 && !$0.isEmpty }
+  }
+
+  init?(json: String?) {
+    guard let json, let data = json.data(using: .utf8) else {
+      self = .empty
+      return
+    }
+    do {
+      self = try JSONDecoder().decode(Self.self, from: data)
+    } catch {
+      self = .empty
+    }
+  }
+
+  var jsonString: String? {
+    guard !runs.isEmpty,
+      let data = try? JSONEncoder().encode(self)
+    else { return nil }
+    return String(data: data, encoding: .utf8)
+  }
+}
+
+struct RichTextValue: Equatable, Sendable {
+  var text: String
+  var attributes: RichTextAttributes
+
+  static func plain(_ text: String) -> RichTextValue {
+    RichTextValue(text: text, attributes: .empty)
+  }
+}
+
+enum ReminderFrequency: Equatable, Sendable {
+  case minutes15
+  case minutes30
+  case hour1
+  case hours2
+  case hours3
+  case custom(TimeInterval)
+
+  var interval: TimeInterval {
+    switch self {
+    case .minutes15: 15 * 60
+    case .minutes30: 30 * 60
+    case .hour1: 60 * 60
+    case .hours2: 2 * 60 * 60
+    case .hours3: 3 * 60 * 60
+    case .custom(let interval): max(60, interval)
+    }
+  }
+}
+
+struct ReminderSettings: Equatable, Sendable {
+  var isEnabled: Bool
+  var frequency: ReminderFrequency
+  var customInterval: TimeInterval
+  var pausedUntil: Date?
+
+  static let defaultCustomInterval: TimeInterval = 60 * 60
+  static let defaults = ReminderSettings(
+    isEnabled: true,
+    frequency: .hour1,
+    customInterval: defaultCustomInterval,
+    pausedUntil: nil
+  )
+
+  var effectiveInterval: TimeInterval { frequency.interval }
+
+  func isPaused(at date: Date) -> Bool {
+    guard let pausedUntil else { return false }
+    return pausedUntil > date
+  }
+}
+
+enum ReminderPausePreset: CaseIterable, Equatable, Sendable {
+  case oneHour
+  case threeHours
+  case untilTomorrow
+
+  func pausedUntil(from date: Date, calendar: Calendar = .current) -> Date {
+    switch self {
+    case .oneHour:
+      return date.addingTimeInterval(60 * 60)
+    case .threeHours:
+      return date.addingTimeInterval(3 * 60 * 60)
+    case .untilTomorrow:
+      return calendar.startOfDay(for: date).addingTimeInterval(24 * 60 * 60 + 8 * 60 * 60)
+    }
+  }
+}
+
+enum ReminderEligibility {
+  static func firstEligibleTask(in tasks: [MainTask]) -> MainTask? {
+    tasks.first { !$0.remindersExcluded }
+  }
+}
+
+struct ReminderScheduleState: Equatable, Sendable {
+  var isEnabled: Bool
+  var interval: TimeInterval
+  var pausedUntil: Date?
+  var hasEligibleTasks: Bool
+
+  init(
+    settings: ReminderSettings,
+    activeTasks: [MainTask]
+  ) {
+    isEnabled = settings.isEnabled
+    interval = settings.effectiveInterval
+    pausedUntil = settings.pausedUntil
+    hasEligibleTasks = ReminderEligibility.firstEligibleTask(in: activeTasks) != nil
+  }
+
+  func isPaused(at date: Date) -> Bool {
+    guard let pausedUntil else { return false }
+    return pausedUntil > date
+  }
+}
+
+enum ReminderTimerAction: Equatable, Sendable {
+  case keep
+  case cancel
+  case schedule(after: TimeInterval)
+}
+
+enum ReminderSchedulePolicy {
+  static func action(
+    previous: ReminderScheduleState?,
+    current: ReminderScheduleState,
+    timerIsActive: Bool,
+    now: Date
+  ) -> ReminderTimerAction {
+    guard current.isEnabled else { return .cancel }
+
+    if current.isPaused(at: now) {
+      guard !timerIsActive || previous?.pausedUntil != current.pausedUntil
+      else { return .keep }
+      return .schedule(after: max(0, current.pausedUntil?.timeIntervalSince(now) ?? 0))
+    }
+
+    guard current.hasEligibleTasks else { return .cancel }
+    guard let previous else { return .schedule(after: current.interval) }
+    if !timerIsActive { return .schedule(after: current.interval) }
+    if !previous.isEnabled { return .schedule(after: current.interval) }
+    if previous.interval != current.interval { return .schedule(after: current.interval) }
+    if previous.pausedUntil != current.pausedUntil { return .schedule(after: current.interval) }
+    if !previous.hasEligibleTasks && current.hasEligibleTasks {
+      return .schedule(after: current.interval)
+    }
+    return .keep
+  }
+}
+
 enum StepNoteFieldPresentation {
   static let placeholder = ""
 }
@@ -58,6 +232,8 @@ struct MainTask: Codable, Equatable, Identifiable, Sendable,
   var textColor: StyleColor?
   var highlightColor: StyleColor?
   var isUnderlined: Bool
+  var remindersExcluded: Bool = false
+  var taskDescriptionAttributes: String? = nil
   var createdAt: Date
   var updatedAt: Date
   var completedAt: Date?
@@ -69,6 +245,10 @@ struct MainTask: Codable, Equatable, Identifiable, Sendable,
       highlightColor: highlightColor,
       isUnderlined: isUnderlined
     )
+  }
+
+  var descriptionRichTextAttributes: RichTextAttributes {
+    RichTextAttributes(json: taskDescriptionAttributes) ?? .empty
   }
 }
 
@@ -86,6 +266,8 @@ struct TaskStep: Codable, Equatable, Identifiable, Sendable,
   var textColor: StyleColor?
   var highlightColor: StyleColor?
   var isUnderlined: Bool
+  var titleAttributes: String? = nil
+  var notesAttributes: String? = nil
   var createdAt: Date
   var updatedAt: Date
   var deletedAt: Date?
@@ -97,6 +279,14 @@ struct TaskStep: Codable, Equatable, Identifiable, Sendable,
       isUnderlined: isUnderlined
     )
   }
+
+  var titleRichTextAttributes: RichTextAttributes {
+    RichTextAttributes(json: titleAttributes) ?? .empty
+  }
+
+  var notesRichTextAttributes: RichTextAttributes {
+    RichTextAttributes(json: notesAttributes) ?? .empty
+  }
 }
 
 struct WorkspaceNote: Codable, Equatable, Identifiable, Sendable,
@@ -107,6 +297,7 @@ struct WorkspaceNote: Codable, Equatable, Identifiable, Sendable,
   var id: UUID
   var title: String?
   var body: String
+  var bodyAttributes: String? = nil
   var mainTaskID: UUID?
   var sourceDraftRevision: UUID?
   var sortIndex: Int
@@ -133,6 +324,10 @@ struct WorkspaceNote: Codable, Equatable, Identifiable, Sendable,
       .joined(separator: " ")
   }
 
+  var bodyRichTextAttributes: RichTextAttributes {
+    RichTextAttributes(json: bodyAttributes) ?? .empty
+  }
+
   static func derivedTitle(from body: String) -> String {
     body
       .split(whereSeparator: { $0.isWhitespace })
@@ -150,7 +345,12 @@ struct QuickNoteDraft: Codable, Equatable, Sendable,
   var id: String = singletonID
   var revision: UUID
   var body: String
+  var bodyAttributes: String? = nil
   var updatedAt: Date
+
+  var bodyRichTextAttributes: RichTextAttributes {
+    RichTextAttributes(json: bodyAttributes) ?? .empty
+  }
 }
 
 struct WorkspaceSnapshot: Equatable, Sendable {
@@ -162,6 +362,7 @@ struct WorkspaceSnapshot: Equatable, Sendable {
   var draft: QuickNoteDraft?
   var attachmentsByNote: [UUID: [NoteAttachment]] = [:]
   var draftAttachments: [NoteAttachment] = []
+  var reminderSettings: ReminderSettings = .defaults
 
   static let empty = WorkspaceSnapshot(
     quickNotes: [],

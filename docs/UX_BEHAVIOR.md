@@ -149,6 +149,14 @@ For unrated imports, Task Detail displays `Set effort` and four immediate button
 
 `Recently Completed` renders at most five tasks, ordered by completion time descending with stable UUID tie ordering. This presentation limit does not purge history.
 
+## Internal reminder banner
+
+EasyFlow reminder banners are internal transient overlays, not macOS notifications. When enabled, the app schedules one reminder timer at a time from the current workspace snapshot. The chosen task is the first active Main Task in EasyFlow order whose reminder exclusion flag is false; if all active tasks are excluded, no banner appears.
+
+The banner appears near the top of the selected panel side, remains compact, truncates long task titles to one line, does not steal keyboard focus while appearing, and auto-dismisses after about 6 seconds. Clicking it activates EasyFlow, opens Main and the task Secondary context, and ignores the click if the referenced task is no longer active.
+
+Settings exposes global enable/disable, preset intervals, custom interval, and temporary pause. Pause survives relaunch through a paused-until timestamp and resumes automatically after that timestamp.
+
 Task Description uses a native measured text view: 42 points when empty/short, content-driven growth and shrinkage, and a 156-point cap with internal scrolling beyond it.
 
 ## Appearance and accessibility
@@ -171,7 +179,7 @@ Use these repeatable manual checks for window-server behavior:
 
 ## Image notes and Settings (v1.2)
 
-Command-X/C/V/A, native selection, word selection, and contextual editing are available throughout editable workspace text. Paste into Quick Note capture or a persisted Quick/Attached Note body uses native image representations when present; ordinary text paste stays native. Multiple images appear once as ordered, rounded aspect-fit thumbnails below text. Image-only captures use the same Return/focus-loss/relaunch behavior. Failed imports retain the capture for retry; capture cannot be silently discarded during orderly quit.
+Command-X/C/V/A, native selection, word selection, and contextual editing are available throughout editable workspace text. Multiline editors also support Command-B, Command-I, Command-U, and Control-Command-H for bold, italic, underline, and text-marker highlight. With no selection, formatting affects subsequently typed text. Highlight follows selected glyph ranges line-by-line with subtle rounded marker geometry rather than a paragraph-sized block. Paste into Quick Note capture or a persisted Quick/Attached Note body uses native image representations when present; ordinary text paste stays native. Multiple images appear once as ordered, rounded aspect-fit thumbnails below text. Image-only captures use the same Return/focus-loss/relaunch behavior. Failed imports retain the capture for retry; capture cannot be silently discarded during orderly quit.
 
 A thumbnail opens a centered, screen-bounded native image preview. Escape, Command-W, and its close button close it. Settings opens in its own centered native panel and shows the running version/build. Both temporarily hold the coordinated surface open. Panel Side applies immediately, preserving context and draft while mirroring activation, Main/Secondary placement, animation, bridge regions, and traversal direction.
 
