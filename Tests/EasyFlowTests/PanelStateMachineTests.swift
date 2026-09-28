@@ -188,6 +188,24 @@ struct PanelStateMachineTests {
     #expect(machine.state == .secondaryVisible(context: .task(id: second)))
   }
 
+  @Test("Reminder click opens Main and target task idempotently")
+  func reminderClickOpensTargetTask() {
+    var machine = PanelStateMachine(timing: timing)
+    let taskID = UUID()
+
+    #expect(
+      machine.handle(.openFromReminder(.task(id: taskID))) == [
+        .cancel(timer: .activationDwell),
+        .cancel(timer: .secondaryDismissal),
+        .cancel(timer: .mainDismissal),
+        .showMain,
+        .showSecondary(.task(id: taskID)),
+      ])
+    #expect(machine.state == .secondaryVisible(context: .task(id: taskID)))
+    #expect(machine.handle(.mainDismissalElapsed).isEmpty)
+    #expect(machine.handle(.secondaryDismissalElapsed).isEmpty)
+  }
+
   private func activatedMachine() -> PanelStateMachine {
     var machine = PanelStateMachine(timing: timing)
     _ = machine.handle(.pointerChanged(.activationEdge))

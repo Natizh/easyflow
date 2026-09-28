@@ -123,7 +123,13 @@ private struct NoteCard: View {
             .help("Attach to Main Task")
         }
       }
-      PersistedTextEditor(value: note.body, minimumHeight: 58, onPasteImages: { model.pasteImages($0, into: note.id) }) {
+      PersistedTextEditor(
+        value: note.body,
+        minimumHeight: 58,
+        onPasteImages: { model.pasteImages($0, into: note.id) },
+        attributes: note.bodyRichTextAttributes,
+        onSaveRichText: { model.updateNoteBody(id: note.id, value: $0) }
+      ) {
         model.updateNoteBody(id: note.id, body: $0)
       }
       NoteAttachmentsView(attachments: model.snapshot.attachmentsByNote[note.id] ?? [], model: model)
@@ -228,7 +234,11 @@ private struct TaskDetailView: View {
           }
         }
         section("Description") {
-          AdaptiveDescriptionEditor(value: task.taskDescription) {
+          AdaptiveDescriptionEditor(
+            value: task.taskDescription,
+            attributes: task.descriptionRichTextAttributes,
+            onSaveRichText: { model.updateMainTaskDescription(id: task.id, value: $0) }
+          ) {
             model.updateMainTask(id: task.id, description: $0)
           }
         }
@@ -314,14 +324,18 @@ private struct StepRow: View {
         }
         .buttonStyle(.plain)
         .background { StepExclusionReporter(stepID: step.id) }
-        PersistedTextField(title: "Step", value: step.title) {
+        PersistedTextEditor(
+          value: step.title,
+          minimumHeight: 24,
+          maximumHeight: 96,
+          label: "Step",
+          attributes: step.titleRichTextAttributes,
+          onSaveRichText: { model.updateStepTitle(id: step.id, value: $0) }
+        ) {
           model.updateStep(id: step.id, title: $0)
         }
         .background { StepExclusionReporter(stepID: step.id) }
-        .textFieldStyle(.plain)
         .foregroundStyle(step.style.textColor?.color ?? .primary)
-        .padding(.horizontal, step.style.highlightColor == nil ? 0 : 3)
-        .background(step.style.highlightColor?.color.opacity(0.25))
         .overlay(alignment: .bottom) {
           if step.style.isUnderlined {
             Rectangle()
@@ -333,12 +347,19 @@ private struct StepRow: View {
           AppearanceMenu(style: step.style) { model.updateStep(id: step.id, style: $0) }
           Divider()
           Button("Delete", role: .destructive) { model.deleteStep(step.id) }
-        } label: { Image(systemName: "ellipsis") }
+        } label: { Image(systemName: "chevron.down.circle") }
         .menuStyle(.borderlessButton).frame(width: 20)
         .background { StepExclusionReporter(stepID: step.id) }
         .accessibilityLabel("Step actions")
       }
-      PersistedTextEditor(value: step.notes, minimumHeight: 28, maximumHeight: .greatestFiniteMagnitude, label: "Step notes") {
+      PersistedTextEditor(
+        value: step.notes,
+        minimumHeight: 28,
+        maximumHeight: .greatestFiniteMagnitude,
+        label: "Step notes",
+        attributes: step.notesRichTextAttributes,
+        onSaveRichText: { model.updateStepNotes(id: step.id, value: $0) }
+      ) {
         model.updateStep(id: step.id, notes: $0)
       }
       .font(.caption)

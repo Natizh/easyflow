@@ -105,6 +105,105 @@ struct WorkspaceRepositoryTests {
     #expect(snapshot.activeTasks.map(\.sortIndex) == [0, 1])
   }
 
+  @Test("Reminder eligibility follows task order and skips excluded tasks")
+  func reminderEligibility() async throws {
+    let repository = try makeRepository()
+    let first = try await repository.createMainTask(title: "First", effort: .one)
+    let second = try await repository.createMainTask(title: "Second", effort: .two)
+    let third = try await repository.createMainTask(title: "Third", effort: .three)
+
+    #expect(try await repository.firstReminderEligibleMainTask()?.id == first.id)
+    try await repository.setMainTaskReminderExcluded(id: first.id, excluded: true)
+    #expect(try await repository.firstReminderEligibleMainTask()?.id == second.id)
+    try await repository.reorderMainTasks(ids: [third.id, first.id, second.id])
+    #expect(try await repository.firstReminderEligibleMainTask()?.id == third.id)
+    try await repository.setMainTaskReminderExcluded(id: third.id, excluded: true)
+    try await repository.setMainTaskReminderExcluded(id: second.id, excluded: true)
+    #expect(try await repository.firstReminderEligibleMainTask() == nil)
+  }
+
+  @Test("Reminder settings default, persist, and restore pause state")
+  func reminderSettingsPersistence() async throws {
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(
+      at: directory,
+      withIntermediateDirectories: true
+    )
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let path = directory.appendingPathComponent("workspace.sqlite").path
+    let pausedUntil = Date(timeIntervalSince1970: 2_000)
+
+    do {
+      let repository = WorkspaceRepository(database: try AppDatabase(path: path))
+      #expect(try await repository.snapshot().reminderSettings == .defaults)
+      try await repository.storeReminderSettings(
+        ReminderSettings(
+          isEnabled: false,
+          frequency: .custom(42 * 60),
+          customInterval: 42 * 60,
+          pausedUntil: pausedUntil
+        )
+      )
+    }
+
+    let reopened = WorkspaceRepository(database: try AppDatabase(path: path))
+    let settings = try await reopened.snapshot().reminderSettings
+    #expect(!settings.isEnabled)
+    #expect(settings.frequency == .custom(42 * 60))
+    #expect(settings.customInterval == 42 * 60)
+    #expect(settings.pausedUntil == pausedUntil)
+  }
+
+  @Test("Rich text sidecars persist beside plain text")
+  func richTextSidecarPersistence() async throws {
+    let repository = try makeRepository()
+    let task = try await repository.createMainTask(title: "Task", effort: .one)
+    let step = try await repository.createStep(mainTaskID: task.id, title: "Step")
+    let note = try #require(
+      try await repository.commitDraft(
+        body: "Note body",
+        attributes: RichTextAttributes(runs: [
+          .init(location: 0, length: 4, bold: true, italic: false, underline: false, highlightColor: .yellow)
+        ]),
+        revision: UUID()
+      )
+    )
+
+    let descriptionAttributes = RichTextAttributes(runs: [
+      .init(location: 0, length: 4, bold: false, italic: true, underline: false, highlightColor: nil)
+    ])
+    let stepAttributes = RichTextAttributes(runs: [
+      .init(location: 0, length: 4, bold: false, italic: false, underline: true, highlightColor: .green)
+    ])
+    try await repository.updateMainTask(
+      id: task.id,
+      description: "Plan",
+      descriptionAttributes: descriptionAttributes
+    )
+    try await repository.updateStep(
+      id: step.id,
+      title: "Step",
+      titleAttributes: stepAttributes,
+      notes: "Notes",
+      notesAttributes: stepAttributes
+    )
+    try await repository.updateNoteBody(
+      id: note.id,
+      body: "Note body",
+      attributes: stepAttributes
+    )
+
+    let snapshot = try await repository.snapshot()
+    #expect(snapshot.activeTasks[0].taskDescription == "Plan")
+    #expect(snapshot.activeTasks[0].descriptionRichTextAttributes == descriptionAttributes)
+    let savedStep = try #require(snapshot.stepsByTask[task.id]?.first)
+    #expect(savedStep.titleRichTextAttributes == stepAttributes)
+    #expect(savedStep.notesRichTextAttributes == stepAttributes)
+    #expect(snapshot.quickNotes[0].body == "Note body")
+    #expect(snapshot.quickNotes[0].bodyRichTextAttributes == stepAttributes)
+  }
+
   @Test("Steps support CRUD, reorder, notes, style, and in-place completion")
   func stepLifecycle() async throws {
     let repository = try makeRepository()

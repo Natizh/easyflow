@@ -3,6 +3,7 @@ import SwiftUI
 
 struct QuickNoteCaptureEditor: NSViewRepresentable {
   @Binding var text: String
+  @Binding var attributes: RichTextAttributes
   let focusRequestID: Int
   let onCommit: () -> Void
   let onFocusLost: () -> Void
@@ -19,9 +20,15 @@ struct QuickNoteCaptureEditor: NSViewRepresentable {
     scrollView.hasVerticalScroller = true
     scrollView.autohidesScrollers = true
 
-    let textView = QuickNoteCaptureTextView()
+    let storage = EasyFlowRichText.textStorage()
+    let textView = QuickNoteCaptureTextView(
+      frame: .zero,
+      textContainer: storage.layoutManagers.first?.textContainers.first
+    )
     textView.delegate = context.coordinator
-    textView.string = text
+    textView.textStorage?.setAttributedString(
+      EasyFlowRichText.attributedString(text: text, attributes: attributes)
+    )
     textView.onCommit = onCommit
     textView.onPasteImages = onPasteImages
     textView.configureForEasyFlowCapture()
@@ -35,8 +42,13 @@ struct QuickNoteCaptureEditor: NSViewRepresentable {
     guard let textView = scrollView.documentView as? QuickNoteCaptureTextView else { return }
     textView.onCommit = onCommit
     textView.onPasteImages = onPasteImages
-    if textView.string != text {
-      textView.string = text
+    if textView.window?.firstResponder !== textView,
+      textView.string != text
+        || EasyFlowRichText.sidecar(from: textView.attributedString()) != attributes
+    {
+      textView.textStorage?.setAttributedString(
+        EasyFlowRichText.attributedString(text: text, attributes: attributes)
+      )
     }
     if context.coordinator.lastFocusRequestID != focusRequestID {
       context.coordinator.lastFocusRequestID = focusRequestID
@@ -59,6 +71,7 @@ struct QuickNoteCaptureEditor: NSViewRepresentable {
 
     func textDidChange(_ notification: Notification) {
       guard let textView else { return }
+      parent.attributes = EasyFlowRichText.sidecar(from: textView.attributedString())
       parent.text = textView.string
     }
 
@@ -89,7 +102,7 @@ final class QuickNoteCaptureTextView: NoteImageTextView {
     textColor = .labelColor
     insertionPointColor = .controlAccentColor
     drawsBackground = false
-    isRichText = false
+    isRichText = true
     importsGraphics = false
     allowsUndo = true
     isAutomaticQuoteSubstitutionEnabled = true

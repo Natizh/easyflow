@@ -32,30 +32,38 @@ struct PersistedTextField: View {
 
 struct PersistedTextEditor: View {
   let value: String
+  let attributes: RichTextAttributes
   var minimumHeight: CGFloat = 58
   var maximumHeight: CGFloat = 180
   var label = "Note body"
   var onPasteImages: (([Data]) -> Void)? = nil
   let onSave: (String) -> Void
+  var onSaveRichText: ((RichTextValue) -> Void)? = nil
   @State private var text: String
   @State private var height: CGFloat = 58
 
   init(value: String, minimumHeight: CGFloat = 58, maximumHeight: CGFloat = 180,
     label: String = "Note body", onPasteImages: (([Data]) -> Void)? = nil,
+    attributes: RichTextAttributes = .empty,
+    onSaveRichText: ((RichTextValue) -> Void)? = nil,
     onSave: @escaping (String) -> Void) {
     self.value = value
+    self.attributes = attributes
     self.minimumHeight = minimumHeight
     self.maximumHeight = maximumHeight
     self.label = label
     self.onPasteImages = onPasteImages
+    self.onSaveRichText = onSaveRichText
     self.onSave = onSave
     _text = State(initialValue: value)
   }
 
   var body: some View {
     AdaptiveTextEditor(text: $text, height: $height,
+      attributes: attributes,
       minimumHeight: minimumHeight, maximumHeight: maximumHeight,
-      onSave: onSave, label: label, onPasteImages: onPasteImages)
+      onSave: onSave, onSaveRichText: onSaveRichText,
+      label: label, onPasteImages: onPasteImages)
       .frame(height: max(minimumHeight, height))
       .background(.quaternary.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
       .onChange(of: value) { _, newValue in text = newValue }

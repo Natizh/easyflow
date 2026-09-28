@@ -164,7 +164,9 @@ An imported task's Task Detail shows an obvious `Set effort` control with `1...4
 
 ## Settings, permissions, and appearance
 
-The Main Panel gear opens a dedicated centered native Settings panel with the running bundle version/build, immediate Left/Right Panel Side selection, and real controls for Standard/Frosted/Liquid Glass appearance, Compact/Comfortable Main Task row density, native Launch at Login, and Reminders connection/recovery. Current activation and panel geometry are shown as factual information.
+EasyFlow has an internal lightweight reminder banner for Main Tasks. It is not a macOS notification and does not use Notification Center. When enabled, EasyFlow periodically chooses the first active Main Task in EasyFlow order that has not been excluded from reminders, then displays a compact transient banner near the top of the selected panel side. Clicking the banner opens EasyFlow directly to that task. Reminder settings default to enabled with a 1-hour interval, can be disabled globally, can be temporarily paused, and can exclude/include individual Main Tasks.
+
+The Main Panel gear opens a dedicated centered native Settings panel with the running bundle version/build, immediate Left/Right Panel Side selection, reminder enable/frequency/pause controls, and real controls for Standard/Frosted/Liquid Glass appearance, Compact/Comfortable Main Task row density, native Launch at Login, and Reminders connection/recovery. Current activation and panel geometry are shown as factual information.
 
 EasyFlow can register as a login item through `SMAppService`, and Settings reflects whether macOS enabled it or requires approval. First run handles Reminders authorization and finding or creating the EasyFlow list. Authorization states include not determined, authorized, denied/restricted, and unavailable/error. Permission is not repeatedly requested once decided, and the local workspace remains available when Reminders access is denied.
 
@@ -183,7 +185,7 @@ Standard and Frosted appearances work on the minimum deployment target, macOS 14
 
 ## Explicit v1 exclusions
 
-V1 excludes Notion sync, custom backend/server/webhooks, accounts, collaboration, iPhone/iPad apps, tags, categories, project hierarchies, complex grouping, due dates, calendar integration, recurring tasks, dependencies, nested Steps, percentage completion, EasyFlow notifications, global shortcuts, embedded AI, telemetry, analytics, advertising, social features, reporting, Kanban, and team features.
+V1 excludes Notion sync, custom backend/server/webhooks, accounts, collaboration, iPhone/iPad apps, tags, categories, project hierarchies, complex grouping, due dates, calendar integration, recurring tasks, dependencies, nested Steps, percentage completion, native macOS notifications, global shortcuts, embedded AI, telemetry, analytics, advertising, social features, reporting, Kanban, and team features.
 
 ## Definition of Done
 

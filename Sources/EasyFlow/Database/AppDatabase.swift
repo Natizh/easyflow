@@ -253,6 +253,22 @@ final class AppDatabase: @unchecked Sendable {
         END
         """)
     }
+    migrator.registerMigration("v5-internal-reminders-rich-text") { database in
+      try database.alter(table: MainTask.databaseTableName) { table in
+        table.add(column: "remindersExcluded", .boolean).notNull().defaults(to: false)
+        table.add(column: "taskDescriptionAttributes", .text)
+      }
+      try database.alter(table: TaskStep.databaseTableName) { table in
+        table.add(column: "titleAttributes", .text)
+        table.add(column: "notesAttributes", .text)
+      }
+      try database.alter(table: WorkspaceNote.databaseTableName) { table in
+        table.add(column: "bodyAttributes", .text)
+      }
+      try database.alter(table: QuickNoteDraft.databaseTableName) { table in
+        table.add(column: "bodyAttributes", .text)
+      }
+    }
     return migrator
   }
 }

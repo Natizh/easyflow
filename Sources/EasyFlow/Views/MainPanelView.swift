@@ -49,6 +49,10 @@ struct MainPanelView: View {
           get: { model.quickNoteDraft },
           set: { model.setQuickNoteDraft($0) }
         ),
+        attributes: Binding(
+          get: { model.quickNoteDraftAttributes },
+          set: { model.quickNoteDraftAttributes = $0 }
+        ),
         focusRequestID: model.focusRequestID,
         onCommit: model.commitQuickNoteIfNeeded,
         onFocusLost: model.commitQuickNoteOnFocusLoss,
@@ -316,6 +320,9 @@ private struct MainTaskRow: View {
     }
     .contextMenu {
       AppearanceMenu(style: task.style) { model.updateMainTask(id: task.id, style: $0) }
+      Button(task.remindersExcluded ? "Include in notifications" : "Exclude from notifications") {
+        model.setMainTaskReminderExcluded(task.id, excluded: !task.remindersExcluded)
+      }
       Divider()
       Button("Delete", role: .destructive) { model.deleteMainTask(task.id) }
     }

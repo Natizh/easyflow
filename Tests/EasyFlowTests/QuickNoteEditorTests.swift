@@ -16,7 +16,7 @@ struct QuickNoteEditorTests {
     #expect(textView.textContainer?.lineFragmentPadding == 0)
     #expect(textView.textContainer?.widthTracksTextView == true)
     #expect(!textView.drawsBackground)
-    #expect(!textView.isRichText)
+    #expect(textView.isRichText)
     #expect(textView.isVerticallyResizable)
     #expect(!textView.isHorizontallyResizable)
   }
