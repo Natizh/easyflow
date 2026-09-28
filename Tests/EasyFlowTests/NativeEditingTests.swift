@@ -112,6 +112,42 @@ struct NativeEditingTests {
     #expect(EasyFlowRichText.sidecar(from: attributed) == attributes)
   }
 
+  @Test("Legacy Step highlight renders as marker and stays out of sidecar saves")
+  func legacyStepHighlightPresentation() throws {
+    let base = RichTextAttributes(runs: [
+      .init(location: 0, length: 4, bold: true, italic: false, underline: false, highlightColor: nil)
+    ])
+    let presentation = EasyFlowRichText.presentationAttributes(
+      text: "Step",
+      attributes: base,
+      legacyHighlight: .green
+    )
+    let attributed = EasyFlowRichText.attributedString(
+      text: "Step",
+      attributes: presentation
+    )
+    let rendered = try #require(EasyFlowRichText.sidecar(from: attributed).runs.first)
+    #expect(rendered.bold)
+    #expect(rendered.highlightColor == .green)
+
+    let stored = EasyFlowRichText.storageAttributes(
+      EasyFlowRichText.sidecar(from: attributed),
+      text: "Step",
+      removingLegacyHighlight: .green
+    )
+    #expect(stored == base)
+
+    let partialHighlight = RichTextAttributes(runs: [
+      .init(location: 1, length: 2, bold: false, italic: false, underline: false, highlightColor: .green)
+    ])
+    let storedPartial = EasyFlowRichText.storageAttributes(
+      partialHighlight,
+      text: "Step",
+      removingLegacyHighlight: .green
+    )
+    #expect(storedPartial == partialHighlight)
+  }
+
   @Test("Measured native text wraps long paragraphs and unbroken titles")
   func wrapping() throws {
     let editor = MeasuredNoteTextView(frame: CGRect(x: 0, y: 0, width: 180, height: 30))

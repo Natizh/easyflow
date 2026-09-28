@@ -329,8 +329,20 @@ private struct StepRow: View {
           minimumHeight: 24,
           maximumHeight: 96,
           label: "Step",
-          attributes: step.titleRichTextAttributes,
-          onSaveRichText: { model.updateStepTitle(id: step.id, value: $0) }
+          attributes: titlePresentationAttributes,
+          onSaveRichText: { value in
+            model.updateStepTitle(
+              id: step.id,
+              value: RichTextValue(
+                text: value.text,
+                attributes: EasyFlowRichText.storageAttributes(
+                  value.attributes,
+                  text: value.text,
+                  removingLegacyHighlight: step.style.highlightColor
+                )
+              )
+            )
+          }
         ) {
           model.updateStep(id: step.id, title: $0)
         }
@@ -387,6 +399,14 @@ private struct StepRow: View {
       }
     }
 
+  }
+
+  private var titlePresentationAttributes: RichTextAttributes {
+    EasyFlowRichText.presentationAttributes(
+      text: step.title,
+      attributes: step.titleRichTextAttributes,
+      legacyHighlight: step.style.highlightColor
+    )
   }
 }
 

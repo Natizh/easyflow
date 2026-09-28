@@ -198,7 +198,7 @@ final class PanelPresentationCoordinator {
 
   func showMain(layout: PanelLayout) {
     mainGeneration += 1
-    cancelAnimations(for: mainPanel)
+    prepareForSupersedingAnimation(on: mainPanel)
     capturePreviousApplicationIfNeeded()
     currentLayout = layout
     activationPanel.setFrame(layout.activationFrame, display: true)
@@ -226,7 +226,7 @@ final class PanelPresentationCoordinator {
 
   func showSecondary(context: SecondaryPanelContext, layout: PanelLayout) {
     secondaryGeneration += 1
-    cancelAnimations(for: secondaryPanel)
+    prepareForSupersedingAnimation(on: secondaryPanel)
     let generation = secondaryGeneration
     viewModel.secondaryContext = context
     currentLayout = layout
@@ -267,7 +267,7 @@ final class PanelPresentationCoordinator {
 
   func hideSecondary() {
     secondaryGeneration += 1
-    cancelAnimations(for: secondaryPanel)
+    prepareForSupersedingAnimation(on: secondaryPanel)
     let generation = secondaryGeneration
     NotificationCenter.default.post(name: .easyFlowFlushEditors, object: nil)
     guard secondaryPanel.isVisible, let currentLayout else {
@@ -290,8 +290,8 @@ final class PanelPresentationCoordinator {
   func hideAll(restoreFocus: Bool) {
     mainGeneration += 1
     secondaryGeneration += 1
-    cancelAnimations(for: mainPanel)
-    cancelAnimations(for: secondaryPanel)
+    prepareForSupersedingAnimation(on: mainPanel)
+    prepareForSupersedingAnimation(on: secondaryPanel)
     let generation = mainGeneration
     NotificationCenter.default.post(name: .easyFlowFlushEditors, object: nil)
     viewModel.commitQuickNoteOnFocusLoss()
@@ -339,7 +339,7 @@ final class PanelPresentationCoordinator {
     reminderBannerDismissTask?.cancel()
     reminderBannerDismissTask = nil
     reminderBannerTaskID = nil
-    cancelAnimations(for: reminderBannerPanel)
+    prepareForSupersedingAnimation(on: reminderBannerPanel)
     guard reminderBannerPanel.isVisible else { return }
     animate(duration: 0.14) {
       self.reminderBannerPanel.animator().alphaValue = 0
@@ -442,8 +442,11 @@ final class PanelPresentationCoordinator {
     }
   }
 
-  private func cancelAnimations(for window: NSWindow) {
-    window.animations.removeAll()
+  private func prepareForSupersedingAnimation(on window: NSWindow) {
+    // NSWindow animator() does not expose a reliable public cancellation hook.
+    // Presentation generations are the correctness guard for stale completions;
+    // this only clears hosted-view layer animations before the next explicit
+    // frame/alpha write starts a superseding transition.
     window.contentView?.layer?.removeAllAnimations()
   }
 

@@ -107,7 +107,7 @@ Window motion uses centralized AppKit frame/opacity hooks: Main opens in 0.22 se
 
 Database observations notify only the affected feature state. Writes occur off the UI-critical path with clear transaction boundaries. Production databases are never wiped to resolve migration errors.
 
-Internal reminder scheduling is snapshot-driven in the app shell: there is at most one reminder timer, settings changes and task reorders reschedule it, and temporary pause is restored from local persistence. The scheduler asks the panel coordinator to present or dismiss the banner; it does not use Notification Center.
+Internal reminder scheduling is snapshot-driven in the app shell: there is at most one reminder timer, settings, pause, startup, timer-fire, and zero-to-eligible transitions can reschedule it, and ordinary workspace snapshots only replace the task data used when the current timer fires. Temporary pause is restored from local persistence. The scheduler asks the panel coordinator to present or dismiss the banner; it does not use Notification Center.
 
 See `docs/DATA_MODEL.md`.
 

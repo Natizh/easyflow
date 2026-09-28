@@ -12,6 +12,7 @@ final class AppShellCoordinator {
   private var lastPointerRegion: PointerRegion?
   private var settingsIsPresented = false
   private var latestSnapshot = WorkspaceSnapshot.empty
+  private var reminderScheduleState: ReminderScheduleState?
 
   init(
     repository: WorkspaceRepository,
@@ -55,7 +56,7 @@ final class AppShellCoordinator {
     panelPresenter.onWorkspaceSnapshotChanged = { [weak self] snapshot in
       guard let self else { return }
       self.latestSnapshot = snapshot
-      self.scheduleNextReminder(from: snapshot)
+      self.updateReminderSchedule(from: snapshot)
     }
 
     panelPresenter.onReminderBannerClicked = { [weak self] taskID in
@@ -68,7 +69,6 @@ final class AppShellCoordinator {
       self.stateMachine = PanelStateMachine(timing: self.stateMachine.timing,
         preserving: self.stateMachine.state, auxiliaryIsPresented: self.settingsIsPresented)
       self.screenConfigurationChanged()
-      self.scheduleNextReminder(from: self.latestSnapshot)
     }
     panelPresenter.onPointerMoved = { [weak self] point in
       self?.pointerMoved(to: point)
@@ -97,6 +97,7 @@ final class AppShellCoordinator {
     timerTasks.removeAll()
     reminderTimerTask?.cancel()
     reminderTimerTask = nil
+    reminderScheduleState = nil
     panelPresenter.stop()
   }
 
@@ -178,28 +179,38 @@ final class AppShellCoordinator {
     }
   }
 
-  private func scheduleNextReminder(from snapshot: WorkspaceSnapshot) {
+  private func updateReminderSchedule(from snapshot: WorkspaceSnapshot) {
+    let now = Date()
+    let current = ReminderScheduleState(
+      settings: snapshot.reminderSettings,
+      activeTasks: snapshot.activeTasks
+    )
+    let action = ReminderSchedulePolicy.action(
+      previous: reminderScheduleState,
+      current: current,
+      timerIsActive: reminderTimerTask != nil,
+      now: now
+    )
+    reminderScheduleState = current
+    executeReminderTimerAction(action)
+  }
+
+  private func executeReminderTimerAction(_ action: ReminderTimerAction) {
+    switch action {
+    case .keep:
+      return
+    case .cancel:
+      reminderTimerTask?.cancel()
+      reminderTimerTask = nil
+      panelPresenter.hideReminderBanner()
+    case .schedule(let delay):
+      scheduleReminderTimer(after: delay)
+    }
+  }
+
+  private func scheduleReminderTimer(after delay: TimeInterval) {
     reminderTimerTask?.cancel()
     reminderTimerTask = nil
-    guard snapshot.reminderSettings.isEnabled else {
-      panelPresenter.hideReminderBanner()
-      return
-    }
-    let now = Date()
-    let delay: TimeInterval
-    if let pausedUntil = snapshot.reminderSettings.pausedUntil,
-      pausedUntil > now
-    {
-      panelPresenter.hideReminderBanner()
-      delay = pausedUntil.timeIntervalSince(now)
-    } else {
-      guard ReminderEligibility.firstEligibleTask(in: snapshot.activeTasks) != nil
-      else {
-        panelPresenter.hideReminderBanner()
-        return
-      }
-      delay = snapshot.reminderSettings.effectiveInterval
-    }
     reminderTimerTask = Task { @MainActor [weak self] in
       do {
         try await Task.sleep(nanoseconds: UInt64(max(0, delay) * 1_000_000_000))
@@ -216,11 +227,11 @@ final class AppShellCoordinator {
       let task = ReminderEligibility.firstEligibleTask(in: snapshot.activeTasks),
       let layout
     else {
-      scheduleNextReminder(from: snapshot)
+      updateReminderSchedule(from: snapshot)
       return
     }
     panelPresenter.showReminderBanner(task: task, layout: layout)
-    scheduleNextReminder(from: snapshot)
+    updateReminderSchedule(from: snapshot)
   }
 
   private func openTaskFromReminder(_ taskID: UUID) {

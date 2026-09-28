@@ -7,6 +7,48 @@ extension NSAttributedString.Key {
 enum EasyFlowRichText {
   static let highlightColor: StyleColor = .yellow
 
+  static func presentationAttributes(
+    text: String,
+    attributes: RichTextAttributes,
+    legacyHighlight: StyleColor?
+  ) -> RichTextAttributes {
+    guard let legacyHighlight else { return attributes }
+    let length = (text as NSString).length
+    guard length > 0 else { return attributes }
+    var runs = attributes.runs
+    runs.append(
+      RichTextAttributes.Run(
+        location: 0,
+        length: length,
+        bold: false,
+        italic: false,
+        underline: false,
+        highlightColor: legacyHighlight
+      )
+    )
+    return RichTextAttributes(runs: runs)
+  }
+
+  static func storageAttributes(
+    _ attributes: RichTextAttributes,
+    text: String,
+    removingLegacyHighlight legacyHighlight: StyleColor?
+  ) -> RichTextAttributes {
+    guard let legacyHighlight else { return attributes }
+    let fullLength = (text as NSString).length
+    return RichTextAttributes(
+      runs: attributes.runs.compactMap { run in
+        guard run.highlightColor == legacyHighlight,
+          run.location == 0,
+          run.length == fullLength
+        else { return run }
+        var stripped = run
+        stripped.highlightColor = nil
+        return stripped.isEmpty ? nil : stripped
+      }
+    )
+  }
+
   static func textStorage() -> NSTextStorage {
     let storage = NSTextStorage()
     let manager = MarkerHighlightLayoutManager()
@@ -39,14 +81,16 @@ enum EasyFlowRichText {
     for run in attributes.runs {
       let range = NSRange(location: run.location, length: run.length)
       guard NSMaxRange(range) <= fullRange.length else { continue }
-      var font = baseFont
-      if run.bold {
-        font = NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask)
+      if run.bold || run.italic {
+        var font = baseFont
+        if run.bold {
+          font = NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask)
+        }
+        if run.italic {
+          font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)
+        }
+        result.addAttribute(.font, value: font, range: range)
       }
-      if run.italic {
-        font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)
-      }
-      result.addAttribute(.font, value: font, range: range)
       if run.underline {
         result.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: range)
       }

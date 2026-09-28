@@ -158,6 +158,62 @@ enum ReminderEligibility {
   }
 }
 
+struct ReminderScheduleState: Equatable, Sendable {
+  var isEnabled: Bool
+  var interval: TimeInterval
+  var pausedUntil: Date?
+  var hasEligibleTasks: Bool
+
+  init(
+    settings: ReminderSettings,
+    activeTasks: [MainTask]
+  ) {
+    isEnabled = settings.isEnabled
+    interval = settings.effectiveInterval
+    pausedUntil = settings.pausedUntil
+    hasEligibleTasks = ReminderEligibility.firstEligibleTask(in: activeTasks) != nil
+  }
+
+  func isPaused(at date: Date) -> Bool {
+    guard let pausedUntil else { return false }
+    return pausedUntil > date
+  }
+}
+
+enum ReminderTimerAction: Equatable, Sendable {
+  case keep
+  case cancel
+  case schedule(after: TimeInterval)
+}
+
+enum ReminderSchedulePolicy {
+  static func action(
+    previous: ReminderScheduleState?,
+    current: ReminderScheduleState,
+    timerIsActive: Bool,
+    now: Date
+  ) -> ReminderTimerAction {
+    guard current.isEnabled else { return .cancel }
+
+    if current.isPaused(at: now) {
+      guard !timerIsActive || previous?.pausedUntil != current.pausedUntil
+      else { return .keep }
+      return .schedule(after: max(0, current.pausedUntil?.timeIntervalSince(now) ?? 0))
+    }
+
+    guard current.hasEligibleTasks else { return .cancel }
+    guard let previous else { return .schedule(after: current.interval) }
+    if !timerIsActive { return .schedule(after: current.interval) }
+    if !previous.isEnabled { return .schedule(after: current.interval) }
+    if previous.interval != current.interval { return .schedule(after: current.interval) }
+    if previous.pausedUntil != current.pausedUntil { return .schedule(after: current.interval) }
+    if !previous.hasEligibleTasks && current.hasEligibleTasks {
+      return .schedule(after: current.interval)
+    }
+    return .keep
+  }
+}
+
 enum StepNoteFieldPresentation {
   static let placeholder = ""
 }
