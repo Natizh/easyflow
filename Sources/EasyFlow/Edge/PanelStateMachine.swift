@@ -58,8 +58,15 @@ enum PanelInteractionState: Equatable, Sendable {
   }
 }
 
+enum PanelSpacePresentation: Equatable, Sendable {
+  case hidden
+  case main
+  case mainAndSecondary(SecondaryPanelContext)
+}
+
 enum PanelEvent: Equatable, Sendable {
   case auxiliaryPresentationChanged(Bool)
+  case activeSpaceChanged
   case pointerChanged(PointerRegion)
   case activationDwellElapsed
   case userInteracted
@@ -78,6 +85,7 @@ enum PanelCommand: Equatable, Sendable {
   case hideMain(restoreFocus: Bool)
   case showSecondary(SecondaryPanelContext)
   case hideSecondary
+  case reconcileActiveSpace(PanelSpacePresentation)
 }
 
 struct PanelStateMachine: Equatable, Sendable {
@@ -101,6 +109,26 @@ struct PanelStateMachine: Equatable, Sendable {
   }
 
   mutating func handle(_ event: PanelEvent) -> [PanelCommand] {
+    if event == .activeSpaceChanged {
+      let presentation: PanelSpacePresentation
+      switch state {
+      case .hidden, .dwelling:
+        state = .hidden
+        presentation = .hidden
+      case .mainVisible, .closingMain:
+        state = .mainVisible(isEngaged: true)
+        presentation = .main
+      case .secondaryVisible(let context), .closingSecondary(let context):
+        state = .secondaryVisible(context: context)
+        presentation = .mainAndSecondary(context)
+      }
+      return [
+        .cancel(timer: .activationDwell),
+        .cancel(timer: .secondaryDismissal),
+        .cancel(timer: .mainDismissal),
+        .reconcileActiveSpace(presentation),
+      ]
+    }
     if case .auxiliaryPresentationChanged(let presented) = event {
       auxiliaryIsPresented = presented
       if presented {

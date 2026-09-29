@@ -30,6 +30,8 @@ After intentional activation, keyboard input goes directly to the Quick Note cap
 
 The window coordinator records the previously active application before activation. If EasyFlow takes focus and the interaction is immediately abandoned, it restores the prior application where macOS permits. A real EasyFlow interaction follows normal activation behavior.
 
+Previous-application restoration is scoped to one panel presentation on one Space. If the active Space changes while EasyFlow is presented, that session's saved application is invalidated; dismissal leaves the current Space and its current application untouched. A later presentation starts a fresh same-Space restoration session.
+
 ## Quick Note keyboard and data-safety semantics
 
 - Intentional activation places keyboard focus in the Quick Note composer without a click.
@@ -48,6 +50,7 @@ These semantics keep ordinary capture fast and protect typed drafts from acciden
 - Only one Secondary Panel exists. Its content changes in place rather than closing and reopening or spawning overlapping windows.
 - Main and Secondary overlay the current application and never resize or shift it.
 - The panels must remain available over maximized/fullscreen applications and across Spaces.
+- A macOS active-Space change cancels pending activation/dismissal timers, normalizes transitional panel state, and reasserts window frames and ordering from the logical Main/Secondary presentation state. Window `isVisible` alone is never treated as proof that a panel is visible on the active Space.
 - Each panel uses 20% of display width clamped to 360–520 points, with an 8-point outer margin/gap.
 - The vertical inset is 8% of display height clamped to 64–96 points. Main and Secondary share identical vertical alignment and height, leaving a clearly visible band above and below.
 - Main visually slides from and back into the selected edge. Secondary slides inward from Main and retracts toward it with calmer independent timing: about 0.28 seconds to open and 0.35 seconds to close. Context replacement within a visible Secondary updates in place without replaying the entrance transition. Reduce Motion uses immediate frame changes.
@@ -153,9 +156,13 @@ For unrated imports, Task Detail displays `Set effort` and four immediate button
 
 EasyFlow reminder banners are internal transient overlays, not macOS notifications. When enabled, the app schedules one reminder timer at a time from the current workspace snapshot. The chosen task is the first active Main Task in EasyFlow order whose reminder exclusion flag is false; if all active tasks are excluded, no banner appears.
 
+The banner's AppKit hosting view uses the same continuous 22-point layer mask as Main and Secondary so material and hosted content cannot draw square extensions beyond the lower rounded corners.
+
 The banner appears near the top of the selected panel side, remains compact, truncates long task titles to one line, does not steal keyboard focus while appearing, and auto-dismisses after about 6 seconds. Clicking it activates EasyFlow, opens Main and the task Secondary context, and ignores the click if the referenced task is no longer active.
 
 Settings exposes global enable/disable, preset intervals, custom interval, and temporary pause. Pause survives relaunch through a paused-until timestamp and resumes automatically after that timestamp.
+
+Disabling reminder banners smoothly collapses every reminder option below the global toggle. Selecting `Custom…` frequency reveals a compact `− / minutes / +` row. Pause offers 1 hour, 3 hours, Until Tomorrow, and `Custom…`; only the latter reveals its compact minute control and Pause action. Both custom values use 5-minute adjustments bounded to 5 minutes through 12 hours. The Settings panel resizes around the rows that are actually visible.
 
 Task Description uses a native measured text view: 42 points when empty/short, content-driven growth and shrinkage, and a 156-point cap with internal scrolling beyond it.
 

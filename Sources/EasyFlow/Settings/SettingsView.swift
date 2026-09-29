@@ -1,8 +1,40 @@
 import SwiftUI
 
+enum SettingsWindowMetrics {
+  static let contentWidth: CGFloat = 480
+
+  static func contentHeight(
+    remindersEnabled: Bool,
+    showsCustomFrequency: Bool,
+    showsCustomPause: Bool,
+    showsPausedStatus: Bool
+  ) -> CGFloat {
+    guard remindersEnabled else { return 480 }
+    let revealedRows =
+      (showsCustomFrequency ? 1 : 0)
+      + (showsCustomPause ? 1 : 0)
+      + (showsPausedStatus ? 1 : 0)
+    return 580 + CGFloat(revealedRows * 42)
+  }
+}
+
 struct SettingsView: View {
   let dismiss: () -> Void
   @ObservedObject var model: AppShellViewModel
+  let preferredHeightChanged: (CGFloat) -> Void
+
+  @State private var customPauseMinutes = 60
+  @State private var showsCustomPause = false
+
+  init(
+    dismiss: @escaping () -> Void,
+    model: AppShellViewModel,
+    preferredHeightChanged: @escaping (CGFloat) -> Void = { _ in }
+  ) {
+    self.dismiss = dismiss
+    self.model = model
+    self.preferredHeightChanged = preferredHeightChanged
+  }
 
   var body: some View {
     VStack(spacing: 0) {
@@ -64,58 +96,108 @@ struct SettingsView: View {
             "Show reminder banners",
             isOn: Binding(
               get: { model.reminderSettings.isEnabled },
-              set: { model.setRemindersEnabled($0) }
+              set: { enabled in
+                withAnimation(.easeInOut(duration: 0.18)) {
+                  if !enabled { showsCustomPause = false }
+                  model.setRemindersEnabled(enabled)
+                }
+              }
             )
           )
-          Picker(
-            "Frequency",
-            selection: Binding(
-              get: { frequencySelection },
-              set: { model.setReminderFrequency($0.frequency(customInterval: model.reminderSettings.customInterval)) }
-            )
-          ) {
-            ForEach(ReminderFrequencySelection.allCases) { option in
-              Text(option.label).tag(option)
+
+          if model.reminderSettings.isEnabled {
+            Group {
+              Picker(
+                "Frequency",
+                selection: Binding(
+                  get: { frequencySelection },
+                  set: { selection in
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                      model.setReminderFrequency(
+                        selection.frequency(
+                          customInterval: model.reminderSettings.customInterval
+                        )
+                      )
+                    }
+                  }
+                )
+              ) {
+                ForEach(ReminderFrequencySelection.allCases) { option in
+                  Text(option.label).tag(option)
+                }
+              }
+
+              if frequencySelection == .custom {
+                HStack {
+                  Text("Custom")
+                  Spacer()
+                  MinuteAdjuster(
+                    minutes: customMinutes,
+                    decrement: {
+                      model.setReminderCustomInterval(
+                        minutes: ReminderMinuteRange.decrementing(customMinutes)
+                      )
+                    },
+                    increment: {
+                      model.setReminderCustomInterval(
+                        minutes: ReminderMinuteRange.incrementing(customMinutes)
+                      )
+                    }
+                  )
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+              }
+
+              if let pausedUntil = model.reminderSettings.pausedUntil,
+                pausedUntil > Date()
+              {
+                HStack {
+                  Text("Paused until \(pausedUntil.formatted(date: .abbreviated, time: .shortened))")
+                  Spacer()
+                  Button("Resume") { model.resumeReminders() }
+                }
+              }
+
+              HStack(spacing: 8) {
+                Text("Pause")
+                Spacer()
+                Button("1 hour") { pause(.oneHour) }
+                Button("3 hours") { pause(.threeHours) }
+                Button("Until Tomorrow") { pause(.untilTomorrow) }
+                Button("Custom…") {
+                  withAnimation(.easeInOut(duration: 0.18)) {
+                    showsCustomPause.toggle()
+                  }
+                }
+              }
+              .controlSize(.small)
+
+              if showsCustomPause {
+                HStack {
+                  Text("Pause for")
+                  Spacer()
+                  MinuteAdjuster(
+                    minutes: customPauseMinutes,
+                    decrement: {
+                      customPauseMinutes = ReminderMinuteRange.decrementing(customPauseMinutes)
+                    },
+                    increment: {
+                      customPauseMinutes = ReminderMinuteRange.incrementing(customPauseMinutes)
+                    }
+                  )
+                  Button("Pause") {
+                    model.pauseReminders(minutes: customPauseMinutes)
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                      showsCustomPause = false
+                    }
+                  }
+                  .buttonStyle(.borderedProminent)
+                  .controlSize(.small)
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+              }
             }
-          }
-          if frequencySelection == .custom {
-            Stepper(
-              "Every \(customMinutes) minutes",
-              value: Binding(
-                get: { customMinutes },
-                set: { model.setReminderCustomInterval(minutes: $0) }
-              ),
-              in: 1...720,
-              step: 5
-            )
-          }
-          if let pausedUntil = model.reminderSettings.pausedUntil,
-            pausedUntil > Date()
-          {
-            HStack {
-              Text("Paused until \(pausedUntil.formatted(date: .abbreviated, time: .shortened))")
-              Spacer()
-              Button("Resume") { model.resumeReminders() }
-            }
-          }
-          HStack {
-            Text("Pause")
-            Spacer()
-            Button("1 hour") { model.pauseReminders(.oneHour) }
-            Button("3 hours") { model.pauseReminders(.threeHours) }
-            Button("Until Tomorrow") { model.pauseReminders(.untilTomorrow) }
-          }
-          Stepper(
-            "Custom pause \(customPauseMinutes) minutes",
-            value: Binding(
-              get: { customPauseMinutes },
-              set: { customPauseMinutes = $0 }
-            ),
-            in: 1...720,
-            step: 5
-          )
-          Button("Pause Custom") {
-            model.pauseReminders(minutes: customPauseMinutes)
+            .transition(.opacity.combined(with: .move(edge: .top)))
           }
         }
       }
@@ -123,9 +205,17 @@ struct SettingsView: View {
       Text(AppVersion.label())
         .font(.caption).foregroundStyle(.secondary).padding(.bottom, 16)
     }
-    .frame(width: 480)
+    .frame(width: SettingsWindowMetrics.contentWidth)
+    .animation(.easeInOut(duration: 0.18), value: model.reminderSettings.isEnabled)
     .onExitCommand { dismiss() }
-    .onAppear { model.refreshLaunchAtLoginStatus() }
+    .onAppear {
+      model.refreshLaunchAtLoginStatus()
+      reportPreferredHeight()
+    }
+    .onChange(of: model.reminderSettings.isEnabled) { _, _ in reportPreferredHeight() }
+    .onChange(of: frequencySelection) { _, _ in reportPreferredHeight() }
+    .onChange(of: model.reminderSettings.pausedUntil) { _, _ in reportPreferredHeight() }
+    .onChange(of: showsCustomPause) { _, _ in reportPreferredHeight() }
     .background {
       Button("") { dismiss() }
         .keyboardShortcut("w", modifiers: .command)
@@ -145,10 +235,8 @@ struct SettingsView: View {
     }
   }
 
-  @State private var customPauseMinutes = 60
-
   private var customMinutes: Int {
-    max(1, Int(model.reminderSettings.customInterval / 60))
+    ReminderMinuteRange.clamped(Int(model.reminderSettings.customInterval / 60))
   }
 
   private var frequencySelection: ReminderFrequencySelection {
@@ -160,6 +248,66 @@ struct SettingsView: View {
     case .hours3: .hours3
     case .custom: .custom
     }
+  }
+
+  private func pause(_ preset: ReminderPausePreset) {
+    showsCustomPause = false
+    model.pauseReminders(preset)
+  }
+
+  private func reportPreferredHeight() {
+    preferredHeightChanged(
+      SettingsWindowMetrics.contentHeight(
+        remindersEnabled: model.reminderSettings.isEnabled,
+        showsCustomFrequency: frequencySelection == .custom,
+        showsCustomPause: showsCustomPause,
+        showsPausedStatus: model.reminderSettings.isPaused(at: Date())
+      )
+    )
+  }
+}
+
+private struct MinuteAdjuster: View {
+  let minutes: Int
+  let decrement: () -> Void
+  let increment: () -> Void
+
+  var body: some View {
+    HStack(spacing: 7) {
+      adjustmentButton(
+        systemName: "minus",
+        accessibilityLabel: "Decrease minutes",
+        disabled: minutes <= ReminderMinuteRange.minimum,
+        action: decrement
+      )
+      Text("\(minutes) min")
+        .monospacedDigit()
+        .frame(minWidth: 62)
+        .accessibilityLabel("\(minutes) minutes")
+      adjustmentButton(
+        systemName: "plus",
+        accessibilityLabel: "Increase minutes",
+        disabled: minutes >= ReminderMinuteRange.maximum,
+        action: increment
+      )
+    }
+  }
+
+  private func adjustmentButton(
+    systemName: String,
+    accessibilityLabel: String,
+    disabled: Bool,
+    action: @escaping () -> Void
+  ) -> some View {
+    Button(action: action) {
+      Image(systemName: systemName)
+        .font(.system(size: 12, weight: .semibold))
+        .frame(width: 28, height: 22)
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(.bordered)
+    .disabled(disabled)
+    .accessibilityLabel(accessibilityLabel)
   }
 }
 
@@ -180,7 +328,7 @@ private enum ReminderFrequencySelection: String, CaseIterable, Identifiable {
     case .hour1: "1 hour"
     case .hours2: "2 hours"
     case .hours3: "3 hours"
-    case .custom: "Custom..."
+    case .custom: "Custom…"
     }
   }
 

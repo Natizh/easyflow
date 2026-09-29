@@ -226,6 +226,57 @@ struct PanelStateMachineTests {
     #expect(machine.handle(.mainDismissalElapsed).isEmpty)
   }
 
+  @Test("Space switch cancels dwell and restores a clean hidden presentation")
+  func spaceSwitchCancelsDwell() {
+    var machine = PanelStateMachine(timing: timing)
+    _ = machine.handle(.pointerChanged(.activationEdge))
+
+    #expect(
+      machine.handle(.activeSpaceChanged) == [
+        .cancel(timer: .activationDwell),
+        .cancel(timer: .secondaryDismissal),
+        .cancel(timer: .mainDismissal),
+        .reconcileActiveSpace(.hidden),
+      ]
+    )
+    #expect(machine.state == .hidden)
+    #expect(machine.handle(.activationDwellElapsed).isEmpty)
+  }
+
+  @Test("Space switch preserves coordinated Main and Secondary intent")
+  func spaceSwitchPreservesSecondary() {
+    var machine = activatedMachine()
+    let context = SecondaryPanelContext.task(id: UUID())
+    _ = machine.handle(.requestSecondary(context))
+    _ = machine.handle(.pointerChanged(.outside))
+    #expect(machine.state == .closingSecondary(context: context))
+
+    #expect(
+      machine.handle(.activeSpaceChanged) == [
+        .cancel(timer: .activationDwell),
+        .cancel(timer: .secondaryDismissal),
+        .cancel(timer: .mainDismissal),
+        .reconcileActiveSpace(.mainAndSecondary(context)),
+      ]
+    )
+    #expect(machine.state == .secondaryVisible(context: context))
+    #expect(machine.handle(.secondaryDismissalElapsed).isEmpty)
+  }
+
+  @Test("Space switch normalizes a pending Main close without orphaning it")
+  func spaceSwitchNormalizesMainClose() {
+    var machine = activatedMachine()
+    _ = machine.handle(.pointerChanged(.main))
+    _ = machine.handle(.pointerChanged(.outside))
+    #expect(machine.state == .closingMain(previousContext: nil))
+
+    let commands = machine.handle(.activeSpaceChanged)
+
+    #expect(commands.last == .reconcileActiveSpace(.main))
+    #expect(machine.state == .mainVisible(isEngaged: true))
+    #expect(machine.handle(.mainDismissalElapsed).isEmpty)
+  }
+
   @Test("Reminder scheduler keeps active timer across unrelated workspace edits")
   func reminderSchedulerKeepsTimerForUnrelatedEdits() {
     let now = Date(timeIntervalSince1970: 1_000)

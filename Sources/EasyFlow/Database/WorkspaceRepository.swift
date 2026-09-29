@@ -883,8 +883,12 @@ actor WorkspaceRepository {
       guard let key: String = row["key"], let value: String = row["value"] else { return nil }
       return (key, value)
     })
-    let customInterval = TimeInterval(
-      Int(values["reminders.customIntervalSeconds"] ?? "") ?? Int(ReminderSettings.defaultCustomInterval)
+    let storedCustomInterval = TimeInterval(
+      Int(values["reminders.customIntervalSeconds"] ?? "")
+        ?? Int(ReminderSettings.defaultCustomInterval)
+    )
+    let customInterval = ReminderMinuteRange.interval(
+      for: Int(storedCustomInterval / 60)
     )
     let frequency = frequency(
       for: values["reminders.frequency"],

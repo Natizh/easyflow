@@ -14,12 +14,7 @@ final class ReminderBannerPanel: NSPanel {
     )
     isFloatingPanel = true
     level = .statusBar
-    collectionBehavior = [
-      .canJoinAllSpaces,
-      .fullScreenAuxiliary,
-      .stationary,
-      .ignoresCycle,
-    ]
+    collectionBehavior = EasyFlowOverlayWindowConfiguration.collectionBehavior
     backgroundColor = .clear
     isOpaque = false
     hasShadow = true
@@ -29,6 +24,11 @@ final class ReminderBannerPanel: NSPanel {
     acceptsMouseMovedEvents = true
     titleVisibility = .hidden
     titlebarAppearsTransparent = true
+  }
+
+  func setRoundedContentView(_ view: NSView) {
+    EasyFlowOverlayWindowConfiguration.maskRoundedContent(view)
+    contentView = view
   }
 }
 
