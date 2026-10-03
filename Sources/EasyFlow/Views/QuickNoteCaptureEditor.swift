@@ -42,10 +42,16 @@ struct QuickNoteCaptureEditor: NSViewRepresentable {
     guard let textView = scrollView.documentView as? QuickNoteCaptureTextView else { return }
     textView.onCommit = onCommit
     textView.onPasteImages = onPasteImages
-    if textView.window?.firstResponder !== textView,
-      textView.string != text
-        || EasyFlowRichText.sidecar(from: textView.attributedString()) != attributes
-    {
+    // A successful Return submission explicitly clears the still-focused
+    // composer. Ordinary SwiftUI updates must preserve selection/IME state.
+    let committedReset = context.coordinator.lastFocusRequestID != focusRequestID
+      && text.isEmpty && attributes.isEmpty
+    if NativeTextUpdatePolicy.shouldReplace(
+      isEditing: textView.window?.firstResponder === textView,
+      hasMarkedText: textView.hasMarkedText(),
+      contentDiffers: textView.string != text || EasyFlowRichText.sidecar(from: textView.attributedString()) != attributes,
+      committedCaptureReset: committedReset
+    ) {
       textView.textStorage?.setAttributedString(
         EasyFlowRichText.attributedString(text: text, attributes: attributes)
       )
@@ -53,7 +59,9 @@ struct QuickNoteCaptureEditor: NSViewRepresentable {
     if context.coordinator.lastFocusRequestID != focusRequestID {
       context.coordinator.lastFocusRequestID = focusRequestID
       DispatchQueue.main.async {
-        textView.window?.makeFirstResponder(textView)
+        guard let window = textView.window as? OverlayPanel, window.isAvailableForFocus,
+          window.isKeyWindow else { return }
+        window.makeFirstResponder(textView)
       }
     }
   }

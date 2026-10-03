@@ -74,6 +74,6 @@ struct EasyFlowMark: View {
         .fill(EasyFlowBrand.indigo)
         .frame(width: 10, height: 17)
     }
-    .accessibilityLabel("EasyFlow")
+    .accessibilityHidden(true)
   }
 }

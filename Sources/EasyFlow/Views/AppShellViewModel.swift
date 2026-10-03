@@ -218,6 +218,13 @@ final class AppShellViewModel: ObservableObject {
     return true
   }
 
+  var onKeyboardSecondaryRequested: ((SecondaryPanelContext) -> Void)?
+  var onReturnToMain: (() -> Void)?
+
+  func openSecondaryFromControl(_ context: SecondaryPanelContext) {
+    onKeyboardSecondaryRequested?(context)
+  }
+
   func registerInteraction() {
     onInteraction?()
   }

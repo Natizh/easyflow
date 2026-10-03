@@ -25,6 +25,8 @@ struct SettingsView: View {
 
   @State private var customPauseMinutes = 60
   @State private var showsCustomPause = false
+  @FocusState private var reminderFocus: ReminderFocus?
+  private enum ReminderFocus: Hashable { case enabled, frequency, customPause }
 
   init(
     dismiss: @escaping () -> Void,
@@ -105,6 +107,8 @@ struct SettingsView: View {
             )
           )
 
+          .focused($reminderFocus, equals: .enabled)
+
           if model.reminderSettings.isEnabled {
             Group {
               Picker(
@@ -127,11 +131,14 @@ struct SettingsView: View {
                 }
               }
 
+              .focused($reminderFocus, equals: .frequency)
+
               if frequencySelection == .custom {
                 HStack {
                   Text("Custom")
                   Spacer()
                   MinuteAdjuster(
+                    purpose: "Reminder frequency",
                     minutes: customMinutes,
                     decrement: {
                       model.setReminderCustomInterval(
@@ -154,7 +161,10 @@ struct SettingsView: View {
                 HStack {
                   Text("Paused until \(pausedUntil.formatted(date: .abbreviated, time: .shortened))")
                   Spacer()
-                  Button("Resume") { model.resumeReminders() }
+                  Button("Resume") {
+                    reminderFocus = .customPause
+                    model.resumeReminders()
+                  }
                 }
               }
 
@@ -162,13 +172,19 @@ struct SettingsView: View {
                 Text("Pause")
                 Spacer()
                 Button("1 hour") { pause(.oneHour) }
+                  .accessibilityLabel("Pause reminders for 1 hour")
                 Button("3 hours") { pause(.threeHours) }
+                  .accessibilityLabel("Pause reminders for 3 hours")
                 Button("Until Tomorrow") { pause(.untilTomorrow) }
+                  .accessibilityLabel("Pause reminders until tomorrow")
                 Button("Custom…") {
                   withAnimation(.easeInOut(duration: 0.18)) {
                     showsCustomPause.toggle()
                   }
                 }
+                .focused($reminderFocus, equals: .customPause)
+                .accessibilityLabel("Custom reminder pause")
+                .accessibilityValue(showsCustomPause ? "Expanded" : "Collapsed")
               }
               .controlSize(.small)
 
@@ -177,6 +193,7 @@ struct SettingsView: View {
                   Text("Pause for")
                   Spacer()
                   MinuteAdjuster(
+                    purpose: "Reminder pause",
                     minutes: customPauseMinutes,
                     decrement: {
                       customPauseMinutes = ReminderMinuteRange.decrementing(customPauseMinutes)
@@ -186,6 +203,7 @@ struct SettingsView: View {
                     }
                   )
                   Button("Pause") {
+                    reminderFocus = .customPause
                     model.pauseReminders(minutes: customPauseMinutes)
                     withAnimation(.easeInOut(duration: 0.18)) {
                       showsCustomPause = false
@@ -212,7 +230,10 @@ struct SettingsView: View {
       model.refreshLaunchAtLoginStatus()
       reportPreferredHeight()
     }
-    .onChange(of: model.reminderSettings.isEnabled) { _, _ in reportPreferredHeight() }
+    .onChange(of: model.reminderSettings.isEnabled) { _, enabled in
+      if !enabled { reminderFocus = .enabled }
+      reportPreferredHeight()
+    }
     .onChange(of: frequencySelection) { _, _ in reportPreferredHeight() }
     .onChange(of: model.reminderSettings.pausedUntil) { _, _ in reportPreferredHeight() }
     .onChange(of: showsCustomPause) { _, _ in reportPreferredHeight() }
@@ -220,6 +241,7 @@ struct SettingsView: View {
       Button("") { dismiss() }
         .keyboardShortcut("w", modifiers: .command)
         .hidden()
+        .accessibilityHidden(true)
     }
   }
 
@@ -268,6 +290,7 @@ struct SettingsView: View {
 }
 
 private struct MinuteAdjuster: View {
+  let purpose: String
   let minutes: Int
   let decrement: () -> Void
   let increment: () -> Void
@@ -276,17 +299,18 @@ private struct MinuteAdjuster: View {
     HStack(spacing: 7) {
       adjustmentButton(
         systemName: "minus",
-        accessibilityLabel: "Decrease minutes",
+        accessibilityLabel: AccessibilityNames.minuteAdjustment(purpose: purpose, increasing: false),
         disabled: minutes <= ReminderMinuteRange.minimum,
         action: decrement
       )
       Text("\(minutes) min")
         .monospacedDigit()
         .frame(minWidth: 62)
-        .accessibilityLabel("\(minutes) minutes")
+        .accessibilityLabel(purpose)
+        .accessibilityValue("\(minutes) minutes")
       adjustmentButton(
         systemName: "plus",
-        accessibilityLabel: "Increase minutes",
+        accessibilityLabel: AccessibilityNames.minuteAdjustment(purpose: purpose, increasing: true),
         disabled: minutes >= ReminderMinuteRange.maximum,
         action: increment
       )
@@ -308,6 +332,7 @@ private struct MinuteAdjuster: View {
     .buttonStyle(.bordered)
     .disabled(disabled)
     .accessibilityLabel(accessibilityLabel)
+    .accessibilityValue("\(minutes) minutes")
   }
 }
 

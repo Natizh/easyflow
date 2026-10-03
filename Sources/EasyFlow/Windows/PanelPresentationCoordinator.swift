@@ -19,26 +19,32 @@ struct FocusRestorationSession: Equatable, Sendable {
     state = .invalidatedBySpaceChange
   }
 
-  mutating func end(restoreRequested: Bool) -> Bool {
+  mutating func end(restoreRequested: Bool, stillOwnsActivation: Bool = true) -> Bool {
     defer { state = .idle }
-    return restoreRequested && state == .eligible
+    return restoreRequested && stillOwnsActivation && state == .eligible
   }
 }
 
 @MainActor
 final class PanelPresentationCoordinator {
+  var onPointerNavigation: (() -> Void)?
+  var onKeyboardNavigation: (() -> Void)?
+  var onDismissWorkspace: (() -> Void)?
+  var onExplicitSecondaryCleared: (() -> Void)?
+  var onExplicitSecondaryRequested: ((SecondaryPanelContext) -> Void)?
   var onPointerMoved: ((CGPoint) -> Void)?
   var onInteraction: (() -> Void)?
   var onSecondaryRequested: ((SecondaryPanelContext) -> Void)?
   var onSecondaryCleared: (() -> Void)?
   var onSettingsPresentationChanged: ((Bool) -> Void)?
   var onPanelSideChanged: ((PanelSide) -> Void)?
-  var onReminderBannerClicked: ((UUID) -> Void)?
+  var onReminderBannerClicked: ((UUID) -> Bool)?
   var onWorkspaceSnapshotChanged: ((WorkspaceSnapshot) -> Void)?
   var panelSide: PanelSide { viewModel.panelSide }
   private var settingsController: SettingsWindowController!
   private let previewController = ImagePreviewWindowController()
   private weak var auxiliaryOrigin: NSWindow?
+  private var keyboardNavigationIsActive = false
   private var mainGeneration = 0
   private var secondaryGeneration = 0
 
@@ -54,6 +60,7 @@ final class PanelPresentationCoordinator {
   private let mainHostingView: PointerTrackingHostingView<MainPanelView>
   private let secondaryHostingView: PointerTrackingHostingView<SecondaryPanelView>
   private var currentLayout: PanelLayout?
+  private var reminderBannerGeneration = 0
   private var reminderBannerTaskID: UUID?
   private var reminderBannerDismissTask: Task<Void, Never>?
 
@@ -101,7 +108,12 @@ final class PanelPresentationCoordinator {
       }
     }
     viewModel.onWorkspaceSnapshotChanged = { [weak self] snapshot in
-      self?.onWorkspaceSnapshotChanged?(snapshot)
+      guard let self else { return }
+      if let taskID = self.viewModel.secondaryContext?.taskID,
+        !snapshot.activeTasks.contains(where: { $0.id == taskID }) {
+        self.onExplicitSecondaryCleared?()
+      }
+      self.onWorkspaceSnapshotChanged?(snapshot)
     }
     viewModel.onPanelSideChanged = { [weak self] side in self?.onPanelSideChanged?(side) }
     viewModel.onImagePreview = { [weak self] attachment in self?.preview(attachment) }
@@ -133,14 +145,17 @@ final class PanelPresentationCoordinator {
     secondaryHostingView.onPointerMoved = { [weak self] point in
       self?.onPointerMoved?(point)
     }
-    mainHostingView.onTaskHover = { [weak viewModel] taskID in
-      viewModel?.routedTaskHover(taskID)
+    mainHostingView.onTaskHover = { [weak self] taskID in
+      guard let self, !self.keyboardNavigationIsActive else { return }
+      self.viewModel.routedTaskHover(taskID)
     }
-    mainHostingView.onQuickNotesHover = { [weak viewModel] in
-      viewModel?.routedQuickNotesHover()
+    mainHostingView.onQuickNotesHover = { [weak self] in
+      guard let self, !self.keyboardNavigationIsActive else { return }
+      self.viewModel.routedQuickNotesHover()
     }
-    mainHostingView.onSecondaryCollapseStrip = { [weak viewModel] in
-      viewModel?.routedSecondaryCollapseStrip()
+    mainHostingView.onSecondaryCollapseStrip = { [weak self] in
+      guard let self, !self.keyboardNavigationIsActive else { return }
+      self.viewModel.routedSecondaryCollapseStrip()
     }
     mainHostingView.onTaskDragChanged = { [weak viewModel] taskID, insertion in
       viewModel?.routedTaskDragChanged(taskID: taskID, insertionIndex: insertion)
@@ -178,6 +193,23 @@ final class PanelPresentationCoordinator {
       viewModel?.routedStepDragCancelled()
     }
 
+    mainPanel.title = "EasyFlow Main"
+    secondaryPanel.title = "EasyFlow Details"
+    mainPanel.onPointerInteraction = { [weak self] in self?.beginPointerNavigation() }
+    secondaryPanel.onPointerInteraction = { [weak self] in self?.beginPointerNavigation() }
+    mainHostingView.onTaskActivated = { [weak viewModel] id in viewModel?.openSecondaryFromControl(.task(id: id)) }
+    mainHostingView.onQuickNotesActivated = { [weak viewModel] in viewModel?.openSecondaryFromControl(.quickNotes) }
+    mainPanel.onKeyboardInteraction = { [weak self] in self?.beginKeyboardNavigation() }
+    secondaryPanel.onKeyboardInteraction = { [weak self] in self?.beginKeyboardNavigation() }
+    mainPanel.onDismiss = { [weak self] in self?.onDismissWorkspace?() }
+    secondaryPanel.onDismiss = { [weak self] in self?.returnToMain() }
+    viewModel.onReturnToMain = { [weak self] in self?.returnToMain() }
+    viewModel.onKeyboardSecondaryRequested = { [weak self] context in
+      guard let self else { return }
+      self.onExplicitSecondaryRequested?(context)
+      self.focusSecondary()
+    }
+    activationTrackingView.setAccessibilityHidden(true)
     activationPanel.contentView = activationTrackingView
     mainPanel.contentView = mainHostingView
     secondaryPanel.contentView = secondaryHostingView
@@ -223,6 +255,7 @@ final class PanelPresentationCoordinator {
     _ presentation: PanelSpacePresentation,
     layout: PanelLayout
   ) {
+    keyboardNavigationIsActive = false
     focusRestorationSession.activeSpaceChanged()
     previousApplication = nil
     mainGeneration += 1
@@ -236,19 +269,29 @@ final class PanelPresentationCoordinator {
     activationPanel.setFrame(layout.activationFrame, display: true)
     activationPanel.orderFrontRegardless()
 
+    // Keep native responder/selection on a visible current-Space surface. Never
+    // activate the app merely because the user changed Spaces.
+    for panel in [mainPanel, secondaryPanel] {
+      if !panel.isOnActiveSpace { panel.retireFromInteraction() }
+      panel.recalculateKeyViewLoop()
+    }
     switch presentation {
     case .hidden:
+      secondaryPanel.retireFromInteraction()
       secondaryPanel.orderOut(nil)
+      mainPanel.retireFromInteraction()
       mainPanel.orderOut(nil)
       mainPanel.alphaValue = 1
       secondaryPanel.alphaValue = 1
       viewModel.secondaryContext = nil
     case .main:
+      secondaryPanel.retireFromInteraction()
       secondaryPanel.orderOut(nil)
       secondaryPanel.alphaValue = 1
       viewModel.secondaryContext = nil
       mainPanel.setFrame(layout.mainFrame, display: true)
       mainPanel.alphaValue = 1
+      mainPanel.exposeForInteraction()
       mainPanel.orderFrontRegardless()
     case .mainAndSecondary(let context):
       viewModel.secondaryContext = context
@@ -256,7 +299,9 @@ final class PanelPresentationCoordinator {
       secondaryPanel.setFrame(layout.secondaryFrame, display: true)
       mainPanel.alphaValue = 1
       secondaryPanel.alphaValue = 1
+      mainPanel.exposeForInteraction()
       mainPanel.orderFrontRegardless()
+      secondaryPanel.exposeForInteraction()
       secondaryPanel.orderFrontRegardless()
       secondaryPanel.order(.above, relativeTo: mainPanel.windowNumber)
     }
@@ -269,6 +314,16 @@ final class PanelPresentationCoordinator {
     }
     if previewController.window?.isVisible == true {
       previewController.window?.orderFrontRegardless()
+    }
+    DispatchQueue.main.async { [weak self] in
+      guard let self else { return }
+      for panel in [self.mainPanel, self.secondaryPanel] {
+        if panel.isAvailableForFocus {
+          NSAccessibility.post(element: panel, notification: .layoutChanged)
+        } else {
+          panel.retireFromInteraction()
+        }
+      }
     }
   }
 
@@ -288,6 +343,7 @@ final class PanelPresentationCoordinator {
       mainPanel.setFrame(layout.mainHiddenFrame, display: false)
       mainPanel.alphaValue = 0
     }
+    mainPanel.exposeForInteraction()
     mainPanel.orderFrontRegardless()
     mainPanel.makeKey()
     animate(duration: 0.22) {
@@ -297,6 +353,7 @@ final class PanelPresentationCoordinator {
   }
 
   func focusQuickNote() {
+    guard mainPanel.isAvailableForFocus else { return }
     mainPanel.makeKey()
     DispatchQueue.main.async { [weak viewModel] in
       viewModel?.requestQuickNoteFocus()
@@ -308,6 +365,7 @@ final class PanelPresentationCoordinator {
     prepareForSupersedingAnimation(on: secondaryPanel)
     let generation = secondaryGeneration
     viewModel.secondaryContext = context
+    secondaryPanel.exposeForInteraction()
     currentLayout = layout
     let intent = SecondaryPresentationIntent(layout: layout)
     assert(layout.display.frame.intersects(intent.targetFrame))
@@ -349,6 +407,9 @@ final class PanelPresentationCoordinator {
     prepareForSupersedingAnimation(on: secondaryPanel)
     let generation = secondaryGeneration
     NotificationCenter.default.post(name: .easyFlowFlushEditors, object: nil)
+    let hadFocus = secondaryPanel.isKeyWindow
+    secondaryPanel.retireFromInteraction()
+    if hadFocus, mainPanel.isAvailableForFocus { mainPanel.makeKey() }
     guard secondaryPanel.isVisible, let currentLayout else {
       viewModel.secondaryContext = nil
       return
@@ -367,6 +428,7 @@ final class PanelPresentationCoordinator {
   }
 
   func hideAll(restoreFocus: Bool) {
+    keyboardNavigationIsActive = false
     mainGeneration += 1
     secondaryGeneration += 1
     prepareForSupersedingAnimation(on: mainPanel)
@@ -374,6 +436,8 @@ final class PanelPresentationCoordinator {
     let generation = mainGeneration
     NotificationCenter.default.post(name: .easyFlowFlushEditors, object: nil)
     viewModel.commitQuickNoteOnFocusLoss()
+    secondaryPanel.retireFromInteraction()
+    mainPanel.retireFromInteraction()
     secondaryPanel.orderOut(nil)
     viewModel.secondaryContext = nil
     guard mainPanel.isVisible, let currentLayout else {
@@ -395,6 +459,7 @@ final class PanelPresentationCoordinator {
   }
 
   func showReminderBanner(task: MainTask, layout: PanelLayout) {
+    reminderBannerGeneration += 1
     reminderBannerDismissTask?.cancel()
     reminderBannerTaskID = task.id
     let frame = reminderBannerFrame(layout: layout)
@@ -405,7 +470,7 @@ final class PanelPresentationCoordinator {
         action: { [weak self] in self?.clickReminderBanner() }
       )
     )
-    reminderBannerPanel.setRoundedContentView(hostingView)
+    reminderBannerPanel.presentContent(title: task.title, view: hostingView)
     reminderBannerPanel.setFrame(frame.offsetBy(dx: 0, dy: 10), display: false)
     reminderBannerPanel.alphaValue = 0
     reminderBannerPanel.orderFrontRegardless()
@@ -420,14 +485,18 @@ final class PanelPresentationCoordinator {
   }
 
   func hideReminderBanner() {
+    reminderBannerGeneration += 1
+    let generation = reminderBannerGeneration
     reminderBannerDismissTask?.cancel()
     reminderBannerDismissTask = nil
     reminderBannerTaskID = nil
     prepareForSupersedingAnimation(on: reminderBannerPanel)
+    reminderBannerPanel.retireContent()
     guard reminderBannerPanel.isVisible else { return }
     animate(duration: 0.14) {
       self.reminderBannerPanel.animator().alphaValue = 0
     } completion: {
+      guard self.reminderBannerGeneration == generation else { return }
       self.reminderBannerPanel.orderOut(nil)
       self.reminderBannerPanel.alphaValue = 1
     }
@@ -436,8 +505,9 @@ final class PanelPresentationCoordinator {
   private func clickReminderBanner() {
     guard let taskID = reminderBannerTaskID else { return }
     hideReminderBanner()
-    NSApplication.shared.activate(ignoringOtherApps: true)
-    onReminderBannerClicked?(taskID)
+    guard onReminderBannerClicked?(taskID) == true else { return }
+    beginKeyboardNavigation()
+    focusSecondary()
   }
 
   private func reminderBannerFrame(layout: PanelLayout) -> CGRect {
@@ -462,7 +532,8 @@ final class PanelPresentationCoordinator {
 
   private func restorePreviousApplication() {
     defer { previousApplication = nil }
-    guard focusRestorationSession.end(restoreRequested: true) else { return }
+    let ownsActivation = NSWorkspace.shared.frontmostApplication?.processIdentifier == ProcessInfo.processInfo.processIdentifier
+    guard focusRestorationSession.end(restoreRequested: true, stillOwnsActivation: ownsActivation) else { return }
     guard let previousApplication, !previousApplication.isTerminated else { return }
     previousApplication.activate(options: [])
   }
@@ -481,14 +552,56 @@ final class PanelPresentationCoordinator {
   }
 
   private func auxiliaryClosed() {
-    let stillOpen = settingsController.window?.isVisible == true || previewController.window?.isVisible == true
-    if !stillOpen { (auxiliaryOrigin ?? mainPanel).makeKey() }
-    // windowWillClose is called before isVisible flips; re-evaluate next turn.
+    // windowWillClose precedes isVisible changing. Transfer only after closing,
+    // and only while EasyFlow still owns activation on the current Space.
     DispatchQueue.main.async { [weak self] in
       guard let self else { return }
       let open = self.settingsController.window?.isVisible == true || self.previewController.window?.isVisible == true
-      if !open { (self.auxiliaryOrigin ?? self.mainPanel).makeKey() }
+      if !open, NSApp.isActive {
+        let origin = self.auxiliaryOrigin as? OverlayPanel
+        if let target = origin?.isAvailableForFocus == true ? origin :
+          (self.mainPanel.isAvailableForFocus ? self.mainPanel : nil) {
+          target.makeKey()
+        }
+      }
       self.onSettingsPresentationChanged?(open)
+    }
+  }
+
+  private func beginPointerNavigation() {
+    guard keyboardNavigationIsActive else { return }
+    keyboardNavigationIsActive = false
+    mainHostingView.resetRouting(side: viewModel.panelSide)
+    secondaryHostingView.resetRouting(side: viewModel.panelSide)
+    onPointerNavigation?()
+  }
+
+  private func beginKeyboardNavigation() {
+    keyboardNavigationIsActive = true
+    onKeyboardNavigation?()
+  }
+
+  func focusSecondary() {
+    beginKeyboardNavigation()
+    DispatchQueue.main.async { [weak self] in
+      guard let self, self.secondaryPanel.isAvailableForFocus, NSApp.isActive else { return }
+      self.secondaryPanel.makeKey()
+      self.secondaryPanel.makeFirstResponder(nil)
+      self.secondaryPanel.selectNextKeyView(nil)
+    }
+  }
+
+  private func returnToMain() {
+    beginKeyboardNavigation()
+    // Explicit dismissal must not be vetoed by the pointer traversal guard.
+    onExplicitSecondaryCleared?()
+    if mainPanel.isAvailableForFocus {
+      mainPanel.makeKey()
+      if let responder = mainPanel.firstResponder as? NSView, responder.window === mainPanel {
+        // The originating Main control remains the native first responder.
+      } else {
+        mainPanel.selectNextKeyView(nil)
+      }
     }
   }
 

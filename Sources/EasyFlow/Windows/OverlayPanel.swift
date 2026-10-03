@@ -17,7 +17,46 @@ enum EasyFlowOverlayWindowConfiguration {
   }
 }
 
+enum PanelFocusPolicy {
+  static func canFocus(isVisible: Bool, isOnActiveSpace: Bool, isClosing: Bool) -> Bool {
+    isVisible && isOnActiveSpace && !isClosing
+  }
+}
+
 final class OverlayPanel: NSPanel {
+  var onDismiss: (() -> Void)?
+  var onPointerInteraction: (() -> Void)?
+  var onKeyboardInteraction: (() -> Void)?
+  private(set) var isClosing = false
+
+  var isAvailableForFocus: Bool {
+    PanelFocusPolicy.canFocus(isVisible: isVisible, isOnActiveSpace: isOnActiveSpace, isClosing: isClosing)
+  }
+
+  func exposeForInteraction() {
+    isClosing = false
+    setAccessibilityHidden(false)
+    contentView?.setAccessibilityHidden(false)
+    recalculateKeyViewLoop()
+  }
+
+  func retireFromInteraction() {
+    isClosing = true
+    makeFirstResponder(nil)
+    resignKey()
+    setAccessibilityHidden(true)
+    contentView?.setAccessibilityHidden(true)
+  }
+
+  override func cancelOperation(_ sender: Any?) { onDismiss?() }
+  override func performClose(_ sender: Any?) { onDismiss?() }
+
+  override func sendEvent(_ event: NSEvent) {
+    if event.type == .keyDown { onKeyboardInteraction?() }
+    if event.type == .leftMouseDown || event.type == .rightMouseDown { onPointerInteraction?() }
+    super.sendEvent(event)
+  }
+
   override var canBecomeKey: Bool { true }
   override var canBecomeMain: Bool { false }
 
@@ -29,6 +68,8 @@ final class OverlayPanel: NSPanel {
       defer: true
     )
 
+    autorecalculatesKeyViewLoop = true
+    setAccessibilityHidden(true)
     isFloatingPanel = true
     level = .statusBar
     collectionBehavior = EasyFlowOverlayWindowConfiguration.collectionBehavior

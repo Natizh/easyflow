@@ -12,6 +12,7 @@ final class ReminderBannerPanel: NSPanel {
       backing: .buffered,
       defer: true
     )
+    setAccessibilityHidden(true)
     isFloatingPanel = true
     level = .statusBar
     collectionBehavior = EasyFlowOverlayWindowConfiguration.collectionBehavior
@@ -24,6 +25,19 @@ final class ReminderBannerPanel: NSPanel {
     acceptsMouseMovedEvents = true
     titleVisibility = .hidden
     titlebarAppearsTransparent = true
+  }
+
+  func presentContent(title taskTitle: String, view: NSView) {
+    title = "EasyFlow Reminder"
+    setAccessibilityLabel("Reminder: \(taskTitle)")
+    setAccessibilityHidden(false)
+    view.setAccessibilityHidden(false)
+    setRoundedContentView(view)
+  }
+
+  func retireContent() {
+    setAccessibilityHidden(true)
+    contentView?.setAccessibilityHidden(true)
   }
 
   func setRoundedContentView(_ view: NSView) {
@@ -61,6 +75,7 @@ struct ReminderBannerView: View {
       .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
     .buttonStyle(.plain)
+    .accessibilityLabel(AccessibilityNames.reminderTask(title))
     .easyFlowPanelSurface(appearanceMode)
   }
 }

@@ -29,6 +29,13 @@ final class EasyFlowAppDelegate: NSObject, NSApplicationDelegate {
     }
   }
 
+  @objc func openWorkspace(_ sender: Any?) { appShellCoordinator?.openWorkspace() }
+
+  func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+    appShellCoordinator?.openWorkspace()
+    return false
+  }
+
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
     Task { @MainActor in
       let saved = await appShellCoordinator?.prepareToTerminate() ?? true

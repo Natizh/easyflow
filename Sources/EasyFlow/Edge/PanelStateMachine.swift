@@ -67,6 +67,10 @@ enum PanelSpacePresentation: Equatable, Sendable {
 enum PanelEvent: Equatable, Sendable {
   case auxiliaryPresentationChanged(Bool)
   case activeSpaceChanged
+  case keyboardNavigation
+  case pointerNavigation
+  case applicationDeactivated
+  case dismissWorkspace
   case pointerChanged(PointerRegion)
   case activationDwellElapsed
   case userInteracted
@@ -92,6 +96,7 @@ struct PanelStateMachine: Equatable, Sendable {
   private(set) var state: PanelInteractionState = .hidden
   let timing: PanelTiming
   private var auxiliaryIsPresented = false
+  private var keyboardNavigationIsActive = false
 
   init(timing: PanelTiming = PanelTiming()) {
     self.timing = timing
@@ -109,7 +114,40 @@ struct PanelStateMachine: Equatable, Sendable {
   }
 
   mutating func handle(_ event: PanelEvent) -> [PanelCommand] {
+    if event == .pointerNavigation {
+      keyboardNavigationIsActive = false
+      return []
+    }
+    if event == .applicationDeactivated {
+      guard keyboardNavigationIsActive else { return [] }
+      keyboardNavigationIsActive = false
+      state = .hidden
+      return [.cancel(timer: .activationDwell), .cancel(timer: .secondaryDismissal),
+        .cancel(timer: .mainDismissal), .hideMain(restoreFocus: false)]
+    }
+    if event == .dismissWorkspace {
+      keyboardNavigationIsActive = false
+      state = .hidden
+      return [.cancel(timer: .activationDwell), .cancel(timer: .secondaryDismissal),
+        .cancel(timer: .mainDismissal), .hideMain(restoreFocus: true)]
+    }
+    if event == .keyboardNavigation {
+      keyboardNavigationIsActive = true
+      switch state {
+      case .closingSecondary(let context): state = .secondaryVisible(context: context)
+      case .closingMain: state = .mainVisible(isEngaged: true)
+      default: break
+      }
+      return [.cancel(timer: .secondaryDismissal), .cancel(timer: .mainDismissal)]
+    }
+    if keyboardNavigationIsActive {
+      switch event {
+      case .pointerChanged(.outside), .secondaryDismissalElapsed, .mainDismissalElapsed: return []
+      default: break
+      }
+    }
     if event == .activeSpaceChanged {
+      keyboardNavigationIsActive = false
       let presentation: PanelSpacePresentation
       switch state {
       case .hidden, .dwelling:

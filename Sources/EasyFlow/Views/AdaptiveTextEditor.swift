@@ -11,6 +11,12 @@ enum AdaptiveTextMetrics {
   }
 }
 
+enum NativeTextUpdatePolicy {
+  static func shouldReplace(isEditing: Bool, hasMarkedText: Bool, contentDiffers: Bool, committedCaptureReset: Bool = false) -> Bool {
+    contentDiffers && !hasMarkedText && (!isEditing || committedCaptureReset)
+  }
+}
+
 struct AdaptiveTextEditor: NSViewRepresentable {
   @Binding var text: String
   @Binding var height: CGFloat
@@ -64,14 +70,16 @@ struct AdaptiveTextEditor: NSViewRepresentable {
   func updateNSView(_ scrollView: NSScrollView, context: Context) {
     context.coordinator.parent = self
     guard let textView = context.coordinator.textView else { return }
-    if textView.window?.firstResponder !== textView,
-      textView.string != text
-        || EasyFlowRichText.sidecar(from: textView.attributedString()) != attributes
-    {
+    if NativeTextUpdatePolicy.shouldReplace(
+      isEditing: textView.window?.firstResponder === textView,
+      hasMarkedText: textView.hasMarkedText(),
+      contentDiffers: textView.string != text || EasyFlowRichText.sidecar(from: textView.attributedString()) != attributes
+    ) {
       textView.textStorage?.setAttributedString(
         EasyFlowRichText.attributedString(text: text, attributes: attributes)
       )
     }
+    textView.setAccessibilityLabel(label)
     (textView as? NoteImageTextView)?.onPasteImages = onPasteImages
     DispatchQueue.main.async { context.coordinator.measure() }
   }

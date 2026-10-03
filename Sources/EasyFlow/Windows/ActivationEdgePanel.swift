@@ -12,6 +12,8 @@ final class ActivationEdgePanel: NSPanel {
       defer: true
     )
 
+    setAccessibilityHidden(true)
+    setAccessibilityElement(false)
     isFloatingPanel = true
     level = .statusBar
     collectionBehavior = EasyFlowOverlayWindowConfiguration.collectionBehavior

@@ -31,6 +31,9 @@ class NoteImageTextView: NSTextView {
     return super.validateMenuItem(menuItem)
   }
 
+  override func insertTab(_ sender: Any?) { window?.selectNextKeyView(sender) }
+  override func insertBacktab(_ sender: Any?) { window?.selectPreviousKeyView(sender) }
+
   override func keyDown(with event: NSEvent) {
     let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
     let key = event.charactersIgnoringModifiers?.lowercased()

@@ -47,6 +47,8 @@ final class PointerTrackingHostingView<Content: View>: NSHostingView<Content>,
   PointerLocationReporting
 {
   var onPointerMoved: ((CGPoint) -> Void)?
+  var onTaskActivated: ((UUID) -> Void)?
+  var onQuickNotesActivated: (() -> Void)?
   var onTaskHover: ((UUID) -> Void)?
   var onQuickNotesHover: (() -> Void)?
   var onSecondaryCollapseStrip: (() -> Void)?
@@ -277,6 +279,7 @@ final class PointerTrackingHostingView<Content: View>: NSHostingView<Content>,
         onTaskDragCommitted?(commit.taskID, commit.insertionIndex)
       } else {
         onTaskDragCancelled?()
+        if let id = taskRouter.taskForReorder(at: convert(event.locationInWindow, from: nil)) { onTaskActivated?(id) }
       }
     case .note:
       if let commit = noteRouter.mouseUp() {
@@ -287,6 +290,7 @@ final class PointerTrackingHostingView<Content: View>: NSHostingView<Content>,
         )
       } else {
         onNoteDragCancelled?()
+        onQuickNotesActivated?()
       }
     case .step:
       if let commit = stepRouter.mouseUp() {
