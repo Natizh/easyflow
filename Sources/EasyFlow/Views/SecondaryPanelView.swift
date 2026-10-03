@@ -4,18 +4,22 @@ struct SecondaryPanelView: View {
   @ObservedObject var model: AppShellViewModel
 
   var body: some View {
-    Group {
-      switch model.secondaryContext {
-      case .quickNotes:
-        QuickNotesBrowser(model: model)
-      case .task(let id):
-        if let task = model.snapshot.activeTasks.first(where: { $0.id == id }) {
-          TaskDetailView(task: task, model: model).id(task.id)
-        } else {
-          ContentUnavailableView("Task unavailable", systemImage: "questionmark.circle")
+    VStack(alignment: .leading, spacing: 10) {
+      Button("Back to Main") { model.onReturnToMain?() }
+        .buttonStyle(.plain)
+      Group {
+        switch model.secondaryContext {
+        case .quickNotes:
+          QuickNotesBrowser(model: model)
+        case .task(let id):
+          if let task = model.snapshot.activeTasks.first(where: { $0.id == id }) {
+            TaskDetailView(task: task, model: model).id(task.id)
+          } else {
+            ContentUnavailableView("Task unavailable", systemImage: "questionmark.circle")
+          }
+        case nil:
+          Color.clear
         }
-      case nil:
-        Color.clear
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -105,6 +109,8 @@ private struct NoteCard: View {
   let onReorderChanged: ((CGFloat) -> Void)?
   let onReorderEnded: (() -> Void)?
 
+  private var noteIndex: Int { model.snapshot.quickNotes.firstIndex(where: { $0.id == note.id }) ?? 0 }
+
   var body: some View {
     VStack(alignment: .leading, spacing: 7) {
       HStack {
@@ -115,17 +121,38 @@ private struct NoteCard: View {
           )
         }
         NoteTitleField(note: note, model: model)
+        Menu {
+          if isInbox {
+            Button("Move Up") { model.reorderQuickNote(draggedID: note.id, toInsertionIndex: max(0, noteIndex - 1)) }
+              .disabled(noteIndex == 0)
+            Button("Move Down") { model.reorderQuickNote(draggedID: note.id, toInsertionIndex: noteIndex + 2) }
+              .disabled(noteIndex >= model.snapshot.quickNotes.count - 1)
+            Menu("Attach to Task") {
+              ForEach(model.snapshot.activeTasks) { task in
+                Button(task.title) { _ = model.handleDrop("note:\(note.id.uuidString)", on: task.id) }
+              }
+            }
+            .disabled(model.snapshot.activeTasks.isEmpty)
+          }
+          Button("Delete Note", role: .destructive) { model.deleteNote(note.id) }
+        } label: { Image(systemName: "ellipsis.circle") }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .frame(width: 20)
+        .accessibilityLabel("Note actions: \(note.displayTitle)")
         Spacer()
         if isInbox {
           Image(systemName: "arrowshape.turn.up.right")
             .foregroundStyle(.secondary)
             .workspaceDrag("note:\(note.id.uuidString)")
             .help("Attach to Main Task")
+            .accessibilityHidden(true)
         }
       }
       PersistedTextEditor(
         value: note.body,
         minimumHeight: 58,
+        label: "Note body: \(note.displayTitle)",
         onPasteImages: { model.pasteImages($0, into: note.id) },
         attributes: note.bodyRichTextAttributes,
         onSaveRichText: { model.updateNoteBody(id: note.id, value: $0) }
@@ -144,6 +171,7 @@ private struct NoteCard: View {
           Image(systemName: "trash")
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Delete note: \(note.displayTitle)")
       }
     }
     .padding(10)
@@ -216,6 +244,7 @@ private struct TaskDetailView: View {
                   }
                   .buttonStyle(.bordered)
                   .controlSize(.small)
+                  .accessibilityLabel("Set effort to \(effort.rawValue) of 4 for \(task.title)")
                 }
               }
             }
@@ -231,6 +260,8 @@ private struct TaskDetailView: View {
               EffortIndicator(effort: task.effort)
             }
             .menuStyle(.borderlessButton)
+            .accessibilityLabel("Change effort: \(task.title)")
+            .accessibilityValue("\(task.effort?.rawValue ?? 0) of 4")
           }
         }
         section("Description") {
@@ -256,6 +287,7 @@ private struct TaskDetailView: View {
               TextField("New step", text: $newStepTitle).textFieldStyle(.plain).onSubmit(addStep)
               Button(action: addStep) { Image(systemName: "plus.circle.fill") }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Add step")
                 .disabled(
                   newStepTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 )
@@ -313,6 +345,7 @@ private struct StepRow: View {
   let step: TaskStep
   let taskID: UUID
   @ObservedObject var model: AppShellViewModel
+  private var stepIndex: Int { model.snapshot.stepsByTask[taskID]?.firstIndex(where: { $0.id == step.id }) ?? 0 }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 5) {
@@ -323,12 +356,14 @@ private struct StepRow: View {
           Image(systemName: step.isCompleted ? "checkmark.circle.fill" : "circle")
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Completion: \(step.title)")
+        .accessibilityValue(step.isCompleted ? "Completed" : "Not completed")
         .background { StepExclusionReporter(stepID: step.id) }
         PersistedTextEditor(
           value: step.title,
           minimumHeight: 24,
           maximumHeight: 96,
-          label: "Step",
+          label: AccessibilityNames.stepTitle(step.title),
           attributes: titlePresentationAttributes,
           onSaveRichText: { value in
             model.updateStepTitle(
@@ -357,18 +392,24 @@ private struct StepRow: View {
         }
         Menu {
           AppearanceMenu(style: step.style) { model.updateStep(id: step.id, style: $0) }
+          Button("Move Up") { model.reorderStep(mainTaskID: taskID, draggedID: step.id, toInsertionIndex: max(0, stepIndex - 1)) }
+            .disabled(stepIndex == 0)
+          Button("Move Down") { model.reorderStep(mainTaskID: taskID, draggedID: step.id, toInsertionIndex: stepIndex + 2) }
+            .disabled(stepIndex >= (model.snapshot.stepsByTask[taskID]?.count ?? 0) - 1)
           Divider()
           Button("Delete", role: .destructive) { model.deleteStep(step.id) }
         } label: { Image(systemName: "chevron.down.circle") }
-        .menuStyle(.borderlessButton).frame(width: 20)
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .frame(width: 20)
         .background { StepExclusionReporter(stepID: step.id) }
-        .accessibilityLabel("Step actions")
+        .accessibilityLabel(AccessibilityNames.stepActions(step.title))
       }
       PersistedTextEditor(
         value: step.notes,
         minimumHeight: 28,
         maximumHeight: .greatestFiniteMagnitude,
-        label: "Step notes",
+        label: AccessibilityNames.stepNotes(step.title),
         attributes: step.notesRichTextAttributes,
         onSaveRichText: { model.updateStepNotes(id: step.id, value: $0) }
       ) {

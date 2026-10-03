@@ -17,7 +17,7 @@ struct DirectReorderHandle: View {
           .onChanged { onChanged($0.translation.height) }
           .onEnded { _ in onEnded() }
       )
-      .accessibilityLabel("Reorder")
+      .accessibilityHidden(true)
   }
 }
 
@@ -28,5 +28,6 @@ struct ReorderInsertionBar: View {
       .frame(height: 2)
       .padding(.horizontal, 4)
       .transition(.opacity)
+      .accessibilityHidden(true)
   }
 }

@@ -34,9 +34,9 @@ struct NoteAttachmentsView: View {
     if !attachments.isEmpty {
       ScrollView(.horizontal) {
         HStack(spacing: 8) {
-          ForEach(attachments) { attachment in
+          ForEach(Array(attachments.enumerated()), id: \.element.id) { index, attachment in
             AttachmentThumbnail(attachment: attachment, directory: model.attachmentDirectory,
-              height: height, open: { model.previewImage(attachment) })
+              height: height, label: "Open image \(index + 1) of \(attachments.count)", open: { model.previewImage(attachment) })
               .contextMenu {
                 Button("Open Image") { model.previewImage(attachment) }
                 if allowsRemoval {
@@ -56,6 +56,7 @@ private struct AttachmentThumbnail: View {
   let attachment: NoteAttachment
   let directory: URL
   let height: CGFloat
+  let label: String
   let open: () -> Void
   @State private var image: NSImage?
 
@@ -73,7 +74,7 @@ private struct AttachmentThumbnail: View {
       .clipShape(RoundedRectangle(cornerRadius: 8))
     }
     .buttonStyle(.plain)
-    .accessibilityLabel("Open image preview")
+    .accessibilityLabel(label)
     .task(id: attachment.id) {
       image = AttachmentThumbnailCache.shared.image(at: directory.appendingPathComponent(attachment.filename))
     }

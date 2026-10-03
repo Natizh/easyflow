@@ -33,6 +33,7 @@ final class AuxiliaryPanel: NSPanel {
     var style: NSWindow.StyleMask = [.titled, .closable]
     if resizable { style.insert(.resizable) }
     super.init(contentRect: .zero, styleMask: style, backing: .buffered, defer: true)
+    autorecalculatesKeyViewLoop = true
     self.title = title
     isReleasedWhenClosed = false
     hidesOnDeactivate = false
@@ -42,7 +43,7 @@ final class AuxiliaryPanel: NSPanel {
     titlebarAppearsTransparent = true
     backgroundColor = .windowBackgroundColor
     keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-      guard let self, self.isVisible, self.shouldClose(from: event) else { return event }
+      guard let self, self.isVisible, self.isKeyWindow, self.shouldClose(from: event) else { return event }
       self.close()
       return nil
     }

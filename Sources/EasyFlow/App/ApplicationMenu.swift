@@ -5,6 +5,7 @@ enum ApplicationMenu {
   static func install(on application: NSApplication = .shared) {
     let menu = NSMenu()
     let appMenu = NSMenu(title: "EasyFlow")
+    appMenu.addItem(withTitle: "Open Workspace", action: #selector(EasyFlowAppDelegate.openWorkspace(_:)), keyEquivalent: "o")
     appMenu.addItem(withTitle: "Quit EasyFlow", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
     let appItem = NSMenuItem()
     appItem.submenu = appMenu

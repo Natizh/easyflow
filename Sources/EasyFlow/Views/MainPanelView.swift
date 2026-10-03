@@ -43,7 +43,11 @@ struct MainPanelView: View {
 
   private var quickNotes: some View {
     VStack(alignment: .leading, spacing: 8) {
-      Label("Quick Notes", systemImage: "square.and.pencil").font(.headline)
+      Button { model.openSecondaryFromControl(.quickNotes) } label: {
+        Label("Quick Notes", systemImage: "square.and.pencil").font(.headline)
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel("Open Quick Notes")
       QuickNoteCaptureEditor(
         text: Binding(
           get: { model.quickNoteDraft },
@@ -235,6 +239,8 @@ private struct NewTaskEffortStrip: View {
         Button(effort.pickerLabel) { model.newTaskEffort = effort }
           .buttonStyle(.bordered)
           .tint(model.newTaskEffort == effort ? .accentColor : .secondary)
+          .accessibilityLabel("Set effort to \(effort.rawValue) of 4")
+          .accessibilityValue(model.newTaskEffort == effort ? "Selected" : "Not selected")
       }
     }
     .padding(4)
@@ -260,6 +266,7 @@ private struct MainTaskRow: View {
   @ObservedObject var model: AppShellViewModel
   let density: MainTaskDensity
   @State private var isDropTarget = false
+  private var taskIndex: Int { model.snapshot.activeTasks.firstIndex(where: { $0.id == task.id }) ?? 0 }
 
   var body: some View {
     HStack(spacing: 8) {
@@ -269,28 +276,38 @@ private struct MainTaskRow: View {
         Image(systemName: "circle")
       }
       .buttonStyle(.plain)
-      HStack {
-        StyledLabel(task.title, style: task.style).lineLimit(2)
-        Spacer(minLength: 6)
-      }
-      .contentShape(Rectangle())
-      .accessibilityLabel(task.title)
-      .accessibilityHint("Drag to reorder. Hover for task details.")
-      .background {
-        GeometryReader { proxy in
-          Color.clear.preference(
-            key: MainTaskGeometryPreferenceKey.self,
-            value: [
-              task.id: MainTaskRowGeometry(
-                taskID: task.id,
-                rowFrame: .null,
-                reorderFrame: proxy.frame(in: .named(MainPanelCoordinateSpace.name))
-              )
-            ]
-          )
+      .accessibilityLabel(AccessibilityNames.completeTask(task.title))
+      Button { model.openSecondaryFromControl(.task(id: task.id)) } label: {
+        HStack {
+          StyledLabel(task.title, style: task.style).lineLimit(2)
+          Spacer(minLength: 6)
+        }
+        .contentShape(Rectangle())
+        .accessibilityLabel(task.title)
+        .accessibilityHint("Open task details.")
+        .background {
+          GeometryReader { proxy in
+            Color.clear.preference(
+              key: MainTaskGeometryPreferenceKey.self,
+              value: [
+                task.id: MainTaskRowGeometry(
+                  taskID: task.id,
+                  rowFrame: .null,
+                  reorderFrame: proxy.frame(in: .named(MainPanelCoordinateSpace.name))
+                )
+              ]
+            )
+          }
         }
       }
+      .buttonStyle(.plain)
+      .accessibilityLabel("Open task: \(task.title)")
       EffortIndicator(effort: task.effort)
+      Menu { taskActions } label: { Image(systemName: "ellipsis.circle") }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .frame(width: 20)
+        .accessibilityLabel("Task actions: \(task.title)")
     }
     .padding(.horizontal, 9)
     .padding(.vertical, density.taskRowVerticalPadding)
@@ -318,14 +335,20 @@ private struct MainTaskRow: View {
       guard $0.hasPrefix("note:") else { return false }
       return model.handleDrop($0, on: task.id)
     }
-    .contextMenu {
-      AppearanceMenu(style: task.style) { model.updateMainTask(id: task.id, style: $0) }
-      Button(task.remindersExcluded ? "Include in notifications" : "Exclude from notifications") {
-        model.setMainTaskReminderExcluded(task.id, excluded: !task.remindersExcluded)
-      }
-      Divider()
-      Button("Delete", role: .destructive) { model.deleteMainTask(task.id) }
+    .contextMenu { taskActions }
+  }
+
+  @ViewBuilder private var taskActions: some View {
+    AppearanceMenu(style: task.style) { model.updateMainTask(id: task.id, style: $0) }
+    Button(task.remindersExcluded ? "Include in reminder banners" : "Exclude from reminder banners") {
+      model.setMainTaskReminderExcluded(task.id, excluded: !task.remindersExcluded)
     }
+    Button("Move Up") { model.reorderMainTask(draggedID: task.id, toInsertionIndex: max(0, taskIndex - 1)) }
+      .disabled(taskIndex == 0)
+    Button("Move Down") { model.reorderMainTask(draggedID: task.id, toInsertionIndex: taskIndex + 2) }
+      .disabled(taskIndex >= model.snapshot.activeTasks.count - 1)
+    Divider()
+    Button("Delete", role: .destructive) { model.deleteMainTask(task.id) }
   }
 }
 
@@ -345,6 +368,7 @@ struct EffortIndicator: View {
               .frame(width: 5, height: 5)
           }
         }
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel("Effort \(effort.rawValue) of 4")
       } else {
         Text("?")
@@ -369,6 +393,8 @@ private struct CompactQuickNoteRow: View {
         Text(note.preview).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
       }
       Spacer(minLength: 4)
+      Button("Open") { model.openSecondaryFromControl(.quickNotes) }
+        .accessibilityLabel("Open Quick Notes: \(note.displayTitle)")
       }
       .background {
         GeometryReader { proxy in

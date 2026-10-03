@@ -41,6 +41,15 @@ struct FocusRestorationTests {
     #expect(secondShouldRestore)
   }
 
+  @Test("Dismissal cannot override an application the user has since activated")
+  func newerApplicationChoiceWins() {
+    var session = FocusRestorationSession()
+    session.begin()
+    let shouldRestore = session.end(restoreRequested: true, stillOwnsActivation: false)
+    #expect(!shouldRestore)
+    #expect(session.state == .idle)
+  }
+
   @Test("Non-restoring dismissal consumes the session")
   func dismissalWithoutRestorationConsumesSession() {
     var session = FocusRestorationSession()

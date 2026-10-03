@@ -215,3 +215,7 @@ Features outside this definition require explicit approval for a later release.
 Quick Notes and Main Task Attached Notes accept native clipboard images, including screenshots. Thumbnails preserve aspect ratio, remain compact, and appear below editable text. Clicking opens one reusable native preview centered on the originating screen, bounded to the screen, with aspect-fit rendering, Escape, Command-W, and a normal close button. This temporary preview is the sole exception to the two-panel notes/details model; it is not another workspace or external application.
 
 Images stay inside EasyFlow's Application Support directory with ownership/order metadata in SQLite. Soft-deleted notes retain their images with their text; physical purge removes both. Capture Return/focus-loss/relaunch semantics include image-only drafts. Ordinary text controls keep native selection, editing menus, and Cut/Copy/Paste. Step notes and task descriptions do not accept image attachments.
+
+## Accessibility reliability
+
+The current workspace must be reachable through reopening the native app and usable with keyboard and VoiceOver. Details, action menus, local reorder, and Quick Note attachment have keyboard-accessible controls. Hidden, closing, and inactive-Space panels must not retain usable focus targets. Normal operation requires no system-wide Accessibility permission. Accessibility fixes preserve the native stack, rich text, local data, and existing features, and require manual keyboard/Spaces/VoiceOver approval before publication.

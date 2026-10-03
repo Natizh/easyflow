@@ -16,6 +16,7 @@ struct PersistedTextField: View {
 
   var body: some View {
     TextField(title, text: $text, axis: .vertical)
+      .accessibilityLabel(title)
       .fixedSize(horizontal: false, vertical: true)
       .focused($isFocused)
       .onSubmit { onSave(text) }

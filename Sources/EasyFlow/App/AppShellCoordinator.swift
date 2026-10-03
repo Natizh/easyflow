@@ -6,6 +6,7 @@ final class AppShellCoordinator {
   private let screenConfigurationMonitor: ScreenConfigurationMonitor
   private let panelPresenter: PanelPresentationCoordinator
 
+  private var deactivationObserver: NSObjectProtocol?
   private var timerTasks: [PanelTimer: Task<Void, Never>] = [:]
   private var reminderTimerTask: Task<Void, Never>?
   private var layout: PanelLayout?
@@ -32,6 +33,19 @@ final class AppShellCoordinator {
   private let sizing: PanelSizing
 
   func start() {
+    deactivationObserver = NotificationCenter.default.addObserver(
+      forName: NSApplication.didResignActiveNotification, object: NSApp, queue: .main
+    ) { [weak self] _ in
+      MainActor.assumeIsolated { self?.process(.applicationDeactivated) }
+    }
+    panelPresenter.onPointerNavigation = { [weak self] in self?.process(.pointerNavigation) }
+    panelPresenter.onKeyboardNavigation = { [weak self] in self?.process(.keyboardNavigation) }
+    panelPresenter.onDismissWorkspace = { [weak self] in self?.process(.dismissWorkspace) }
+    panelPresenter.onExplicitSecondaryCleared = { [weak self] in self?.process(.clearSecondary) }
+    panelPresenter.onExplicitSecondaryRequested = { [weak self] context in
+      self?.process(.openFromReminder(context))
+      self?.process(.keyboardNavigation)
+    }
     panelPresenter.onInteraction = { [weak self] in
       self?.process(.userInteracted)
     }
@@ -60,14 +74,13 @@ final class AppShellCoordinator {
     }
 
     panelPresenter.onReminderBannerClicked = { [weak self] taskID in
-      self?.openTaskFromReminder(taskID)
+      self?.openTaskFromReminder(taskID) ?? false
     }
 
     panelPresenter.onPanelSideChanged = { [weak self] _ in
       guard let self else { return }
       for timer in Array(self.timerTasks.keys) { self.cancel(timer: timer) }
-      self.stateMachine = PanelStateMachine(timing: self.stateMachine.timing,
-        preserving: self.stateMachine.state, auxiliaryIsPresented: self.settingsIsPresented)
+      self.stateMachine = self.stateMachine.stabilized(auxiliaryIsPresented: self.settingsIsPresented)
       self.screenConfigurationChanged()
     }
     panelPresenter.onPointerMoved = { [weak self] point in
@@ -93,6 +106,8 @@ final class AppShellCoordinator {
   }
 
   func stop() {
+    if let deactivationObserver { NotificationCenter.default.removeObserver(deactivationObserver) }
+    deactivationObserver = nil
     screenConfigurationMonitor.stop()
     for task in timerTasks.values {
       task.cancel()
@@ -251,12 +266,19 @@ final class AppShellCoordinator {
     updateReminderSchedule(from: snapshot)
   }
 
-  private func openTaskFromReminder(_ taskID: UUID) {
+  func openWorkspace() {
+    process(.openFromReminder(.quickNotes))
+    process(.keyboardNavigation)
+    panelPresenter.focusQuickNote()
+  }
+
+  private func openTaskFromReminder(_ taskID: UUID) -> Bool {
     guard latestSnapshot.activeTasks.contains(where: { $0.id == taskID }) else {
       panelPresenter.hideReminderBanner()
-      return
+      return false
     }
     process(.openFromReminder(.task(id: taskID)))
+    return true
   }
 
   private func schedule(timer: PanelTimer, after delay: TimeInterval) {
