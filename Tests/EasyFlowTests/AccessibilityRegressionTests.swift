@@ -121,6 +121,19 @@ struct AccessibilityRegressionTests {
     #expect(commands.contains(.schedule(timer: .secondaryDismissal, after: 0.25)))
   }
 
+  @Test("Panel-side reconfiguration preserves keyboard ownership when Settings closes")
+  func panelSidePreservesKeyboardNavigation() {
+    var machine = PanelStateMachine()
+    _ = machine.handle(.openFromReminder(.quickNotes))
+    _ = machine.handle(.keyboardNavigation)
+    _ = machine.handle(.auxiliaryPresentationChanged(true))
+    machine = machine.stabilized(auxiliaryIsPresented: true)
+    _ = machine.handle(.auxiliaryPresentationChanged(false))
+    let commands = machine.handle(.pointerChanged(.outside))
+    #expect(commands.isEmpty)
+    #expect(machine.state == .secondaryVisible(context: .quickNotes))
+  }
+
   @Test("Changing application ends keyboard ownership without reactivating the old app")
   func deactivationEndsKeyboardSession() {
     var machine = PanelStateMachine()

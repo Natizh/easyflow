@@ -113,6 +113,14 @@ struct PanelStateMachine: Equatable, Sendable {
     }
   }
 
+  func stabilized(auxiliaryIsPresented: Bool) -> PanelStateMachine {
+    var result = PanelStateMachine(
+      timing: timing, preserving: state, auxiliaryIsPresented: auxiliaryIsPresented
+    )
+    result.keyboardNavigationIsActive = keyboardNavigationIsActive
+    return result
+  }
+
   mutating func handle(_ event: PanelEvent) -> [PanelCommand] {
     if event == .pointerNavigation {
       keyboardNavigationIsActive = false

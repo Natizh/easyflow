@@ -80,8 +80,7 @@ final class AppShellCoordinator {
     panelPresenter.onPanelSideChanged = { [weak self] _ in
       guard let self else { return }
       for timer in Array(self.timerTasks.keys) { self.cancel(timer: timer) }
-      self.stateMachine = PanelStateMachine(timing: self.stateMachine.timing,
-        preserving: self.stateMachine.state, auxiliaryIsPresented: self.settingsIsPresented)
+      self.stateMachine = self.stateMachine.stabilized(auxiliaryIsPresented: self.settingsIsPresented)
       self.screenConfigurationChanged()
     }
     panelPresenter.onPointerMoved = { [weak self] point in
