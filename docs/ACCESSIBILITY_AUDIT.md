@@ -1,7 +1,7 @@
 # Accessibility regression audit and local approval gate
 
 Candidate date: 2026-10-03. Branch: `fix/accessibility-focus-regression`.
-Version remains **1.4.0 (7)**. This is an installed local candidate, not a released patch. Publication, tags, pushes, version changes, and release metadata are withheld pending manual approval.
+The initial installed candidate was **1.4.0 (7)**. Publication was withheld pending user approval; the release follow-up below records the subsequent authorization.
 
 ## Findings and history
 
@@ -62,9 +62,9 @@ Read-only SQLite checks before/after installation returned `integrity_check = ok
 
 Runtime checks confirmed one installed EasyFlow process, finished launch, native reopen/activation, two visible workspace panels plus the 3-point activation edge, and no duplicate workspace windows. This confirms startup and native presentation over the retained database; rendered contents and input behavior still require visual/manual confirmation. VoiceOver was not running. No desktop interaction tool was available; no system-wide Accessibility permission was enabled or requested to simulate keyboard/VoiceOver/Space use.
 
-## Manual approval procedure — pending
+## Manual verification procedure
 
-Use the installed app; do not publish from this candidate until these checks are approved. Reopen via Spotlight/Finder if hidden. On macOS, use normal system keyboard-navigation settings to include buttons in Tab traversal.
+These are the interactive checks originally supplied with the installed candidate. The subsequent publication authorization is recorded below; checks not performed by the agent are not represented as passed. Reopen via Spotlight/Finder if hidden. On macOS, use normal system keyboard-navigation settings to include buttons in Tab traversal.
 
 1. **Keyboard:** Open EasyFlow, type and submit two Quick Notes, verify composer clears, Tab/Shift-Tab through Main, open a task, navigate Secondary and Back to Main, edit Description, Step title and notes, use Space/Return and arrow keys in native controls/menus, open Step/task/note actions, reorder without drag, attach a note without drag, create/delete/complete task/Step and confirm usable focus. Verify native word/line/selection navigation and formatting shortcuts; test an IME composition if used.
 2. **Settings:** Open Settings, traverse controls, disable/re-enable banners, select Custom frequency and adjust bounds, expand/collapse Custom pause, pause and Resume. Verify values/labels, no disappearing-control focus trap, stable resizing, Escape/Command-W, and return to Main. Open/close image preview and verify return.
@@ -73,7 +73,7 @@ Use the installed app; do not publish from this candidate until these checks are
 5. **VoiceOver:** Enable VoiceOver manually; traverse Main and Secondary; verify useful names, native roles, states/values, text selection and editing, order, no hidden/duplicate/phantom elements. Verify task/Step/note menus, Recently Completed, Settings collapse/expand and pause controls, and image preview.
 6. **Banner:** Let a reminder appear while another app is focused. Confirm keyboard and VoiceOver focus do not move; navigate to the banner and check the task name. Activate it and verify exact task/Secondary focus. Let it expire and verify no stale element. Repeat after a Space transition.
 
-Local runtime launch/reopen/data/bundle checks and in-process native accessibility tests were performed. The human keyboard-only sequence, real Space/fullscreen transitions, spoken VoiceOver behavior, pointer/animation smoke sequence and real timed-banner interaction have **not** been manually verified here. Approval is pending.
+Local runtime launch/reopen/data/bundle checks and in-process native accessibility tests were performed. The human keyboard-only sequence, real Space/fullscreen transitions, spoken VoiceOver behavior, pointer/animation smoke sequence and real timed-banner interaction have **not** been manually verified here. These remain documented manual verification limitations.
 
 ## Changed files
 
@@ -86,4 +86,13 @@ Local runtime launch/reopen/data/bundle checks and in-process native accessibili
 - Tests: `AccessibilityRegressionTests.swift`, `FocusRestorationTests.swift`.
 - Canonical documentation: `docs/ARCHITECTURE.md`, `docs/UX_BEHAVIOR.md`, this audit.
 
-`Support/Info.plist`, persistence/schema, packaging scripts and release metadata were not changed. No release/tag/push/publication was performed.
+In the initial accessibility-fix commit, `Support/Info.plist`, persistence/schema, packaging scripts and release metadata were not changed. No release/tag/push/publication was performed at that stage.
+
+
+## Release follow-up — 2026-10-03
+
+After receiving the installed-candidate report and its manual verification limitations, the user explicitly instructed: “ok continua il lavoro di prima e infine pubblica la patch”. This authorizes the version update and publication of **1.4.1 (8)**. It does not constitute an agent claim that the human VoiceOver/Spaces procedure was executed.
+
+The final review additionally found that changing Panel Side rebuilt the state machine without keyboard ownership. Reconfiguration now stabilizes presentation while preserving keyboard ownership; a regression test verifies that closing Settings afterward does not trigger pointer dismissal. The circular action icons retain their hidden native menu indicators.
+
+Patch validation uses `swift build`, the full 153-test suite, release-mode build, local ZIP/checksum packaging, bundle verification, documentation targets, and `git diff --check`. The versioned bundle was gracefully installed at `/Applications/EasyFlow.app`. Before/after read-only checks returned SQLite integrity `ok`, no foreign-key violations, and identical workspace rows, setting values, migrations, attachment bytes, and preferences; setting timestamps were excluded from this semantic value comparison because startup reconciliation refreshes them. The release notes are in [releases/v1.4.1.md](releases/v1.4.1.md). Live interactive VoiceOver/Spaces testing remains outside the available automation and is not claimed as complete.
